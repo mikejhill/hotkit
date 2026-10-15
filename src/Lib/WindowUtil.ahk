@@ -168,21 +168,20 @@ class WindowUtil {
     }
 
     ; Find the next activatable window in z-order without changing focus.
-    static GetNextActivatableWindow(cur) {
+    ; Windows listed in `exclude` (an Array of hwnds) are skipped.
+    static GetNextActivatableWindow(cur, exclude := "") {
+        skip := Map()
+        if (exclude is Array) {
+            for h in exclude
+                skip[h] := true
+        }
         list := WinGetList() ; top-level windows in z-order (front to back)
         for (i, h in list) {
             if (h = cur) {
-                ; Pick the next *activatable* window after current
-                loop (list.Length - i) {
-                    cand := list[i + A_Index]
-                    if (WindowUtil.IsAltTabCandidate(cand)) {
-                        return cand
-                    }
-                }
-                ; Wrap around
-                loop (i - 1) {
-                    cand := list[A_Index]
-                    if (WindowUtil.IsAltTabCandidate(cand)) {
+                ; Pick the next *activatable* window after current, wrapping around
+                loop (list.Length - 1) {
+                    cand := list[Mod(i - 1 + A_Index, list.Length) + 1]
+                    if (!skip.Has(cand) && WindowUtil.IsAltTabCandidate(cand)) {
                         return cand
                     }
                 }

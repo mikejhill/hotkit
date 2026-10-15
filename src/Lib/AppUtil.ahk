@@ -26,7 +26,10 @@ class AppUtil {
         for hwnd in windows {
             if (hwnd = active) {
                 FocusHistory.Note(hwnd)
-                nextHwnd := WindowUtil.GetNextActivatableWindow(hwnd)
+                FocusHistory.Pause()
+                ; Hand focus to the next window of another app, so the hidden app
+                ; does not stay in front through one of its other windows.
+                nextHwnd := WindowUtil.GetNextActivatableWindow(hwnd, windows)
                 WinMinimize(hwnd)
                 if (nextHwnd && WinExist("ahk_id " nextHwnd))
                     WinActivate(nextHwnd)

@@ -9,6 +9,7 @@ class FocusHistory {
     static Counter := 0
     static Started := false
     static MaxEntries := 500
+    static _ignoreUntil := 0
 
     ; mutate: off (shell hook registration; covered by e2e)
     static Start() {
@@ -22,8 +23,16 @@ class FocusHistory {
     }
 
     static _OnShell(wParam, lParam) {
+        if (A_TickCount < FocusHistory._ignoreUntil)
+            return
         if (wParam = 4 || wParam = 0x8004)  ; HSHELL_WINDOWACTIVATED, HSHELL_RUDEAPPACTIVATED
             FocusHistory.Note(lParam)
+    }
+
+    ; Ignores activations for `ms`: when a window is minimized, Windows briefly
+    ; activates whatever is next in z-order, which is not a choice the user made.
+    static Pause(ms := 750) {
+        FocusHistory._ignoreUntil := A_TickCount + ms
     }
 
     ; mutate: on

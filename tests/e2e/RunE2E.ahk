@@ -138,6 +138,7 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F13")
         Sleep(800)
         Assert.Equal(-1, WinGetMinMax(hwndA), "toggle should minimize the active window")
+        Assert.NotEqual(WinExist(b), WinExist("A"), "hiding the app must not focus its other window")
         WinActivate(other)
         WinWaitActive(other, , 5)
         Sleep(300)
