@@ -10,6 +10,7 @@ class FocusHistory {
     static Started := false
     static MaxEntries := 500
     static _ignoreUntil := 0
+    static _listeners := []
 
     ; mutate: off (shell hook registration; covered by e2e)
     static Start() {
@@ -22,14 +23,21 @@ class FocusHistory {
         try FocusHistory.Note(WinExist("A"))
     }
 
+    ; mutate: on
+    ; Calls fn(hwnd) whenever a window is activated by any means (taskbar,
+    ; Alt+Tab, a click, another program).
+    static OnActivate(fn) => FocusHistory._listeners.Push(fn)
+
     static _OnShell(wParam, lParam) {
-        if (A_TickCount < FocusHistory._ignoreUntil)
+        if !(wParam = 4 || wParam = 0x8004)  ; HSHELL_WINDOWACTIVATED, HSHELL_RUDEAPPACTIVATED
             return
-        if (wParam = 4 || wParam = 0x8004)  ; HSHELL_WINDOWACTIVATED, HSHELL_RUDEAPPACTIVATED
+        for fn in FocusHistory._listeners
+            try fn.Call(lParam)
+        if (A_TickCount >= FocusHistory._ignoreUntil)
             FocusHistory.Note(lParam)
     }
 
-    ; Ignores activations for `ms`: when a window is minimized, Windows briefly
+    ; Ignores activations for `ms` (history only; listeners still run): when a window is minimized, Windows briefly
     ; activates whatever is next in z-order, which is not a choice the user made.
     static Pause(ms := 750) {
         FocusHistory._ignoreUntil := A_TickCount + ms

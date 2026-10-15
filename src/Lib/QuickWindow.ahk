@@ -3,6 +3,7 @@
 #Include %A_LineFile%\..\WindowUtil.ahk
 #Include %A_LineFile%\..\Debugger.ahk
 #Include %A_LineFile%\..\Toast.ahk
+#Include %A_LineFile%\..\FocusHistory.ahk
 
 ; A summonable "quick window": toggle any app window in and out of view with
 ; one key, optionally as a floating always-on-top tool window, with support for
@@ -19,6 +20,11 @@
 ;   launchTimeoutSeconds, widthRatio, heightRatio.
 ; Window state is stored in a window property so styles can be restored after a
 ; crash or reload (see Recover()).
+;
+; Hiding makes the window fully transparent and click-through instead of
+; minimizing it: the app keeps rendering, so it reappears instantly. A hidden
+; window that gets activated any other way (taskbar button, Alt+Tab) is revealed
+; through FocusHistory's activation events, so it never stays invisible.
 class QuickWindow {
     static ToolWindow := 0x80
     static AppWindow := 0x40000
@@ -46,6 +52,25 @@ class QuickWindow {
         this.propertyName := "AHK.QuickWindow." name
         this.Recover()
         OnExit((*) => this.Recover())
+        FocusHistory.OnActivate((hwnd) => this.OnActivated(hwnd))
+    }
+
+    ; A hidden window was activated from outside (taskbar, Alt+Tab): show it.
+    OnActivated(hwnd) {
+        for idx, tracked in this.windows {
+            if (tracked = hwnd) {
+                try {
+                    if this.IsHidden(hwnd)
+                        this.Activate(idx)
+                }
+                return
+            }
+        }
+    }
+
+    IsHidden(hwnd) {
+        alpha := WinGetTransparent("ahk_id " hwnd)
+        return (WinGetExStyle("ahk_id " hwnd) & QuickWindow.ClickThrough) && alpha != "" && alpha = 0
     }
 
     Toggle() {

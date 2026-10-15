@@ -100,5 +100,24 @@ class Modules_Tests {
             FocusHistory.Seq := saved, FocusHistory.Counter := savedCounter
         }
     }
+
+    static Test_ActivationListenersRunEvenWhilePaused() {
+        saved := FocusHistory._listeners, savedSeq := FocusHistory.Seq
+        try {
+            seen := []
+            FocusHistory._listeners := [(hwnd) => seen.Push(hwnd)]
+            FocusHistory.Seq := Map()
+            FocusHistory._OnShell(1, 500)  ; HSHELL_WINDOWCREATED: ignored
+            FocusHistory._OnShell(4, 501)
+            FocusHistory.Pause(60000)
+            FocusHistory._OnShell(0x8004, 502)
+            Assert.Equal([501, 502], seen)
+            Assert.True(FocusHistory.Seq.Has(501))
+            Assert.False(FocusHistory.Seq.Has(502), "paused activations are not recorded as focus")
+        } finally {
+            FocusHistory._listeners := saved, FocusHistory.Seq := savedSeq
+            FocusHistory._ignoreUntil := 0
+        }
+    }
 }
 TestRunner.Add(Modules_Tests)

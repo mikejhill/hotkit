@@ -40,6 +40,8 @@ class QuickWindowsModule {
 
     ; Instances are created at startup so styles left by a previous run are repaired.
     static Start(cfg) {
+        if QuickWindowsModule.Definitions.Count
+            FocusHistory.Start()  ; reveals hidden quick windows activated from the taskbar
         for name in QuickWindowsModule.Definitions {
             try {
                 QuickWindowsModule.Get(name)

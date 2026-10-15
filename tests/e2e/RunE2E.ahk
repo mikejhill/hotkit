@@ -56,6 +56,11 @@ class E2E_Tests {
         Assert.Fail("timed out waiting for mark '" name "' x" count "; marks: " Assert.Show(E2E_Tests.Marks()))
     }
 
+    static UnderWine() {
+        ntdll := DllCall("GetModuleHandle", "str", "ntdll", "ptr")
+        return !!DllCall("GetProcAddress", "ptr", ntdll, "astr", "wine_get_version", "ptr")
+    }
+
     static Press(hk) {
         SendLevel(1)
         SendEvent(HotkeyText.ToSendEvent(hk))
@@ -111,7 +116,7 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F16")
         Assert.True(WinWait(win, , 10), "overlay did not open")
         total := ListViewGetContent("Count", "SysListView321", win)
-        Assert.Equal(7, Integer(total), "one row per binding")
+        Assert.Equal(8, Integer(total), "one row per binding")
         ControlSetText("gesture", "Edit1", win)
         Sleep(300)
         Assert.Equal(1, Integer(ListViewGetContent("Count", "SysListView321", win)), "filter narrows rows")
@@ -145,6 +150,28 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F13")
         Sleep(800)
         Assert.Equal(hwndA, WinExist("A"), "toggle should restore the window focused last")
+    }
+
+    ; A quick window hidden by its key must come back when activated another way
+    ; (taskbar button, Alt+Tab); WinActivate raises the same shell event.
+    ; Wine never delivers shell-hook messages, so this only runs on Windows.
+    static Test_05c_HiddenQuickWindowRevealedOnActivate() {
+        if E2E_Tests.UnderWine()
+            return
+        qw := "hotkit-e2e-qw"
+        Assert.True(WinWait(qw, , 10), "quick window fixture did not open")
+        hwnd := WinExist(qw)
+        WinActivate(hwnd)
+        WinWaitActive(hwnd, , 5)
+        Sleep(300)
+        E2E_Tests.Press(">^>!F12")
+        Sleep(800)
+        Assert.Equal(0, WinGetTransparent(hwnd), "toggle should hide the active quick window")
+        WinActivate(hwnd)
+        Sleep(1000)
+        alpha := WinGetTransparent(hwnd)
+        Assert.True(alpha = "" || alpha = 255, "activated quick window should be visible again, alpha=" alpha)
+        Assert.Equal(0, WinGetExStyle(hwnd) & 0x20, "activated quick window should accept clicks again")
     }
 
     static Test_06_ConfigReload() {

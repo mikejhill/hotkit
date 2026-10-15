@@ -144,6 +144,8 @@ optionally floating on top and hidden from the taskbar.
 | `size` | Fraction of the monitor work area |
 | `modes` | Strings cycled by `quickWindow.cycleMode` |
 
+Quick windows hide by turning fully transparent and click-through rather than minimizing, so showing them again is instant. A hidden window keeps its taskbar button and Alt+Tab entry (unless `toolWindow` is set); activating it from either reveals it.
+
 ## Modules
 
 | Module | Settings |

@@ -9,6 +9,7 @@ All notable changes are listed here. The format follows
 ### Fixed
 - `app.toggle` with several windows raised a different one on each show; it now returns to the window focused last.
 - Cloaking checks no longer fail without DWM (e.g. under Wine).
+- A hidden quick window now reappears when activated another way (taskbar button, Alt+Tab) instead of staying invisible.
 
 ### Added
 - `app.cycle`: switch between an app's windows (launches it if none are open).

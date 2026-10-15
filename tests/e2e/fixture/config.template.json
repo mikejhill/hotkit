@@ -4,6 +4,8 @@
   "plugins": { "probe": { "file": "{{PROBE}}" } },
   "groups": { "g": { "enabled": true } },
   "apps": { "e2ewin": { "name": "E2E window", "run": "does-not-exist.exe", "match": "^hotkit-e2e-win " } },
+  "quickWindows": { "qw": { "exe": "AutoHotkey64.exe", "launch": "does-not-exist.exe",
+    "match": { "title": "^hotkit-e2e-qw$" }, "claimExisting": true } },
   "bindings": [
     { "keys": ">^>!F20", "action": "probe.mark", "args": ["simple"] },
     { "keys": ">^>!F19", "action": "probe.mark", "args": ["grouped"], "group": "g" },
@@ -14,7 +16,8 @@
         "doubleTapMs": 400 } },
     { "keys": ">^>!F16", "action": "osd.toggle" },
     { "keys": ">^>!F15", "action": "app.exit" },
-    { "keys": ">^>!F13", "action": "app.toggle", "args": ["e2ewin"] }
+    { "keys": ">^>!F13", "action": "app.toggle", "args": ["e2ewin"] },
+    { "keys": ">^>!F12", "action": "quickWindow.toggle", "args": ["qw"] }
     {{EXTRA}}
   ]
 }
