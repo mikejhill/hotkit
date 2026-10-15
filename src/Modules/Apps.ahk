@@ -14,7 +14,8 @@
 ;   }
 ;
 ; app.toggle activates the app's window, minimizes it if already active, or
-; launches it when no window exists.
+; launches it when no window exists. app.cycle switches between the app's
+; windows (most recent first, then rotating) and launches it when none exist.
 class AppsModule {
     static Name := "apps"
     static Apps := Map()
@@ -25,6 +26,7 @@ class AppsModule {
             { module: AppsModule.Name, description: desc, params: params })
 
         reg("app.toggle", (id) => AppsModule.Toggle(id), "Focus, minimize, or launch an app", "app id")
+        reg("app.cycle", (id) => AppsModule.Toggle(id, true), "Switch between an app's windows, or launch it", "app id")
         reg("app.launch", (id) => AppsModule.Launch(id), "Launch an app", "app id")
         reg("run", (command, options := "", workingDir := "") => Run(Paths.Expand(command), Paths.Expand(workingDir), options),
             "Run a command line", "command, [options], [workingDir]")
@@ -44,13 +46,13 @@ class AppsModule {
         return app
     }
 
-    static Toggle(id) {
+    static Toggle(id, cycle := false) {
         app := AppsModule.Get(id)
         match := MapGet(app, "match", "")
         if (match = "")
             return AppsModule.Launch(id)
         options := MapGet(app, "options", "")
-        AppUtil.OpenApp(MapGet(app, "name", id), Paths.Expand(app["run"]), match, options != "" ? options : unset)
+        AppUtil.OpenApp(MapGet(app, "name", id), Paths.Expand(app["run"]), match, options != "" ? options : unset, cycle)
     }
 
     static Launch(id) {

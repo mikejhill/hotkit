@@ -67,5 +67,12 @@ class Modules_Tests {
         Assert.Equal("Beta", ShortcutOsd.FilterRows(rows, "  work  ")[1].description)
         Assert.Equal("Beta", ShortcutOsd.FilterRows(rows, "plugin b.two")[1].description)
     }
+
+    static Test_CycleTargetRotatesThroughWindows() {
+        Assert.Equal(0, AppUtil.CycleTarget([], 1))
+        Assert.Equal(11, AppUtil.CycleTarget([11, 12, 13], 99), "app not active: most recent window")
+        Assert.Equal(13, AppUtil.CycleTarget([11, 12, 13], 11), "app active: bottom-most window")
+        Assert.Equal(11, AppUtil.CycleTarget([11], 11), "single window stays put")
+    }
 }
 TestRunner.Add(Modules_Tests)

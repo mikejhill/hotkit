@@ -48,6 +48,7 @@
 
     { "layer": "caps", "keys": "BackSpace", "action": "keyboard.toggleCapsLock" },
     { "layer": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"], "description": "Notepad" },
+    { "layer": "caps", "keys": "+N", "action": "app.cycle", "args": ["notepad"], "description": "Notepad: switch windows" },
     { "layer": "caps", "keys": "G", "action": "window.toggleAlwaysOnTop" },
     { "layer": "caps", "keys": "Z", "action": "window.toggleMinimized" },
     { "layer": "caps", "keys": "S", "action": "quickWindow.toggle", "args": ["scratchpad"], "description": "Scratchpad" },

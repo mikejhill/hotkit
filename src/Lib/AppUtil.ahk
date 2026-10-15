@@ -6,8 +6,9 @@
 
 class AppUtil {
     ; Opens the given application, acquiring or minimizing the window if it is already open.
-    static OpenApp(appName, appPath, winPattern, launchOptions?) {
-        hwnd := AppUtil.ToggleApp(winPattern)
+    ; With cycle, switches between the application's windows instead (see CycleApp).
+    static OpenApp(appName, appPath, winPattern, launchOptions?, cycle := false) {
+        hwnd := cycle ? AppUtil.CycleApp(winPattern) : AppUtil.ToggleApp(winPattern)
         if (!hwnd) {
             AppUtil.LaunchApp(appName, appPath, launchOptions?)
         }
@@ -33,6 +34,45 @@ class AppUtil {
             }
         }
         return hwnd
+    }
+
+    ; Activates the next window of the given application, wrapping around. Never minimizes.
+    ; Skips hidden helper windows and windows cloaked on other virtual desktops; keeps
+    ; minimized ones. Returns the activated window, or 0 when the app has no windows.
+    static CycleApp(winPattern) {
+        origTitleMatchMode := A_TitleMatchMode
+        SetTitleMatchMode("RegEx")
+        list := WinGetList(winPattern)  ; z-order, front to back
+        SetTitleMatchMode(origTitleMatchMode)
+        windows := []
+        for h in list {
+            try {
+                if (!DllCall("user32\IsWindowVisible", "ptr", h, "int") || WindowUtil.IsCloaked(h))
+                    continue
+            } catch {
+                continue
+            }
+            windows.Push(h)
+        }
+        hwnd := AppUtil.CycleTarget(windows, WinExist("A"))
+        if (hwnd) {
+            WinActivate(hwnd)
+            WinMoveTop(hwnd)
+        }
+        return hwnd
+    }
+
+    ; Pure: which window to activate next. `windows` is in z-order (front to back).
+    ; If none of the app's windows is active, the most recently used one; otherwise the
+    ; bottom-most, so repeated presses rotate through every window.
+    static CycleTarget(windows, activeHwnd) {
+        if (!windows.Length)
+            return 0
+        for h in windows {
+            if (h = activeHwnd)
+                return windows[windows.Length]
+        }
+        return windows[1]
     }
 
     ; Opens the given application, displaying a tooltip on success or failure.

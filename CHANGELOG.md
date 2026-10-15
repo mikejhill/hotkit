@@ -7,6 +7,7 @@ All notable changes are listed here. The format follows
 ## [Unreleased]
 
 ### Added
+- `app.cycle`: switch between an app's windows (launches it if none are open).
 - `--sync-plugins`; `--check` now reports a stale plugin list instead of unknown plugin actions.
 
 ## [1.0.0] - 2026-10-15

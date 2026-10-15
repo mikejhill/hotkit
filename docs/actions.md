@@ -11,6 +11,7 @@ pass `args` as a JSON array in the order listed under **Arguments**
 
 | Action | Arguments | Description |
 | --- | --- | --- |
+| `app.cycle` | app id | Switch between an app's windows, or launch it |
 | `app.launch` | app id | Launch an app |
 | `app.toggle` | app id | Focus, minimize, or launch an app |
 | `hotkey.trigger` | hotkey | Trigger another hotkey by its notation |
