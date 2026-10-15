@@ -6,6 +6,10 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- `app.toggle` with several windows raised a different one on each show; it now returns to the window focused last.
+- Cloaking checks no longer fail without DWM (e.g. under Wine).
+
 ### Added
 - `app.cycle`: switch between an app's windows (launches it if none are open).
 - `--sync-plugins`; `--check` now reports a stale plugin list instead of unknown plugin actions.

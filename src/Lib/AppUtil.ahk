@@ -3,6 +3,7 @@
 #Include %A_LineFile%\..\WindowUtil.ahk
 #Include %A_LineFile%\..\Toast.ahk
 #Include %A_LineFile%\..\HotkeyText.ahk
+#Include %A_LineFile%\..\FocusHistory.ahk
 
 class AppUtil {
     ; Opens the given application, acquiring or minimizing the window if it is already open.
@@ -14,47 +15,56 @@ class AppUtil {
         }
     }
 
-    ; Toggles the given application window (minimizes if active, activates if inactive).
+    ; Toggles the given application: minimizes it if one of its windows is active,
+    ; otherwise raises the window of it that was focused most recently (so hiding and
+    ; showing with the same key returns to the same window). Returns 0 if none exist.
     static ToggleApp(winPattern) {
-        origTitleMatchMode := A_TitleMatchMode
-        SetTitleMatchMode("RegEx")
-        ; TODO: If multiple windows match, then a different window opens each time; fix
-        hwnd := WinExist(winPattern)
-        SetTitleMatchMode(origTitleMatchMode)
-        if (hwnd) {
-            if (WinActive(hwnd) = hwnd) {
+        windows := AppUtil.Windows(winPattern)
+        if (!windows.Length)
+            return 0
+        active := WinExist("A")
+        for hwnd in windows {
+            if (hwnd = active) {
+                FocusHistory.Note(hwnd)
                 nextHwnd := WindowUtil.GetNextActivatableWindow(hwnd)
                 WinMinimize(hwnd)
-                if (nextHwnd && WinExist("ahk_id " nextHwnd)) {
+                if (nextHwnd && WinExist("ahk_id " nextHwnd))
                     WinActivate(nextHwnd)
-                }
-            } else {
-                WinActivate(hwnd)
-                WinMoveTop(hwnd)
+                return hwnd
             }
         }
+        hwnd := FocusHistory.MostRecent(windows, FocusHistory.Seq)
+        WinActivate(hwnd)
+        WinMoveTop(hwnd)
         return hwnd
+    }
+
+    ; Visible top-level windows matching a RegEx WinTitle, in z-order (front to back).
+    ; With skipCloaked, windows on other virtual desktops are left out.
+    static Windows(winPattern, skipCloaked := false) {
+        origTitleMatchMode := A_TitleMatchMode
+        SetTitleMatchMode("RegEx")
+        try list := WinGetList(winPattern)
+        finally SetTitleMatchMode(origTitleMatchMode)
+        windows := []
+        for h in list {
+            if (!DllCall("user32\IsWindowVisible", "ptr", h, "int"))
+                continue
+            cloaked := false
+            if (skipCloaked)
+                try cloaked := WindowUtil.IsCloaked(h)  ; unreadable without DWM: treat as visible
+            if (!cloaked)
+                windows.Push(h)
+        }
+        return windows
     }
 
     ; Activates the next window of the given application, wrapping around. Never minimizes.
     ; Skips hidden helper windows and windows cloaked on other virtual desktops; keeps
     ; minimized ones. Returns the activated window, or 0 when the app has no windows.
     static CycleApp(winPattern) {
-        origTitleMatchMode := A_TitleMatchMode
-        SetTitleMatchMode("RegEx")
-        list := WinGetList(winPattern)  ; z-order, front to back
-        SetTitleMatchMode(origTitleMatchMode)
-        windows := []
-        for h in list {
-            try {
-                if (!DllCall("user32\IsWindowVisible", "ptr", h, "int") || WindowUtil.IsCloaked(h))
-                    continue
-            } catch {
-                continue
-            }
-            windows.Push(h)
-        }
-        hwnd := AppUtil.CycleTarget(windows, WinExist("A"))
+        windows := AppUtil.Windows(winPattern, true)
+        hwnd := AppUtil.CycleTarget(windows, WinExist("A"), FocusHistory.Seq)
         if (hwnd) {
             WinActivate(hwnd)
             WinMoveTop(hwnd)
@@ -63,16 +73,16 @@ class AppUtil {
     }
 
     ; Pure: which window to activate next. `windows` is in z-order (front to back).
-    ; If none of the app's windows is active, the most recently used one; otherwise the
-    ; bottom-most, so repeated presses rotate through every window.
-    static CycleTarget(windows, activeHwnd) {
+    ; If none of the app's windows is active, the most recently focused one; otherwise
+    ; the bottom-most, so repeated presses rotate through every window.
+    static CycleTarget(windows, activeHwnd, seq := "") {
         if (!windows.Length)
             return 0
         for h in windows {
             if (h = activeHwnd)
                 return windows[windows.Length]
         }
-        return windows[1]
+        return seq is Map ? FocusHistory.MostRecent(windows, seq) : windows[1]
     }
 
     ; Opens the given application, displaying a tooltip on success or failure.

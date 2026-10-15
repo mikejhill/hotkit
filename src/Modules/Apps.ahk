@@ -37,6 +37,10 @@ class AppsModule {
         reg("hotkey.trigger", (hk) => AppUtil.RunHotkey(hk), "Trigger another hotkey by its notation", "hotkey")
     }
 
+    static Start(cfg) {
+        FocusHistory.Start()
+    }
+
     static Get(id) {
         if !AppsModule.Apps.Has(id)
             throw ValueError("Unknown app '" id "'. Define it under `"apps`" in your config.")

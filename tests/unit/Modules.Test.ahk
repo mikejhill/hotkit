@@ -74,5 +74,31 @@ class Modules_Tests {
         Assert.Equal(13, AppUtil.CycleTarget([11, 12, 13], 11), "app active: bottom-most window")
         Assert.Equal(11, AppUtil.CycleTarget([11], 11), "single window stays put")
     }
+
+    static Test_MostRecentPrefersLastFocused() {
+        seq := Map(11, 5, 12, 9)
+        Assert.Equal(0, FocusHistory.MostRecent([], seq))
+        Assert.Equal(12, FocusHistory.MostRecent([11, 12, 13], seq), "last focused wins over z-order")
+        Assert.Equal(11, FocusHistory.MostRecent([11, 13], Map()), "never focused: keep z-order")
+        Assert.Equal(11, FocusHistory.MostRecent([13, 11], Map(11, 1)), "seen beats never seen")
+    }
+
+    static Test_CycleTargetUsesFocusHistoryWhenInactive() {
+        Assert.Equal(13, AppUtil.CycleTarget([11, 12, 13], 99, Map(13, 7, 11, 2)))
+        Assert.Equal(13, AppUtil.CycleTarget([11, 12, 13], 11, Map(12, 7)), "active app still rotates")
+    }
+
+    static Test_FocusHistoryNoteOrders() {
+        saved := FocusHistory.Seq, savedCounter := FocusHistory.Counter
+        try {
+            FocusHistory.Seq := Map()
+            FocusHistory.Note(101), FocusHistory.Note(102), FocusHistory.Note(101)
+            Assert.Equal(101, FocusHistory.MostRecent([102, 101], FocusHistory.Seq))
+            FocusHistory.Note(0)
+            Assert.Equal(2, FocusHistory.Seq.Count, "a zero hwnd is ignored")
+        } finally {
+            FocusHistory.Seq := saved, FocusHistory.Counter := savedCounter
+        }
+    }
 }
 TestRunner.Add(Modules_Tests)

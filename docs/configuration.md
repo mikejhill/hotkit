@@ -101,8 +101,10 @@ Caps Lock). `keyboard.toggleCapsLock` still toggles it on demand.
 }
 ```
 
-`app.toggle` focuses the first window matching `match` (WinTitle, RegEx title
-mode), minimizes it if it is already active, or runs `run` when none exists.
+`app.toggle` raises the app's window that you focused most recently (matched by
+`match`, a WinTitle in RegEx title mode), minimizes it if it is already active,
+or runs `run` when none exists. Hiding and showing with the same key returns to
+the same window.
 `app.cycle` switches between the app's windows instead: the most recent one
 first, then each press rotates to the next. It skips windows on other virtual
 desktops, never minimizes, and launches the app when no window exists. A common

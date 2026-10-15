@@ -45,6 +45,7 @@ TARGETS = [
     "src/Core/Plugins.ahk",
     "src/Lib/HotkeyText.ahk",
     "src/Lib/WindowMatcher.ahk",
+    "src/Lib/FocusHistory.ahk",
     "src/Lib/DisplayBrightness.ahk",
     "src/Lib/DisplayScale.ahk",
     "src/Ui/ShortcutOsd.ahk",

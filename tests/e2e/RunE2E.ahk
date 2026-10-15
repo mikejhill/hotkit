@@ -15,6 +15,7 @@ class E2E_Tests {
     static Dir := ""
     static Probe := ""
     static Pid := 0
+    static WindowsPid := 0
     static Main := A_ScriptDir "\..\..\src\Main.ahk"
 
     static WriteConfig(extra := "") {
@@ -110,7 +111,7 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F16")
         Assert.True(WinWait(win, , 10), "overlay did not open")
         total := ListViewGetContent("Count", "SysListView321", win)
-        Assert.Equal(6, Integer(total), "one row per binding")
+        Assert.Equal(7, Integer(total), "one row per binding")
         ControlSetText("gesture", "Edit1", win)
         Sleep(300)
         Assert.Equal(1, Integer(ListViewGetContent("Count", "SysListView321", win)), "filter narrows rows")
@@ -118,6 +119,31 @@ class E2E_Tests {
         Assert.Contains(rows, "RCtrl+RAlt+F17")
         E2E_Tests.Press(">^>!F16")
         Assert.True(WinWaitClose(win, , 10), "overlay did not close")
+    }
+
+    ; Hiding and showing an app with the same key must bring back the window that
+    ; was focused last, not whichever of its windows is on top.
+    static Test_05b_AppToggleReturnsToLastWindow() {
+        Run('"' A_AhkPath '" "' A_ScriptDir '\fixture\Windows.ahk"', , , &pid)
+        E2E_Tests.WindowsPid := pid
+        a := "hotkit-e2e-win A", b := "hotkit-e2e-win B", other := "hotkit-e2e-other"
+        for title in [a, b, other]
+            Assert.True(WinWait(title, , 10), title " did not open")
+        for title in [b, a] {
+            WinActivate(title)
+            WinWaitActive(title, , 5)
+            Sleep(300)
+        }
+        hwndA := WinExist(a)
+        E2E_Tests.Press(">^>!F13")
+        Sleep(800)
+        Assert.Equal(-1, WinGetMinMax(hwndA), "toggle should minimize the active window")
+        WinActivate(other)
+        WinWaitActive(other, , 5)
+        Sleep(300)
+        E2E_Tests.Press(">^>!F13")
+        Sleep(800)
+        Assert.Equal(hwndA, WinExist("A"), "toggle should restore the window focused last")
     }
 
     static Test_06_ConfigReload() {
@@ -137,7 +163,7 @@ class E2E_Tests {
     }
 
     static Cleanup() {
-        for pid in [E2E_Tests.Pid, E2E_Tests.AppPid()] {
+        for pid in [E2E_Tests.Pid, E2E_Tests.AppPid(), E2E_Tests.WindowsPid] {
             if (pid && ProcessExist(pid))
                 ProcessClose(pid)
         }

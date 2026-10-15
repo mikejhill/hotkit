@@ -3,6 +3,7 @@
   "settings": { "watchConfig": true },
   "plugins": { "probe": { "file": "{{PROBE}}" } },
   "groups": { "g": { "enabled": true } },
+  "apps": { "e2ewin": { "name": "E2E window", "run": "does-not-exist.exe", "match": "^hotkit-e2e-win " } },
   "bindings": [
     { "keys": ">^>!F20", "action": "probe.mark", "args": ["simple"] },
     { "keys": ">^>!F19", "action": "probe.mark", "args": ["grouped"], "group": "g" },
@@ -12,7 +13,8 @@
         "doubleTap": { "action": "probe.mark", "args": ["doubleTap"] },
         "doubleTapMs": 400 } },
     { "keys": ">^>!F16", "action": "osd.toggle" },
-    { "keys": ">^>!F15", "action": "app.exit" }
+    { "keys": ">^>!F15", "action": "app.exit" },
+    { "keys": ">^>!F13", "action": "app.toggle", "args": ["e2ewin"] }
     {{EXTRA}}
   ]
 }

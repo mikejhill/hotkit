@@ -211,9 +211,12 @@ class WindowUtil {
             return false
         }
 
-        ; Skip cloaked windows (Win10/11 virtual desktop/UWP cloaking)
-        if (WindowUtil.IsCloaked(hwnd)) {
-            return false
+        ; Skip cloaked windows (Win10/11 virtual desktop/UWP cloaking). Without DWM
+        ; (e.g. under Wine) the state can't be read; treat the window as visible.
+        try {
+            if (WindowUtil.IsCloaked(hwnd)) {
+                return false
+            }
         }
 
         ; Skip minimized windows
