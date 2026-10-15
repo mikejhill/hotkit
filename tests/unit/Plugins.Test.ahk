@@ -4,8 +4,15 @@ class Plugins_Tests {
     static Dir := ""
 
     static Setup() {
-        Plugins_Tests.Dir := A_Temp "\hotkit-plugins-" A_TickCount
+        ; Discover returns long paths; A_Temp can be an 8.3 short path (e.g. on CI runners).
+        Plugins_Tests.Dir := Plugins_Tests.LongPath(A_Temp) "\hotkit-plugins-" A_TickCount
         DirCreate(Plugins_Tests.Dir "\plugins\lib")
+    }
+
+    static LongPath(path) {
+        loop files path, "D"
+            return A_LoopFileFullPath
+        return path
     }
 
     static Teardown() {
