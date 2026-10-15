@@ -1,0 +1,73 @@
+// hotkit example configuration.
+// Copied to %USERPROFILE%\.config\hotkit\config.json on first run.
+// Comments and trailing commas are allowed. Full reference: docs/configuration.md
+// Hotkey notation: ^ Ctrl, ! Alt, + Shift, # Win, < left, > right (e.g. ">^>!PgUp").
+{
+  "$schema": "../config/config.schema.json",
+
+  "settings": {
+    "watchConfig": true,
+    "keyboard": { "capsLock": "AlwaysOff" }
+  },
+
+  // A layer is active while its key is held. With Caps Lock forced off above,
+  // CapsLock becomes a spare modifier: CapsLock+N, CapsLock+PgUp, ...
+  "layers": {
+    "caps": { "key": "CapsLock", "label": "CapsLock" }
+  },
+
+  "modules": {
+    "displayBrightness": { "step": 10 },
+    "alwaysOnTop": { "indicatorColor": "4F8CC9" },
+    "theme": { "wallpaper": { "light": "", "dark": "" } },
+    "trayIcons": { "enabled": false }
+  },
+
+  // Apps for the app.toggle action: focus, minimize, or launch.
+  "apps": {
+    "notepad": { "name": "Notepad", "run": "notepad.exe", "match": "ahk_exe notepad.exe" },
+    "calculator": { "name": "Calculator", "run": "calc.exe", "match": "Calculator ahk_exe ApplicationFrameHost.exe" }
+  },
+
+  // Quick windows: summon/dismiss a floating window with one key.
+  "quickWindows": {
+    "scratchpad": {
+      "exe": "notepad.exe",
+      "launch": "notepad.exe",
+      "match": { "class": "Notepad", "topLevel": true },
+      "toolWindow": true,
+      "alwaysOnTop": true,
+      "claimExisting": false,
+      "multipleWindows": true,
+      "size": { "width": 0.4, "height": 0.5 }
+    }
+  },
+
+  "bindings": [
+    { "keys": ">^>!/", "action": "osd.toggle", "description": "Show keyboard shortcuts" },
+
+    { "layer": "caps", "keys": "BackSpace", "action": "keyboard.toggleCapsLock" },
+    { "layer": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"], "description": "Notepad" },
+    { "layer": "caps", "keys": "G", "action": "window.toggleAlwaysOnTop" },
+    { "layer": "caps", "keys": "Z", "action": "window.toggleMinimized" },
+    { "layer": "caps", "keys": "S", "action": "quickWindow.toggle", "args": ["scratchpad"], "description": "Scratchpad" },
+    { "layer": "caps", "keys": "<^S", "action": "quickWindow.create", "args": ["scratchpad"], "description": "New scratchpad" },
+
+    { "keys": ">^>!PgUp", "action": "brightness.increase" },
+    { "keys": ">^>!PgDn", "action": "brightness.decrease" },
+    { "keys": ">^>!End", "action": "brightness.swap", "args": [0], "description": "Brightness: toggle off / last level" },
+    { "keys": ">^>!<+End", "action": "nightLight.toggle" },
+
+    { "keys": "LShift & Volume_Mute", "action": "media.playPause" },
+    { "keys": "LShift & Volume_Down", "action": "media.previous" },
+    { "keys": "LShift & Volume_Up", "action": "media.next" },
+
+    { "keys": "!F13", "action": "window.activateLast", "description": "Switch to previous window" }
+  ],
+
+  "tray": {
+    "items": [
+      { "label": "Toggle &Theme", "action": "theme.toggle" }
+    ]
+  }
+}

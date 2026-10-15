@@ -1,0 +1,18 @@
+// E2E fixture. {{PROBE}} is replaced by the driver.
+{
+  "settings": { "watchConfig": true },
+  "plugins": { "probe": { "file": "{{PROBE}}" } },
+  "groups": { "g": { "enabled": true } },
+  "bindings": [
+    { "keys": ">^>!F20", "action": "probe.mark", "args": ["simple"] },
+    { "keys": ">^>!F19", "action": "probe.mark", "args": ["grouped"], "group": "g" },
+    { "keys": ">^>!F18", "action": "bindings.toggleGroup", "args": ["g"] },
+    { "keys": ">^>!F17", "gestures": {
+        "tap": { "action": "probe.mark", "args": ["tap"] },
+        "doubleTap": { "action": "probe.mark", "args": ["doubleTap"] },
+        "doubleTapMs": 400 } },
+    { "keys": ">^>!F16", "action": "osd.toggle" },
+    { "keys": ">^>!F15", "action": "app.exit" }
+    {{EXTRA}}
+  ]
+}

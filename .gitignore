@@ -1,0 +1,13 @@
+# Generated at runtime (plugin include stub)
+/local/
+
+# Private denylist used by tools/lint.py; never commit
+.private-terms
+
+# Personal config must live in %USERPROFILE%\.config\hotkit
+/config/config.json
+
+__pycache__/
+*.pyc
+.venv/
+*.log

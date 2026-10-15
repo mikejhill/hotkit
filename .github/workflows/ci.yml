@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AHK_VERSION: "2.0.30"
+  AHK_SHA256: "1e0ece7ecb2d5646e55758150472677996a57f9db5c83d2996d8b47b9e2f31a4"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install jsonschema
+      - name: Lint
+        env:
+          # Optional repository secret: newline-separated private terms that must never appear.
+          PRIVATE_TERMS: ${{ secrets.PRIVATE_TERMS }}
+        run: python tools/test.py lint
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    runs-on: windows-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install jsonschema
+      - name: Install AutoHotkey ${{ env.AHK_VERSION }}
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\ahk.zip"
+          Invoke-WebRequest "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$env:AHK_VERSION/AutoHotkey_$env:AHK_VERSION.zip" -OutFile $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:AHK_SHA256) { throw "AutoHotkey checksum mismatch: $hash" }
+          Expand-Archive $zip "$env:RUNNER_TEMP\ahk"
+          "AHK_EXE=$env:RUNNER_TEMP\ahk\AutoHotkey64.exe" >> $env:GITHUB_ENV
+      - name: Validate
+        run: python tools/test.py validate
+      - name: Unit tests
+        run: python tools/test.py unit
+      - name: Integration tests
+        run: python tools/test.py integration
+      - name: End-to-end tests
+        run: python tools/test.py e2e

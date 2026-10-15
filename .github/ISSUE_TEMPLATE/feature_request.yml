@@ -1,0 +1,13 @@
+name: Feature request
+description: A new capability for the engine
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Please read docs/philosophy.md. Requests for one specific app or workflow usually belong in your own config or a plugin.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to automate, and why can't config or a plugin do it today?
+    validations:
+      required: true

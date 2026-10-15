@@ -1,0 +1,38 @@
+name: Mutation tests
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      max:
+        description: Number of mutants to sample (0 = all)
+        default: "0"
+
+permissions:
+  contents: read
+
+env:
+  AHK_VERSION: "2.0.30"
+  AHK_SHA256: "1e0ece7ecb2d5646e55758150472677996a57f9db5c83d2996d8b47b9e2f31a4"
+
+jobs:
+  mutation:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install AutoHotkey ${{ env.AHK_VERSION }}
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\ahk.zip"
+          Invoke-WebRequest "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$env:AHK_VERSION/AutoHotkey_$env:AHK_VERSION.zip" -OutFile $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:AHK_SHA256) { throw "AutoHotkey checksum mismatch: $hash" }
+          Expand-Archive $zip "$env:RUNNER_TEMP\ahk"
+          "AHK_EXE=$env:RUNNER_TEMP\ahk\AutoHotkey64.exe" >> $env:GITHUB_ENV
+      - name: Mutation tests
+        run: python tools/mutate.py --jobs 4 --max ${{ github.event.inputs.max || '0' }}

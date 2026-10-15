@@ -1,0 +1,27 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant config
+      description: The bindings or settings involved. Remove anything personal.
+      render: jsonc
+  - type: textarea
+    id: check
+    attributes:
+      label: Output of `AutoHotkey64.exe src\Main.ahk --check`
+      render: text
+  - type: input
+    id: versions
+    attributes:
+      label: Windows and AutoHotkey versions
+    validations:
+      required: true

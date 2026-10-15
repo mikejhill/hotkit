@@ -1,0 +1,565 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "hotkit configuration",
+  "description": "See docs/configuration.md. Comments and trailing commas are allowed in the actual file.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "watchConfig": {
+          "type": "boolean",
+          "description": "Restart when the config file or plugin folder changes."
+        },
+        "debug": {
+          "type": "boolean"
+        },
+        "keyboard": {
+          "type": "object",
+          "properties": {
+            "capsLock": {
+              "$ref": "#/$defs/lockState"
+            },
+            "numLock": {
+              "$ref": "#/$defs/lockState"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "layers": {
+      "type": "object",
+      "description": "Layers are active while their key is physically held.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "groups": {
+      "type": "object",
+      "description": "Named binding groups that can be toggled at runtime.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "modules": {
+      "type": "object",
+      "description": "Per-module settings. Any module accepts { \"enabled\": false }.",
+      "properties": {
+        "displayBrightness": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "step": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            },
+            "swapFallback": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "gamma": {
+              "type": "object",
+              "properties": {
+                "default": {
+                  "type": "number"
+                },
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
+        "displayScale": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "setDpiPath": {
+              "type": "string"
+            },
+            "presets": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 100,
+                "maximum": 500
+              }
+            },
+            "debounceMs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "alwaysOnTop": {
+          "type": "object",
+          "properties": {
+            "indicatorColor": {
+              "type": "string",
+              "pattern": "^([0-9A-Fa-f]{6})?$"
+            }
+          }
+        },
+        "theme": {
+          "type": "object",
+          "properties": {
+            "bing": {
+              "type": "object",
+              "properties": {
+                "cacheDir": {
+                  "type": "string"
+                },
+                "maxAgeDays": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "wallpaper": {
+              "type": "object",
+              "properties": {
+                "light": {
+                  "type": "string"
+                },
+                "dark": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "trayIcons": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "intervalSeconds": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "taskSwitcher": {
+          "type": "object",
+          "properties": {
+            "ignore": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "exe": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "emptyTitle": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "windowRules": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "pollMs": {
+              "type": "integer",
+              "minimum": 50
+            },
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "match",
+                  "alwaysOnTop"
+                ],
+                "properties": {
+                  "match": {
+                    "type": "string",
+                    "description": "WinTitle"
+                  },
+                  "alwaysOnTop": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "apps": {
+      "type": "object",
+      "description": "Apps used by app.toggle / app.launch.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "run"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "run": {
+            "type": "string",
+            "minLength": 1
+          },
+          "match": {
+            "type": "string"
+          },
+          "options": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "quickWindows": {
+      "type": "object",
+      "description": "Generic floating windows summoned by quickWindow.* actions.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "exe"
+        ],
+        "properties": {
+          "exe": {
+            "type": "string",
+            "minLength": 1
+          },
+          "launch": {
+            "type": "string"
+          },
+          "match": {
+            "$ref": "#/$defs/windowMatch"
+          },
+          "toolWindow": {
+            "type": "boolean"
+          },
+          "alwaysOnTop": {
+            "type": "boolean"
+          },
+          "claimExisting": {
+            "type": "boolean"
+          },
+          "multipleWindows": {
+            "type": "boolean"
+          },
+          "launchTimeoutSeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "size": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              },
+              "height": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "modes": {
+            "type": "array",
+            "description": "Values substituted for {mode} in launch; cycled by quickWindow.cycleMode.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/binding"
+      }
+    },
+    "tray": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "$ref": "#/$defs/trayItems"
+        }
+      },
+      "additionalProperties": false
+    },
+    "plugins": {
+      "type": "object",
+      "description": "Settings for plugins, keyed by plugin name. Opaque to the core.",
+      "additionalProperties": {
+        "type": "object"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "lockState": {
+      "enum": [
+        "On",
+        "Off",
+        "AlwaysOn",
+        "AlwaysOff",
+        ""
+      ]
+    },
+    "actionRef": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z][A-Za-z0-9]*)*$"
+        },
+        {
+          "type": "object",
+          "required": [
+            "action"
+          ],
+          "properties": {
+            "action": {
+              "type": "string"
+            },
+            "args": {}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "windowMatch": {
+      "type": "object",
+      "properties": {
+        "exe": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "titleNotEmpty": {
+          "type": "boolean"
+        },
+        "appUserModelId": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "topLevel": {
+          "type": "boolean"
+        },
+        "minWidth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minHeight": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "binding": {
+      "type": "object",
+      "required": [
+        "keys"
+      ],
+      "properties": {
+        "keys": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array"
+        },
+        "gestures": {
+          "type": "object",
+          "properties": {
+            "tap": {
+              "$ref": "#/$defs/actionRef"
+            },
+            "doubleTap": {
+              "$ref": "#/$defs/actionRef"
+            },
+            "hold": {
+              "$ref": "#/$defs/actionRef"
+            },
+            "holdMs": {
+              "type": "integer",
+              "minimum": 50
+            },
+            "doubleTapMs": {
+              "type": "integer",
+              "minimum": 50
+            }
+          },
+          "additionalProperties": false
+        },
+        "onRelease": {
+          "$ref": "#/$defs/actionRef"
+        },
+        "waitRelease": {
+          "type": "boolean"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "whenActive": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "action"
+          ],
+          "not": {
+            "required": [
+              "gestures"
+            ]
+          }
+        },
+        {
+          "required": [
+            "gestures"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "action"
+                ]
+              },
+              {
+                "required": [
+                  "onRelease"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "trayItems": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "separator"
+            ],
+            "properties": {
+              "separator": {
+                "const": true
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "label",
+              "items"
+            ],
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "items": {
+                "$ref": "#/$defs/trayItems"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "label",
+              "action"
+            ],
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "args": {}
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  }
+}

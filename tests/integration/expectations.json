@@ -1,0 +1,16 @@
+{
+  "minimal.json": { "exit": 0, "contains": ["OK", "bindings: 0"] },
+  "invalid.json": { "exit": 2, "contains": ["Could not load config", "invalid.json"] },
+  "problems.json": {
+    "exit": 1,
+    "contains": [
+      "unknown action 'does.not.exist'",
+      "unknown layer 'nope'",
+      "missing 'keys'",
+      "Conflict: 'F15'",
+      "at least one of tap, doubleTap, hold",
+      "tray item 'Broken': unknown action 'missing.action'",
+      "FAIL"
+    ]
+  }
+}

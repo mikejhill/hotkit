@@ -1,0 +1,71 @@
+#Requires AutoHotkey v2.0
+
+class Modules_Tests {
+    static Test_SwitchableSkipsToolWindows() {
+        Assert.False(WindowsModule.IsSwitchable({ exStyle: 0x80, exe: "a.exe", title: "x" }, []))
+        Assert.True(WindowsModule.IsSwitchable({ exStyle: 0, exe: "a.exe", title: "x" }, []))
+    }
+
+    static Test_SwitchableIgnoreRules() {
+        ignore := [Map("exe", "wrapper.exe", "emptyTitle", true), Map("title", "^Hidden")]
+        Assert.False(WindowsModule.IsSwitchable({ exStyle: 0, exe: "WRAPPER.EXE", title: "" }, ignore))
+        Assert.True(WindowsModule.IsSwitchable({ exStyle: 0, exe: "wrapper.exe", title: "Session" }, ignore))
+        Assert.False(WindowsModule.IsSwitchable({ exStyle: 0, exe: "x.exe", title: "Hidden thing" }, ignore))
+        Assert.True(WindowsModule.IsSwitchable({ exStyle: 0, exe: "x.exe", title: "Shown" }, ignore))
+    }
+
+    static Test_QuickWindowLaunchCommand() {
+        Assert.Equal('app.exe --app="u"', QuickWindowsModule.LaunchCommand("app.exe", '--app="u"'))
+        Assert.Equal("app.exe --a=x --b", QuickWindowsModule.LaunchCommand("app.exe --a={mode} --b", "x"))
+        Assert.Equal("app.exe", QuickWindowsModule.LaunchCommand("app.exe", ""))
+        EnvSet("AHK_TEST_DIR", "C:\d")
+        Assert.Equal("C:\d\app.exe", QuickWindowsModule.LaunchCommand("%AHK_TEST_DIR%\app.exe", ""))
+    }
+
+    static Test_QuickWindowRequiresExeAndLaunch() {
+        QuickWindowsModule.Definitions := Map("bad", Map("exe", "x.exe"))
+        QuickWindowsModule.Instances := Map()
+        Assert.Throws(() => QuickWindowsModule.Get("bad"), "launch")
+        Assert.Throws(() => QuickWindowsModule.Get("missing"), "Unknown quick window")
+    }
+
+    static Test_QuickWindowRejectsBadMatch() {
+        QuickWindowsModule.Definitions := Map("q", Map("exe", "x.exe", "launch", "x.exe", "match", Map("nope", 1)))
+        QuickWindowsModule.Instances := Map()
+        Assert.Throws(() => QuickWindowsModule.Get("q"), "Unknown window match field")
+    }
+
+    static Test_AwakeModeFlips() {
+        Assert.Equal(0, DesktopModule.NextAwakeMode(1))
+        Assert.Equal(1, DesktopModule.NextAwakeMode(0))
+        Assert.Equal(1, DesktopModule.NextAwakeMode(2))
+    }
+
+    static Test_AppsRequireDefinitions() {
+        AppsModule.Apps := Map("a", Map("name", "A"))
+        Assert.Throws(() => AppsModule.Get("missing"), "Unknown app")
+        Assert.Throws(() => AppsModule.Get("a"), "run")
+    }
+
+    static Test_OsdFilter() {
+        rows := [
+            { keys: "RCtrl+PgUp", description: "Brighter", action: "brightness.increase", layer: "", group: "", source: "config" },
+            { keys: "CapsLock+N", description: "Notepad", action: "app.toggle", layer: "caps", group: "", source: "config" }
+        ]
+        Assert.Equal(2, ShortcutOsd.FilterRows(rows, "").Length)
+        Assert.Equal(1, ShortcutOsd.FilterRows(rows, "bright").Length)
+        Assert.Equal(1, ShortcutOsd.FilterRows(rows, "caps note").Length)
+        Assert.Equal(0, ShortcutOsd.FilterRows(rows, "caps bright").Length)
+    }
+
+    static Test_OsdFilterKeepsMatchingRows() {
+        rows := [
+            { keys: "F1", description: "Alpha", action: "a.one", layer: "", group: "", source: "config" },
+            { keys: "F2", description: "Beta", action: "b.two", layer: "", group: "work", source: "plugin" }
+        ]
+        Assert.Equal("Alpha", ShortcutOsd.FilterRows(rows, "alpha")[1].description)
+        Assert.Equal("Beta", ShortcutOsd.FilterRows(rows, "  work  ")[1].description)
+        Assert.Equal("Beta", ShortcutOsd.FilterRows(rows, "plugin b.two")[1].description)
+    }
+}
+TestRunner.Add(Modules_Tests)
