@@ -4,7 +4,7 @@
 python tools\test.py lint          # static checks, no AutoHotkey needed
 python tools\test.py validate      # AutoHotkey /Validate on entry scripts
 python tools\test.py unit          # tests/unit, headless
-python tools\test.py integration   # --check against fixtures; docs/actions.md in sync
+python tools\test.py integration   # --check against fixtures, plugin sync, docs/actions.md in sync
 python tools\test.py e2e           # live app driven by synthetic keystrokes
 python tools\test.py all           # all of the above
 python tools\test.py mutation      # mutation score (tools/mutate.py)

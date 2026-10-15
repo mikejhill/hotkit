@@ -31,13 +31,20 @@ class Plugins {
     }
 
     ; Returns true when the stub changed (caller should Reload()).
+    ; True when the stub already includes exactly the plugins in `dir`.
+    static IsCurrent(stubPath := "", dir := "") {
+        if (stubPath = "")
+            stubPath := Paths.PluginStub()
+        current := FileExist(stubPath) ? FileRead(stubPath, "UTF-8") : ""
+        return current == Plugins.Render(Plugins.Discover(dir))
+    }
+
     static Sync(stubPath := "", dir := "") {
         if (stubPath = "")
             stubPath := Paths.PluginStub()
-        wanted := Plugins.Render(Plugins.Discover(dir))
-        current := FileExist(stubPath) ? FileRead(stubPath, "UTF-8") : ""
-        if (current == wanted)
+        if Plugins.IsCurrent(stubPath, dir)
             return false
+        wanted := Plugins.Render(Plugins.Discover(dir))
         SplitPath(stubPath, , &stubDir)
         if !DirExist(stubDir)
             DirCreate(stubDir)

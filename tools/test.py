@@ -78,6 +78,39 @@ def stage_integration() -> bool:
                 print("  " + "\n  ".join(problems))
                 print("  output:\n    " + r.out.replace("\n", "\n    "))
         ok = check_actions_doc(empty_dir) and ok
+    return check_plugin_sync() and ok
+
+
+def check_plugin_sync() -> bool:
+    """--check flags a stale plugin stub; --sync-plugins fixes it."""
+    stub = REPO / "local" / "plugins.generated.ahk"
+    backup = stub.read_bytes() if stub.exists() else None
+    ok = True
+    try:
+        with tempfile.TemporaryDirectory() as cfg_dir:
+            plugins = Path(cfg_dir) / "plugins"
+            plugins.mkdir()
+            (plugins / "Hello.ahk").write_text('App.AddPlugin("hello", (s) => ActionRegistry.Register('
+                                               '"hello.world", (*) => 0))\n', encoding="utf-8")
+            config = ["--config-dir", ahk.to_ahk_path(cfg_dir), "--config",
+                      ahk.to_ahk_path(REPO / "config/config.example.json")]
+            steps = [
+                (["--check"], 1, "Plugin list changed"),
+                (["--sync-plugins"], 0, "plugins: 1 (stub updated)"),
+                (["--check"], 0, "plugins: 1"),
+            ]
+            for args, code, needle in steps:
+                r = ahk.run(MAIN, *args, *config)
+                good = r.code == code and needle in r.out
+                print(f"integration plugin sync {' '.join(args)}: {'ok' if good else 'FAIL'}")
+                if not good:
+                    ok = False
+                    print("  output:\n    " + r.out.replace("\n", "\n    "))
+    finally:
+        if backup is None:
+            stub.unlink(missing_ok=True)
+        else:
+            stub.write_bytes(backup)
     return ok
 
 

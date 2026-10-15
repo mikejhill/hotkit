@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `--sync-plugins`; `--check` now reports a stale plugin list instead of unknown plugin actions.
+
 ## [1.0.0] - 2026-10-15
 
 First public release; a rewrite of an earlier private collection.

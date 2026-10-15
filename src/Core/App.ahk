@@ -7,6 +7,8 @@
 ;   --config <file>        use this config file instead of <config dir>\config.json
 ;   --config-dir <dir>     override the config directory (plugins live under it)
 ;   --check                validate config + plugins, print a report, exit 0/1
+;   --sync-plugins         regenerate the plugin include stub and exit (run before
+;                          --check after adding or removing plugins)
 ;   --list-actions         print registered actions as JSON and exit
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
@@ -48,6 +50,17 @@ class App {
             ; The plugin set changed; restart so the new #Include stub takes effect.
             return App.Restart()
         }
+        if (App.Mode = "sync-plugins") {
+            changed := Plugins.Sync()
+            App.Print("plugins: " Plugins.Discover().Length (changed ? " (stub updated)" : " (stub current)") "`n")
+            return ExitApp(0)
+        }
+        if (App.Mode = "check" && App._syncPlugins && !Plugins.IsCurrent()) {
+            ; #Include is resolved before the script runs, so a stale stub means
+            ; this process cannot see the current plugin set.
+            App.Problems.Push("Plugin list changed since the last run (" Paths.PluginDir()
+                "); run with --sync-plugins, then --check again.")
+        }
         try {
             App.LoadConfig()
         } catch as e {
@@ -70,6 +83,8 @@ class App {
                     App.Mode := "check"
                 case "--list-actions":
                     App.Mode := "list-actions"
+                case "--sync-plugins":
+                    App.Mode := "sync-plugins"
                 case "--no-plugin-sync":
                     App._syncPlugins := false
                 case "--config":

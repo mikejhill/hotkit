@@ -48,5 +48,15 @@ class Plugins_Tests {
         Assert.True(Plugins.Sync(stub, d), "new plugin detected")
         Assert.Contains(FileRead(stub), d "\new.ahk")
     }
+
+    static Test_IsCurrentTracksPluginSet() {
+        d := Plugins_Tests.Dir "\plugins"
+        stub := Plugins_Tests.Dir "\local\stub.ahk"
+        Assert.False(Plugins.IsCurrent(stub, d), "missing stub is stale")
+        Plugins.Sync(stub, d)
+        Assert.True(Plugins.IsCurrent(stub, d))
+        FileAppend("", d "\added.ahk")
+        Assert.False(Plugins.IsCurrent(stub, d), "added plugin makes the stub stale")
+    }
 }
 TestRunner.Add(Plugins_Tests)

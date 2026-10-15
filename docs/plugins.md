@@ -48,7 +48,16 @@ class NotesPlugin {
 | `MapGet(map, key, default)`, `Paths.Expand(path)` | anywhere | Helpers |
 
 Errors thrown from `init` are reported as config problems; the rest of the app
-still starts. Adding or removing a plugin file restarts the app; editing one
+still starts. AutoHotkey resolves `#Include` before a script runs, so after
+adding or removing a plugin, refresh the include list before validating:
+
+```powershell
+AutoHotkey64.exe src\Main.ahk --sync-plugins
+AutoHotkey64.exe src\Main.ahk --check
+```
+
+`--check` reports a stale plugin list as a problem. The running app refreshes it
+on its own. Adding or removing a plugin file restarts the app; editing one
 needs *Reload* from the tray (or `app.reload`).
 
 ## Rules

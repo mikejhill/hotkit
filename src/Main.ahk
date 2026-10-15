@@ -11,7 +11,7 @@
 if (EnvGet("HOTKIT_HEADLESS") = "1")
     OnError(HeadlessErrorHandler)
 for arg in A_Args {
-    if (arg = "--check" || arg = "--list-actions") {
+    if (arg = "--check" || arg = "--list-actions" || arg = "--sync-plugins") {
         OnError(HeadlessErrorHandler)
         break
     }
