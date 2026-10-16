@@ -21,6 +21,8 @@ class E2E_Tests {
     static WriteConfig(extra := "") {
         text := FileRead(A_ScriptDir "\fixture\config.template.json", "UTF-8")
         text := StrReplace(text, "{{PROBE}}", StrReplace(E2E_Tests.Probe, "\", "\\"))
+        text := StrReplace(text, "{{AHK}}", StrReplace(A_AhkPath, "\", "\\"))
+        text := StrReplace(text, "{{FIXTURE}}", StrReplace(A_ScriptDir "\fixture", "\", "\\"))
         text := StrReplace(text, "{{EXTRA}}", extra)
         f := FileOpen(E2E_Tests.Dir "\config.json", "w", "UTF-8-RAW")
         f.Write(text)
@@ -172,6 +174,29 @@ class E2E_Tests {
         alpha := WinGetTransparent(hwnd)
         Assert.True(alpha = "" || alpha = 255, "activated quick window should be visible again, alpha=" alpha)
         Assert.Equal(0, WinGetExStyle(hwnd) & 0x20, "activated quick window should accept clicks again")
+    }
+
+    ; Apps that "close" to the tray only hide their window. The toggle key must
+    ; bring it back through the launch command, not fail on the hidden window.
+    static Test_05d_QuickWindowClosedToTrayComesBack() {
+        qw := "hotkit-e2e-qw"
+        hwnd := WinExist(qw)
+        Assert.True(hwnd, "quick window fixture is not open")
+        ; Hide and show it once with the key so hotkit is managing it.
+        WinActivate(hwnd)
+        WinWaitActive(hwnd, , 5)
+        Sleep(300)
+        E2E_Tests.Press(">^>!F12")
+        Sleep(500)
+        E2E_Tests.Press(">^>!F12")
+        Assert.True(WinWaitActive("ahk_id " hwnd, , 5), "toggle should show the quick window")
+        Sleep(300)
+        WinHide(hwnd)
+        Sleep(300)
+        E2E_Tests.Press(">^>!F12")
+        Assert.True(WinWaitActive("ahk_id " hwnd, , 10), "toggle should show and focus the hidden window again")
+        alpha := WinGetTransparent(hwnd)
+        Assert.True(alpha = "" || alpha = 255, "window should be opaque, alpha=" alpha)
     }
 
     static Test_06_ConfigReload() {

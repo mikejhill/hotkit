@@ -30,6 +30,7 @@ class QuickWindow {
     static AppWindow := 0x40000
     static Topmost := 0x8
     static ClickThrough := 0x20
+    static Visible := 0x10000000
 
     __New(name, exeName, launchWindow, isTarget, options?) {
         options := IsSet(options) ? options : Map()
@@ -107,7 +108,8 @@ class QuickWindow {
             newHwnd := this.WaitForNewWindow(before)
             if (!newHwnd)
                 throw Error("No new " this.name " window appeared within " this.launchTimeoutSeconds " seconds.")
-            this.Track(newHwnd)
+            ; The window may be one the app hid and re-showed, still marked from before.
+            this.Claim(newHwnd)
             this.PositionInitially(newHwnd)
             this.Activate(this.currentIndex)
         } catch as caughtError {
@@ -223,13 +225,17 @@ class QuickWindow {
         WinSetAlwaysOnTop(false, "ahk_id " hwnd)
     }
 
-    GetCandidates() {
+    GetCandidates(includeHidden := false) {
         result := []
         previous := A_DetectHiddenWindows
         DetectHiddenWindows(true)
         try {
             for hwnd in WinGetList("ahk_exe " this.exeName) {
                 try {
+                    ; An app that "closes" to the tray only hides its window; treat it as
+                    ; closed so the launch command brings it back the app's own way.
+                    if (!includeHidden && !(WinGetStyle("ahk_id " hwnd) & QuickWindow.Visible))
+                        continue
                     if (DllCall("GetPropW", "ptr", hwnd, "str", this.propertyName, "ptr") || this.isTarget.Call(hwnd))
                         result.Push(hwnd)
                 }
@@ -300,7 +306,7 @@ class QuickWindow {
     }
 
     Recover() {
-        for hwnd in this.GetCandidates() {
+        for hwnd in this.GetCandidates(true) {
             if (DllCall("GetPropW", "ptr", hwnd, "str", this.propertyName, "ptr")) {
                 try this.Restore(hwnd)
             } else if (this.claimExisting && this.IsOrphan(hwnd)) {
