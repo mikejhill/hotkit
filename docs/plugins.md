@@ -4,6 +4,10 @@ A plugin is an `.ahk` file in `<config dir>\plugins\`. It is included at
 startup like any other script, so it can use everything in `src/`. Use plugins
 for code that is private or too specific for the repository.
 
+Complete, tested examples to copy from are in
+[examples/plugins](../examples/plugins/README.md): a break reminder, a quick
+note, and a stopwatch.
+
 Only top-level `*.ahk` files are loaded. Put helpers in a subfolder and include
 them relative to the plugin:
 

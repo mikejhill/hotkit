@@ -4,7 +4,7 @@
 python tools\test.py lint          # static checks, no AutoHotkey needed
 python tools\test.py validate      # AutoHotkey /Validate on entry scripts
 python tools\test.py unit          # tests/unit, headless
-python tools\test.py integration   # --check against fixtures, plugin sync, docs/actions.md in sync
+python tools\test.py integration   # --check against fixtures, plugin sync, example plugins, docs/actions.md in sync
 python tools\test.py e2e           # live app driven by synthetic keystrokes
 python tools\test.py all           # all of the above
 python tools\test.py mutation      # mutation score (tools/mutate.py)
@@ -16,8 +16,8 @@ AutoHotkey under Wine and Xvfb (`AHK_WRAPPER`, default `xvfb-run -a wine`).
 | Layer | What it proves | Where |
 | --- | --- | --- |
 | Lint | Syntax hygiene, AHK v1 leftovers, personal paths / private terms, every unit test file included, example config matches schema | `tools/lint.py` |
-| Unit | Pure logic: config parsing, action registry, binding parsing/conflicts/contexts, hotkey text, window matching, brightness/scale math, plugin stub rendering | `tests/unit/*.Test.ahk` |
-| Integration | The real entry point validates good and broken configs with the right exit codes and messages | `tests/integration` |
+| Unit | Pure logic: config parsing, action registry, binding parsing/conflicts/contexts, hotkey text, window matching, brightness/scale math, plugin stub rendering, example plugin helpers | `tests/unit/*.Test.ahk` |
+| Integration | The real entry point validates good and broken configs with the right exit codes and messages, and loads `examples/plugins` as user plugins | `tests/integration` |
 | End-to-end / UX | A running instance: hotkeys fire actions, layers and groups gate them, the shortcut overlay opens and filters, config edits restart the app, plugins load | `tests/e2e/RunE2E.ahk` |
 | Mutation | The unit suite fails when logic in Core and Lib is altered | `tools/mutate.py` |
 
