@@ -13,6 +13,7 @@ All notable changes are listed here. The format follows
 - `quickWindow.toggle` failed with "Target window not found" when the app was running but its window was closed to the tray; it now runs the launch command and brings that window back.
 
 ### Added
+- Example plugins in `examples/plugins` (break reminder, quick note, stopwatch), loaded by the test suite.
 - `app.cycle`: switch between an app's windows (launches it if none are open).
 - `--sync-plugins`; `--check` now reports a stale plugin list instead of unknown plugin actions.
 

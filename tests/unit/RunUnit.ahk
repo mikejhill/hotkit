@@ -23,11 +23,15 @@
 #Include %A_ScriptDir%\..\..\src\Modules\Windows.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\Desktop.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\Display.ahk
+#Include %A_ScriptDir%\..\..\examples\plugins\BreakReminder\BreakSchedule.ahk
+#Include %A_ScriptDir%\..\..\examples\plugins\QuickNote\NoteFormat.ahk
+#Include %A_ScriptDir%\..\..\examples\plugins\Stopwatch\StopwatchClock.ahk
 
 #Include %A_ScriptDir%\ActionRegistry.Test.ahk
 #Include %A_ScriptDir%\Bindings.Test.ahk
 #Include %A_ScriptDir%\Config.Test.ahk
 #Include %A_ScriptDir%\DisplayMath.Test.ahk
+#Include %A_ScriptDir%\ExamplePlugins.Test.ahk
 #Include %A_ScriptDir%\HotkeyText.Test.ahk
 #Include %A_ScriptDir%\JSON.Test.ahk
 #Include %A_ScriptDir%\Modules.Test.ahk
