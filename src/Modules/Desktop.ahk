@@ -88,7 +88,10 @@ class DesktopModule {
     }
 
     ; Windows 11 hides new tray icons; mark them all as promoted.
+    ; Critical: if a hotkey interrupted this pass and then never returned (e.g.
+    ; a KeyWait whose key-up was missed), this timer would never fire again.
     static ShowAllTrayIcons() {
+        Critical
         loop reg "HKEY_CURRENT_USER\Control Panel\NotifyIconSettings", "KR" {
             try RegWrite(1, "REG_DWORD", A_LoopRegKey "\" A_LoopRegName, "IsPromoted")
         }
