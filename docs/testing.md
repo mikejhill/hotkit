@@ -10,7 +10,8 @@ python tools\test.py all           # all of the above
 python tools\test.py mutation      # mutation score (tools/mutate.py)
 ```
 
-Set `AHK_EXE` if `AutoHotkey64.exe` is not on `PATH`. On Linux the tools run
+The tools use `AHK_EXE`, then `AutoHotkey64.exe` on `PATH`, then a standard
+AutoHotkey v2 install under `%LOCALAPPDATA%\Programs` or `%ProgramFiles%`. On Linux the tools run
 AutoHotkey under Wine and Xvfb (`AHK_WRAPPER`, default `xvfb-run -a wine`).
 
 | Layer | What it proves | Where |

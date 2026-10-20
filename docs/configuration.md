@@ -21,12 +21,25 @@ with a `"$schema"` key for completion and validation. Paths accept `%VAR%` and a
 leading `~`.
 
 With `settings.watchConfig` on (the default), saving the file or adding/removing
-a plugin restarts the app. Problems are listed under tray › *Show Config
-Problems*; everything else keeps working. To check from a terminal:
+a plugin restarts the app. The restart waits until the files have stopped
+changing for one poll (about two seconds), so a save in progress is never read
+half-written. If `config.json` then doesn't parse, the app keeps running with
+the previous config and shows a toast instead of restarting. Problems are listed
+under tray › *Show Config Problems*; everything else keeps working. To check
+from a terminal:
 
 ```powershell
 AutoHotkey64.exe src\Main.ahk --check [--config path\to\config.json]
+python tools\check.py [--config path\to\config.json]
 ```
+
+`tools\check.py` finds AutoHotkey (or `AHK_EXE`), refreshes the plugin list,
+runs `--check`, then prints the warnings and errors the running app logged since
+it last started. It exits non-zero when either has a problem.
+
+The running app records each start, config problems, load failures, skipped
+reloads and unhandled script errors in `hotkit.log` in the config directory, so
+anything shown as a dialog or toast can also be read afterwards.
 
 hotkit refuses to start when it inherits an app package's virtualized profile
 (for example when launched from a shell inside a packaged desktop app). In that

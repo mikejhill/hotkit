@@ -1,14 +1,15 @@
 """Shared helpers for running AutoHotkey v2 from Python on Windows or under Wine.
 
 Configuration (environment):
-  AHK_EXE      path to AutoHotkey64.exe (default: "AutoHotkey64.exe" on PATH on Windows,
-               /opt/ahk/AutoHotkey64.exe elsewhere)
+  AHK_EXE      path to AutoHotkey64.exe (default on Windows: AutoHotkey64.exe on PATH, then
+               the per-user and machine-wide installs; /opt/ahk/AutoHotkey64.exe elsewhere)
   AHK_WRAPPER  command prefix used off Windows (default: "xvfb-run -a wine")
 """
 from __future__ import annotations
 
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -19,8 +20,18 @@ IS_WINDOWS = sys.platform == "win32"
 
 
 def ahk_exe() -> str:
-    default = "AutoHotkey64.exe" if IS_WINDOWS else "/opt/ahk/AutoHotkey64.exe"
-    return os.environ.get("AHK_EXE", default)
+    if os.environ.get("AHK_EXE"):
+        return os.environ["AHK_EXE"]
+    if not IS_WINDOWS:
+        return "/opt/ahk/AutoHotkey64.exe"
+    if shutil.which("AutoHotkey64.exe"):
+        return "AutoHotkey64.exe"
+    # The AutoHotkey v2 installer does not add itself to PATH.
+    for root in (os.environ.get("LOCALAPPDATA", "") + r"\Programs", os.environ.get("ProgramFiles", "")):
+        candidate = Path(root, "AutoHotkey", "v2", "AutoHotkey64.exe")
+        if root and candidate.is_file():
+            return str(candidate)
+    return "AutoHotkey64.exe"
 
 
 def to_ahk_path(path: Path | str) -> str:

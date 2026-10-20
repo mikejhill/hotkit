@@ -13,6 +13,7 @@
 #Include %A_ScriptDir%\..\..\src\Lib\HotkeyText.ahk
 #Include %A_ScriptDir%\..\..\src\Lib\AppUtil.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Paths.ahk
+#Include %A_ScriptDir%\..\..\src\Core\StatusLog.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Config.ahk
 #Include %A_ScriptDir%\..\..\src\Core\ActionRegistry.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Bindings.ahk
@@ -37,6 +38,7 @@
 #Include %A_ScriptDir%\Modules.Test.ahk
 #Include %A_ScriptDir%\Paths.Test.ahk
 #Include %A_ScriptDir%\Plugins.Test.ahk
+#Include %A_ScriptDir%\StatusLog.Test.ahk
 #Include %A_ScriptDir%\WindowMatcher.Test.ahk
 
 TestRunner.Run()

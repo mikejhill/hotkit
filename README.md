@@ -65,10 +65,12 @@ To start at sign-in, put a shortcut to `src\Main.ahk` in `shell:startup`.
 - [Action reference](docs/actions.md) (generated)
 - [Writing plugins](docs/plugins.md) and [example plugins](examples/plugins/README.md)
 
-Validate a config without starting anything:
+Validate a config without starting anything, and see what the running app
+logged to `hotkit.log`:
 
 ```powershell
 AutoHotkey64.exe src\Main.ahk --check
+python tools\check.py
 ```
 
 ## Repository layout
@@ -78,7 +80,7 @@ src/         Main.ahk, Core/ (config, actions, bindings, plugins, tray), Modules
 config/      config.example.json, config.schema.json
 examples/    plugins/ (copyable example plugins)
 tests/       unit/, integration/, e2e/ (AutoHotkey) + lib/TestRunner.ahk
-tools/       test.py, lint.py, mutate.py, gen_docs.py
+tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py
 docs/        philosophy, architecture, configuration, actions, plugins, testing
 local/       generated, git-ignored
 ```
