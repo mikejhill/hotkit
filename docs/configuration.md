@@ -28,6 +28,11 @@ Problems*; everything else keeps working. To check from a terminal:
 AutoHotkey64.exe src\Main.ahk --check [--config path\to\config.json]
 ```
 
+hotkit refuses to start when it inherits an app package's virtualized profile
+(for example when launched from a shell inside a packaged desktop app). In that
+state its registry writes never reach Windows, so features like tray-icon
+promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
+
 ## Top-level keys
 
 | Key | Purpose |

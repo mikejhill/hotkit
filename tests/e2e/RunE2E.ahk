@@ -75,7 +75,7 @@ class E2E_Tests {
         DirCreate(E2E_Tests.Dir "\plugins")
         FileCopy(A_ScriptDir "\fixture\plugins\Probe.ahk", E2E_Tests.Dir "\plugins\Probe.ahk")
         E2E_Tests.WriteConfig()
-        Run('"' A_AhkPath '" /ErrorStdOut "' E2E_Tests.Main '" --config-dir "' E2E_Tests.Dir '" --exit-after 120000', , , &pid)
+        Run('"' A_AhkPath '" /ErrorStdOut "' E2E_Tests.Main '" --config-dir "' E2E_Tests.Dir '" --exit-after 120000 --allow-virtualized', , , &pid)
         E2E_Tests.Pid := pid
         ; First start writes the plugin stub and reloads itself, then reports ready.
         E2E_Tests.WaitFor("ready")
