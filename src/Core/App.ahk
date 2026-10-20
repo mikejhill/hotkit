@@ -25,6 +25,7 @@ class App {
     static _syncPlugins := true
     static _watchStamp := ""
     static _exitAfter := 0
+    static _allowVirtualized := false
     static _args := []
 
     ; ---------------- Plugin API                    ------------------------------
@@ -46,6 +47,14 @@ class App {
     static Main(args := unset) {
         App._args := IsSet(args) ? args : []
         App.ParseArgs(App._args)
+        if (App.Mode = "run" && !App._allowVirtualized) {
+            package := PackageVirtualization.RedirectingPackage()
+            if (package != "")
+                return App.Fail("hotkit was started inside the " package " app package, which keeps its own "
+                    "private copy of the registry and AppData. Settings hotkit changes (tray icons, light/dark theme) "
+                    "would not reach Windows.`n`nStart hotkit from Explorer, the Start menu or a "
+                    "normal terminal, or pass --allow-virtualized to run anyway.")
+        }
         if (App.Mode = "run" && App._syncPlugins && Plugins.Sync()) {
             ; The plugin set changed; restart so the new #Include stub takes effect.
             return App.Restart()
@@ -93,6 +102,8 @@ class App {
                     Paths.Override := args[++i]
                 case "--exit-after":
                     App._exitAfter := Integer(args[++i])
+                case "--allow-virtualized":
+                    App._allowVirtualized := true
                 default:
                     App.Problems.Push("Unknown argument: " arg)
             }
