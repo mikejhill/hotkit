@@ -207,7 +207,37 @@ class E2E_Tests {
         E2E_Tests.WaitFor("reloaded")
     }
 
-    static Test_07_ExitAction() {
+    static WriteRaw(text) {
+        f := FileOpen(E2E_Tests.Dir "\config.json", "w", "UTF-8-RAW")
+        f.Write(text)
+        f.Close()
+    }
+
+    static LogText() => FileExist(E2E_Tests.Dir "\hotkit.log") ? FileRead(E2E_Tests.Dir "\hotkit.log", "UTF-8") : ""
+
+    static Test_07_HalfWrittenConfigWaits() {
+        ; A save in progress must not be read: start a write, finish it shortly after.
+        E2E_Tests.WriteRaw('{ "bindings": [')
+        Sleep(300)
+        E2E_Tests.WriteConfig()
+        E2E_Tests.WaitFor("ready", 3)
+        Assert.False(InStr(E2E_Tests.LogText(), "not applied"), "partial write was read: " E2E_Tests.LogText())
+    }
+
+    static Test_08_BrokenConfigKeepsRunning() {
+        pid := E2E_Tests.AppPid()
+        E2E_Tests.WriteRaw('{ "bindings": [')
+        start := A_TickCount
+        while (!InStr(E2E_Tests.LogText(), "not applied") && A_TickCount - start < 15000)
+            Sleep(200)
+        Assert.True(InStr(E2E_Tests.LogText(), "config change not applied"), "log: " E2E_Tests.LogText())
+        Assert.True(ProcessExist(pid), "app must keep running on a broken config")
+        Assert.Equal(3, E2E_Tests.Count("ready"), "broken config must not restart the app")
+        E2E_Tests.WriteConfig()
+        E2E_Tests.WaitFor("ready", 4)
+    }
+
+    static Test_09_ExitAction() {
         pid := E2E_Tests.AppPid()
         Assert.True(ProcessExist(pid), "app should be running before exit")
         E2E_Tests.Press(">^>!F15")
