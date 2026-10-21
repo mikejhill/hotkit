@@ -9,7 +9,8 @@ Prints the --check report, then any WARN/ERROR lines from the latest run in
 <config dir>\\hotkit.log (load failures, skipped reloads, unhandled errors that
 the running app showed as a dialog or toast). Exit status: the --check code
 (0 ok, 1 problems, 2 config not loadable, 3 script error), or 4 when the check
-passed but the latest run logged an ERROR.
+passed but the latest run logged a WARN or ERROR (e.g. a module that failed to
+start, which --check cannot see).
 
 Run this after every edit to config.json or a plugin. Never start the app
 itself from an automated shell; this only runs the non-interactive modes.
@@ -18,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -27,13 +29,25 @@ import ahk  # noqa: E402
 MAIN = ahk.REPO / "src" / "Main.ahk"
 
 
+def home() -> str:
+    return os.environ.get("USERPROFILE") or str(Path.home())
+
+
+def expand(path: str) -> Path:
+    """Mirrors Paths.Expand(): %VAR% references and a leading ~."""
+    path = re.sub(r"%([A-Za-z_][A-Za-z0-9_()]*)%", lambda m: os.environ.get(m[1], ""), path)
+    if path == "~" or path[:2] in ("~\\", "~/"):
+        path = home() + path[1:]
+    return Path(path)
+
+
 def config_dir() -> Path:
     """Mirrors Paths.ConfigDir() without the --config-dir override."""
     if os.environ.get("HOTKIT_CONFIG_DIR"):
-        return Path(os.path.expandvars(os.environ["HOTKIT_CONFIG_DIR"]))
+        return expand(os.environ["HOTKIT_CONFIG_DIR"])
     if os.environ.get("XDG_CONFIG_HOME"):
-        return Path(os.environ["XDG_CONFIG_HOME"]) / "hotkit"
-    return Path(os.environ.get("USERPROFILE", Path.home())) / ".config" / "hotkit"
+        return expand(os.environ["XDG_CONFIG_HOME"]) / "hotkit"
+    return Path(home()) / ".config" / "hotkit"
 
 
 def latest_run(log: Path) -> list[str]:
@@ -76,7 +90,7 @@ def main(argv: list[str]) -> int:
                 print("  " + line)
             if not notable:
                 print("  no warnings or errors")
-        if code == 0 and any("[ERROR]" in line for line in run):
+        if code == 0 and notable:
             code = 4
     return code
 

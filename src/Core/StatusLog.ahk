@@ -25,7 +25,14 @@ class StatusLog {
 
     static Write(level, message) {
         line := FormatTime(, "yyyy-MM-dd HH:mm:ss") " [" level "] " StrReplace(StrReplace(message, "`r"), "`n", " | ") "`n"
-        try FileAppend(line, StatusLog.File(), "UTF-8")
+        path := StatusLog.File()
+        try {
+            ; The first start runs before Bootstrap creates the config directory.
+            SplitPath(path, , &dir)
+            if (dir != "" && !DirExist(dir))
+                DirCreate(dir)
+            FileAppend(line, path, "UTF-8")
+        }
     }
 
     ; Keeps the newest KeepLines lines once the file exceeds MaxBytes.

@@ -33,6 +33,17 @@ class StatusLog_Tests {
         Assert.True(InStr(lines[1], "line 18"), lines[1])
     }
 
+    static Test_CreatesMissingDirectory() {
+        dir := A_Temp "\hotkit-statuslog-dir-" A_TickCount
+        StatusLog.Path := dir "\sub\hotkit.log"
+        try {
+            StatusLog.Start("x")
+            Assert.True(InStr(FileRead(StatusLog.Path, "UTF-8"), "[INFO] started"))
+        } finally {
+            try DirDelete(dir, true)
+        }
+    }
+
     static Test_TrimLeavesSmallFileAlone() {
         StatusLog.Info("one")
         StatusLog.Trim()
