@@ -31,6 +31,10 @@ jobs:
           # Optional repository secret: newline-separated private terms that must never appear.
           PRIVATE_TERMS: ${{ secrets.PRIVATE_TERMS }}
         run: python tools/test.py lint
+      - name: Mutation reporting regression tests (no AutoHotkey or credentials)
+        run: |
+          python -m unittest discover -s tests/tooling -p "test_*.py"
+          node --test tests/tooling/mutation_alerts.test.cjs
 
   secrets:
     runs-on: ubuntu-latest

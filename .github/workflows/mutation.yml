@@ -1,6 +1,8 @@
 name: Mutation tests
 
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
@@ -8,9 +10,14 @@ on:
       max:
         description: Number of mutants to sample (0 = all)
         default: "0"
+        type: string
 
 permissions:
   contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   AHK_VERSION: "2.0.30"
@@ -18,11 +25,14 @@ env:
 
 jobs:
   mutation:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - name: Install AutoHotkey ${{ env.AHK_VERSION }}
@@ -35,4 +45,16 @@ jobs:
           Expand-Archive $zip "$env:RUNNER_TEMP\ahk"
           "AHK_EXE=$env:RUNNER_TEMP\ahk\AutoHotkey64.exe" >> $env:GITHUB_ENV
       - name: Mutation tests
-        run: python tools/mutate.py --jobs 4 --max ${{ github.event.inputs.max || '0' }}
+        env:
+          MUTATION_MAX: ${{ inputs.max || '0' }}
+        run: python tools/mutate.py --jobs 4 --max "$env:MUTATION_MAX" --report survivors.txt --json-report mutation-result.json
+      - name: Preserve mutation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mutation-evidence
+          path: |
+            mutation-result.json
+            survivors.txt
+          if-no-files-found: warn
+          retention-days: 30

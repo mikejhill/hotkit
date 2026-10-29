@@ -41,7 +41,35 @@ method starting with `Test_` runs. Use `--filter=<text>` to run a subset.
 `tools/mutate.py` flips one operator at a time (`=`/`!=`, `<`/`<=`, `&&`/`||`,
 `true`/`false`, `+ 1`/`- 1`, `!`, early `return`) in a temporary copy of the
 repository and reruns the unit suite. Mutants that don't load are excluded.
-CI runs every mutant weekly and fails below 90%. Remaining survivors are equivalent
-mutants (e.g. `<` vs `<=` where both branches give the same result). Thin Win32
+The independent Mutation tests workflow runs every mutant after pushes to `main`,
+weekly, and on manual dispatch from `main`. It fails below 90%; mutation is never
+a PR, merge, release, or `tools/test.py all` gate. This is the owner's standing
+project setup preference. Existing running jobs are allowed to finish.
+
+The separate Mutation alerts workflow tracks survivors/score regressions and
+incomplete/tool failures in two deduplicated issues assigned to the repository
+owner. Each update records the tested commit, run link, scope, score, and counts.
+The owner triages within seven days: add missing assertions or document equivalent
+mutants with a reviewed rationale; repair tool failures and rerun. Do not lower
+the score floor to clear an alert. Recurrences reopen the same tracker. Only a
+complete, full-scope run with no survivors resolves the findings tracker; manual
+samples and missing, cancelled, timed-out, or incomplete runs never resolve it.
+A completed sample can demonstrate execution recovery but cannot clear findings.
+Stale runs cannot overwrite newer tracker evidence. Artifacts remain available
+for 30 days; issues retain the evidence after artifacts expire. Failed alert
+publication remains visible in the Mutation alerts Actions run and is retried
+by rerunning its failed job or by the next mutation run.
+
+Runner errors and timeouts are incomplete evidence, never killed mutants. Mutants
+that cannot load are excluded; a run with no valid mutants is incomplete.
+Survivors may be equivalent mutants (e.g. `<` vs `<=` where both branches give
+the same result), but require triage. Thin Win32
 and GUI wrappers are excluded with `; mutate: off` / `; mutate: on` comments;
 those are covered by the end-to-end suite.
+
+Reporting tests run inside the existing lint gate without mutation execution:
+
+```powershell
+python -m unittest discover -s tests/tooling -p "test_*.py"
+node --test tests/tooling/mutation_alerts.test.cjs
+```
