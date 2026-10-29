@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import json
 import os
 import queue
 import random
@@ -154,7 +155,7 @@ def run_mutant(mutant: Mutant, workdir: Path, timeout: int) -> str:
     finally:
         target.write_text(original, encoding="utf-8")
     if r.timed_out:
-        return "killed (timeout)"
+        return "error"  # a hung runner is not evidence that a test killed the mutant
     if "TAP version" not in r.out:
         if r.code == 0:
             return "error"  # no test output at all: the runner did not start
@@ -176,9 +177,24 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--list", action="store_true", help="list mutants without running them")
     parser.add_argument("--jobs", type=int, default=min(4, os.cpu_count() or 1), help="parallel test runs")
     parser.add_argument("--report", help="write surviving mutants to this file")
+    parser.add_argument("--json-report", help="write machine-readable completion and finding evidence")
     args = parser.parse_args(argv)
+    if args.max < 0 or not 0 <= args.threshold <= 100 or args.jobs < 1:
+        parser.error("max must be non-negative, threshold 0..100, and jobs positive")
+
+    evidence = {"schema": 1, "status": "incomplete", "full_scope": False,
+                "commit": os.environ.get("GITHUB_SHA"), "run_id": os.environ.get("GITHUB_RUN_ID"),
+                "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+                "reason": "The runner did not complete.", "threshold": args.threshold}
+
+    def save_evidence():
+        if args.json_report:
+            Path(args.json_report).write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+
+    save_evidence()  # setup failures must not leave an old successful report behind
 
     mutants = generate(args.file or TARGETS)
+    available = len(mutants)
     if args.max and len(mutants) > args.max:
         mutants = sorted(random.Random(args.seed).sample(mutants, args.max), key=lambda m: (m.file, m.line))
     if args.list:
@@ -193,7 +209,9 @@ def main(argv: list[str]) -> int:
             shutil.copytree(REPO, workdir, ignore=shutil.ignore_patterns(".git", "local", "__pycache__"))
             workdirs.put(workdir)
         baseline = ahk.run(Path(tmp) / "repo0" / "tests/unit/RunUnit.ahk", timeout=args.timeout)
-        if baseline.code != 0:
+        passed = re.search(r"^# (\d+)/(\d+) passed", baseline.out, re.M)
+        if (baseline.code != 0 or baseline.timed_out or "TAP version" not in baseline.out
+                or not passed or int(passed.group(1)) == 0 or passed.group(1) != passed.group(2)):
             print(baseline.out)
             print("mutation: unit tests fail before mutation; fix them first")
             return 2
@@ -209,7 +227,7 @@ def main(argv: list[str]) -> int:
             finally:
                 workdirs.put(workdir)
 
-        survivors, invalid = [], 0
+        survivors, invalid, errors = [], 0, 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
             for i, (m, outcome) in enumerate(zip(mutants, pool.map(work, mutants)), 1):
                 print(f"[{i}/{len(mutants)}] {outcome:16} {m.file}:{m.line} {m.op}", flush=True)
@@ -217,8 +235,10 @@ def main(argv: list[str]) -> int:
                     survivors.append(m)
                 elif outcome == "invalid":
                     invalid += 1
+                elif outcome != "killed":
+                    errors += 1
 
-    valid = len(mutants) - invalid
+    valid = len(mutants) - invalid - errors
     killed = valid - len(survivors)
     score = 100.0 * killed / valid if valid else 100.0
     lines = [f"  {m.file}:{m.line} {m.op}\n    - {m.original.strip()}\n    + {m.mutated.strip()}" for m in survivors]
@@ -228,6 +248,16 @@ def main(argv: list[str]) -> int:
     if args.report:
         Path(args.report).write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"\nmutation score: {score:.1f}% ({killed}/{valid} killed, {invalid} invalid, threshold {args.threshold:.0f}%)")
+    evidence.update(full_scope=not args.file and len(mutants) == available,
+                    selected=len(mutants), executed=len(mutants), available=available,
+                    killed=killed, survived=len(survivors), invalid=invalid, errors=errors,
+                    score=score, status="incomplete" if errors or not valid else
+                    "findings" if survivors or score < args.threshold else "healthy",
+                    reason="Runner errors or no valid mutants." if errors or not valid else "Completed.",
+                    survivors=[{"file": m.file, "line": m.line, "operator": m.op} for m in survivors])
+    save_evidence()
+    if errors or not valid:
+        return 2
     return 0 if score >= args.threshold else 1
 
 
