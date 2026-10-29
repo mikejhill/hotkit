@@ -27,9 +27,9 @@ function report(overrides = {}) {
 const issue = (kind, state = 'open', run = 99, attempt = 1) => ({number: 7, state,
   body: `<!-- hotkit-mutation:${kind} -->\n<!-- mutation-evidence run=${run} attempt=${attempt} -->`});
 
-test('new survivors create one assigned tracker with commit/run evidence', async () => {
+test('score below configured threshold creates one assigned tracker with commit/run evidence', async () => {
   const h = harness();
-  await publish({...h, report: report({status: 'findings', killed: 9, survived: 1, score: 90})});
+  await publish({...h, report: report({status: 'findings', killed: 8, survived: 2, score: 80})});
   assert.equal(h.calls.length, 1);
   const p = h.calls[0][1];
   assert.deepEqual(p.assignees, ['owner']);
@@ -39,7 +39,7 @@ test('new survivors create one assigned tracker with commit/run evidence', async
 });
 
 test('existing closed tracker reopens; repeated run and stale attempts do nothing', async () => {
-  const findings = report({status: 'findings', killed: 9, survived: 1, score: 90});
+  const findings = report({status: 'findings', killed: 8, survived: 2, score: 80});
   const h = harness([issue('findings', 'closed')]);
   await publish({...h, report: findings});
   assert.equal(h.calls[0][0], 'update'); assert.equal(h.calls[0][1].state, 'open');
@@ -53,7 +53,8 @@ test('existing closed tracker reopens; repeated run and stale attempts do nothin
 test('missing, malformed, cancelled, skipped, stale artifact and runner errors never close findings', async () => {
   for (const [data, conclusion] of [[null, 'failure'], [{}, 'success'], [report(), 'cancelled'],
     [report(), 'skipped'], [report({commit: 'old'}), 'success'], [report({attempt: '0'}), 'success'],
-    [report({errors: 1}), 'success'], [report({score: 99}), 'success']]) {
+    [report({errors: 1}), 'success'], [report({score: 99}), 'success'],
+    [report({threshold: undefined}), 'success'], [report({threshold: '90'}), 'success']]) {
     const h = harness([issue('findings')], {conclusion});
     await publish({...h, report: data});
     assert.equal(h.calls.length, 1);
@@ -69,7 +70,7 @@ test('healthy sample recovers execution only; full healthy run recovers both', a
   assert.match(h.calls[0][1].body, /hotkit-mutation:execution/);
   assert.equal(h.calls[0][1].state, 'closed');
   const full = harness([issue('findings'), issue('execution')]);
-  await publish({...full, report: report()});
+  await publish({...full, report: report({killed: 9, survived: 1, score: 90})});
   assert.equal(full.calls.length, 2);
   assert.ok(full.calls.every(c => c[1].state === 'closed'));
 });
@@ -90,7 +91,7 @@ test('PR, fork, nondefault and unfinished events cannot write issues', async () 
 
 test('unmarked issues and PRs are never commandeered', async () => {
   const h = harness([{number: 9, body: 'Mutation testing: survivors'}, {...issue('findings'), pull_request: {}}]);
-  await publish({...h, report: report({killed: 9, survived: 1, score: 90})});
+  await publish({...h, report: report({killed: 8, survived: 2, score: 80})});
   assert.equal(h.calls[0][0], 'create');
 });
 
@@ -104,12 +105,31 @@ test('newer completed run prevents old findings even without an existing tracker
   const h = harness();
   h.github.paginate = async fn => fn === h.github.rest.actions.listWorkflowRuns ?
     [{id: 101, event: 'push', head_repository: {full_name: 'owner/hotkit'}}] : [];
-  await publish({...h, report: report({killed: 9, survived: 1, score: 90})});
+  await publish({...h, report: report({killed: 8, survived: 2, score: 80})});
   assert.equal(h.calls.length, 0);
 });
 
 test('newer execution evidence prevents older healthy run from closing findings', async () => {
   const h = harness([issue('findings'), issue('execution', 'open', 101)]);
   await publish({...h, report: report()});
+  assert.equal(h.calls.length, 0);
+});
+
+test('survivors at equality or above threshold do not create issues and remain in summary', async () => {
+  for (const threshold of [90, 80]) {
+    const h = harness();
+    let summary = '';
+    h.core.summary.addRaw = text => {summary = text; return h.core.summary;};
+    await publish({...h, report: report({killed: 9, survived: 1, score: 90, threshold,
+      survivors: [{file: 'src/logic.ahk', line: 5, operator: 'gt->ge'}]})});
+    assert.equal(h.calls.length, 0);
+    assert.match(summary, /src\/logic.ahk:5/);
+    assert.match(summary, /healthy/);
+  }
+});
+
+test('sampled below-floor result cannot create full-scope findings', async () => {
+  const h = harness();
+  await publish({...h, report: report({killed: 8, survived: 2, score: 80, full_scope: false, available: 100})});
   assert.equal(h.calls.length, 0);
 });
