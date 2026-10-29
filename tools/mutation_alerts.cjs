@@ -11,7 +11,7 @@ function classify(report, conclusion) {
       (report.full_scope && report.selected !== report.available) ||
       !Number.isFinite(report.score) || Math.abs(report.score - 100 * report.killed / valid) > 0.001 ||
       !Number.isFinite(report.threshold) || report.threshold < 0 || report.threshold > 100) return 'incomplete';
-  const findings = report.survived > 0 || report.score < report.threshold;
+  const findings = report.score < report.threshold;
   // A completed below-floor run exits 1. A failed above-floor run is a tool/setup failure.
   if (conclusion !== 'success' && !(conclusion === 'failure' && report.score < report.threshold)) return 'incomplete';
   return findings ? 'findings' : 'healthy';
@@ -58,14 +58,14 @@ async function publish({github, context, core, report: supplied}) {
     const issue = issues.sort((a, b) => b.number - a.number)[0];
     const prior = issue?.body?.match(/<!-- mutation-evidence run=(\d+) attempt=(\d+) -->/);
     if (prior && (Number(prior[1]) > stamp || (Number(prior[1]) === stamp && Number(prior[2]) >= attempt))) continue;
-    const active = kind === 'execution' ? outcome === 'incomplete' : outcome === 'findings';
+    const active = kind === 'execution' ? outcome === 'incomplete' : outcome === 'findings' && report.full_scope;
     const recovery = kind === 'execution' ? outcome !== 'incomplete' : outcome === 'healthy' && report.full_scope;
     if (!active && (!recovery || !issue || issue.state === 'closed')) continue;
     const body = `${marker}\n<!-- mutation-evidence ${identity} -->\n${evidence}\n` +
       (survivors ? `Survivor locations (up to 30; full list in artifact):\n${survivors}\n\n` : '') +
       `Owner: @${repo.owner.login}. Triage within seven days; retain this issue until verified recovery.\n\n` +
-      (kind === 'execution' ? 'Inspect setup and runner logs, repair the failure, and rerun on the default branch. An incomplete run never clears survivor findings.\n' :
-        'Inspect the survivors artifact, add missing assertions or document equivalent mutants with a reviewed rationale. Do not lower the score floor to hide findings. Only a complete, full-scope, survivor-free default-branch run resolves this tracker.\n') +
+      (kind === 'execution' ? 'Inspect setup and runner logs, repair the failure, and rerun on the default branch. An incomplete run never clears score findings.\n' :
+        'Inspect the survivors artifact and add missing assertions. Do not lower the configured score floor to hide findings. Only a complete, full-scope default-branch run scoring at or above the required threshold resolves this tracker; closure does not imply all survivors were fixed.\n') +
       '\nMutation testing is asynchronous and must not become a PR, merge, or release gate.\n';
     if (issue) {
       await github.rest.issues.update({...params, issue_number: issue.number, body,
@@ -74,12 +74,13 @@ async function publish({github, context, core, report: supplied}) {
       core.info(`${active ? 'Updated/reopened' : 'Recovered'} ${kind} tracker #${issue.number}`);
     } else {
       const created = await github.rest.issues.create({...params,
-        title: `Mutation testing: ${kind === 'execution' ? 'run incomplete or failed' : 'survivors or score regression'}`,
+        title: `Mutation testing: ${kind === 'execution' ? 'run incomplete or failed' : 'score below required threshold'}`,
         body, assignees: [repo.owner.login]});
       core.info(`Created ${kind} tracker #${created.data.number}`);
     }
   }
-  await core.summary.addHeading('Asynchronous mutation evidence').addRaw(evidence).write();
+  await core.summary.addHeading('Asynchronous mutation evidence').addRaw(evidence +
+    (survivors ? `\nSurvivor locations (up to 30; full list in artifact):\n${survivors}\n` : '')).write();
 }
 
 module.exports = publish;

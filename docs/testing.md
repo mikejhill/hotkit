@@ -46,15 +46,20 @@ weekly, and on manual dispatch from `main`. It fails below 90%; mutation is neve
 a PR, merge, release, or `tools/test.py all` gate. This is the owner's standing
 project setup preference. Existing running jobs are allowed to finish.
 
-The separate Mutation alerts workflow tracks survivors/score regressions and
+The separate Mutation alerts workflow tracks scores below the required threshold and
 incomplete/tool failures in two deduplicated issues assigned to the repository
 owner. Each update records the tested commit, run link, scope, score, and counts.
-The owner triages within seven days: add missing assertions or document equivalent
-mutants with a reviewed rationale; repair tool failures and rerun. Do not lower
+The owner triages within seven days: add missing assertions, repair tool failures,
+and rerun. Do not lower
 the score floor to clear an alert. Recurrences reopen the same tracker. Only a
-complete, full-scope run with no survivors resolves the findings tracker; manual
+complete, full-scope run at or above the configured 90% threshold resolves the
+findings tracker. Equality passes; survivors alone never create findings issues
+on passing scores. Survivor details remain in artifacts and summaries, and closing
+a score tracker does not mean all mutants were fixed. Manual
 samples and missing, cancelled, timed-out, or incomplete runs never resolve it.
-A completed sample can demonstrate execution recovery but cannot clear findings.
+A completed sample can demonstrate execution recovery but cannot create or clear
+full-scope score findings. Missing or malformed threshold evidence raises an
+execution alert rather than inventing a threshold.
 Stale runs cannot overwrite newer tracker evidence. Artifacts remain available
 for 30 days; issues retain the evidence after artifacts expire. Failed alert
 publication remains visible in the Mutation alerts Actions run and is retried

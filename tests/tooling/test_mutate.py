@@ -45,6 +45,14 @@ class MutationEvidenceTests(unittest.TestCase):
         _, report = self.exercise(["killed"], extra=["--file", "logic.ahk"])
         self.assertFalse(report["full_scope"])
 
+    def test_survivors_at_or_above_threshold_are_healthy(self):
+        for threshold in (90, 80):
+            with self.subTest(threshold=threshold):
+                code, report = self.exercise(["killed"] * 9 + ["survived"],
+                                             extra=["--threshold", str(threshold)])
+                self.assertEqual((code, report["status"], report["score"]), (0, "healthy", 90))
+                self.assertEqual(report["survived"], 1)
+
     def test_baseline_missing_or_incomplete_tap_is_not_success(self):
         for output in ["", "TAP version 13\n# 0/0 passed", "TAP version 13\n# 1/2 passed"]:
             with self.subTest(output=output):

@@ -252,7 +252,7 @@ def main(argv: list[str]) -> int:
                     selected=len(mutants), executed=len(mutants), available=available,
                     killed=killed, survived=len(survivors), invalid=invalid, errors=errors,
                     score=score, status="incomplete" if errors or not valid else
-                    "findings" if survivors or score < args.threshold else "healthy",
+                    "findings" if score < args.threshold else "healthy",
                     reason="Runner errors or no valid mutants." if errors or not valid else "Completed.",
                     survivors=[{"file": m.file, "line": m.line, "operator": m.op} for m in survivors])
     save_evidence()
