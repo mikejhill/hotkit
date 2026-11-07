@@ -1,9 +1,10 @@
 #Requires AutoHotkey v2.0
 
 ; Plain-text record of what the running app did: each start, config problems,
-; load failures, skipped reloads and unhandled errors. Lives next to the config
-; (<config dir>\hotkit.log) so tools and editors can see errors that otherwise
-; only appear as a dialog or toast. tools/check.py prints the latest run.
+; load failures, skipped reloads and unhandled errors, in a file (Paths.LogFile(),
+; normally %LOCALAPPDATA%\hotkit\hotkit.log) so tools and editors can see errors
+; that otherwise only appear as a dialog or toast. tools/check.py prints the
+; latest run.
 ;
 ; Each line: "yyyy-MM-dd HH:mm:ss [LEVEL] message". A run starts at a "started"
 ; INFO line. The file is trimmed to its newest lines once it grows too large.
@@ -12,7 +13,7 @@ class StatusLog {
     static KeepLines := 300
     static Path := ""
 
-    static File() => StatusLog.Path != "" ? StatusLog.Path : Paths.ConfigDir() "\hotkit.log"
+    static File() => StatusLog.Path != "" ? StatusLog.Path : Paths.LogFile()
 
     static Start(configPath) {
         StatusLog.Trim()

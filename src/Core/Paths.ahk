@@ -27,6 +27,16 @@ class Paths {
     static ConfigFile() => Paths.ConfigDir() "\config.json"
     static PluginDir() => Paths.ConfigDir() "\plugins"
 
+    ; Status log. Machine-local (%LOCALAPPDATA%\hotkit) so a config directory
+    ; shared between machines (e.g. a synced folder) never has two writers.
+    ; With --config-dir (tests, one-off checks) it stays next to that config.
+    static LogFile() {
+        appData := EnvGet("LOCALAPPDATA")
+        if (Paths.Override != "" || appData = "")
+            return Paths.ConfigDir() "\hotkit.log"
+        return Paths.Normalize(appData "\" Paths.AppName "\hotkit.log")
+    }
+
     ; Repository root (parent of src\).
     static RepoRoot() => Paths.Normalize(A_LineFile "\..\..\..")
     static ExampleConfig() => Paths.RepoRoot() "\config\config.example.json"
