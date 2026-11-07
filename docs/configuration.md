@@ -78,6 +78,15 @@ are reported and the later one is skipped.
 The layer key keeps its normal function unless you disable it (as above for
 Caps Lock). `keyboard.toggleCapsLock` still toggles it on demand.
 
+`suspendWhenActive` (a WinTitle or a list of them) pauses the layer while a
+matching window is active. Use it for windows that scramble keystrokes sent to
+keyboard hooks (anti-keylogging protection in some remote-access sign-in
+windows), where a held layer key would otherwise fire bindings on random keys:
+
+```jsonc
+"layers": { "caps": { "key": "CapsLock", "suspendWhenActive": ["ahk_exe SecureLogin.exe"] } }
+```
+
 ### Groups
 
 ```jsonc
