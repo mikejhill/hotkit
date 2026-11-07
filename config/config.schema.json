@@ -46,6 +46,13 @@
           },
           "label": {
             "type": "string"
+          },
+          "suspendWhenActive": {
+            "description": "WinTitle(s) that pause the layer while active, e.g. windows that scramble keystrokes sent to keyboard hooks.",
+            "oneOf": [
+              { "type": "string", "minLength": 1 },
+              { "type": "array", "items": { "type": "string", "minLength": 1 } }
+            ]
           }
         },
         "additionalProperties": false

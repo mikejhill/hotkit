@@ -20,6 +20,7 @@ All notable changes are listed here. The format follows
 - Example plugins in `examples/plugins` (break reminder, quick note, stopwatch), loaded by the test suite.
 - `app.cycle`: switch between an app's windows (launches it if none are open).
 - `--sync-plugins`; `--check` now reports a stale plugin list instead of unknown plugin actions.
+- Layer `suspendWhenActive`: pause a layer while a matching window is active, for windows with anti-keylogging protection that feed scrambled keystrokes to keyboard hooks and would otherwise fire random layer bindings.
 
 ## [1.0.0] - 2026-10-15
 

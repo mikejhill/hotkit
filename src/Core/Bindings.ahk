@@ -60,7 +60,25 @@ class Bindings {
             return
         }
         label := (layer is Map) ? MapGet(layer, "label", key) : key
-        Bindings.layers[name] := { name: name, key: key, label: label }
+        titles := []
+        raw := (layer is Map) ? MapGet(layer, "suspendWhenActive", []) : []
+        for title in (raw is Array ? raw : [raw]) {
+            if (title is String && Trim(title) != "")
+                titles.Push(title)
+            else
+                Bindings.problems.Push("Layer '" name "': suspendWhenActive entries must be non-empty WinTitle strings.")
+        }
+        Bindings.layers[name] := { name: name, key: key, label: label, suspendWhenActive: titles }
+    }
+
+    ; True when a window listed in the layer's suspendWhenActive is active.
+    ; Some windows (anti-keylogging protection) feed scrambled keystrokes to
+    ; keyboard hooks, so layer bindings would fire on random keys there.
+    static LayerSuspended(layer) {
+        for title in layer.suspendWhenActive
+            if WinActive(title)
+                return true
+        return false
     }
 
     static DefineGroup(name, enabled := true, description := "") {
@@ -220,10 +238,11 @@ class Bindings {
             return ""
         if (Bindings._contexts.Has(id))
             return Bindings._contexts[id]
-        layerKey := spec.layer != "" ? Bindings.layers[spec.layer].key : ""
+        layer := spec.layer != "" ? Bindings.layers[spec.layer] : ""
+        layerKey := layer ? layer.key : ""
         group := spec.group
         winTitle := spec.whenActive
-        fn := (*) => (layerKey = "" || GetKeyState(layerKey, "P"))
+        fn := (*) => (layerKey = "" || (GetKeyState(layerKey, "P") && !Bindings.LayerSuspended(layer)))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
         Bindings._contexts[id] := fn
