@@ -140,6 +140,34 @@ class Bindings_Tests {
         Assert.Contains(problems[1], "NotAKey123")
     }
 
+    static Test_LayerSuspendWhenActiveAcceptsStringOrList() {
+        problems := Bindings_Tests.Load('{ "layers": {',
+            '"a": { "key": "CapsLock", "suspendWhenActive": "ahk_exe One.exe" },',
+            '"b": { "key": "F20", "suspendWhenActive": ["ahk_exe One.exe", "ahk_exe Two.exe"] },',
+            '"c": { "key": "F21" } } }')
+        Assert.Equal(0, problems.Length)
+        Assert.Equal(1, Bindings.layers["a"].suspendWhenActive.Length)
+        Assert.Equal("ahk_exe Two.exe", Bindings.layers["b"].suspendWhenActive[2])
+        Assert.Equal(0, Bindings.layers["c"].suspendWhenActive.Length)
+    }
+
+    static Test_LayerSuspendWhenActiveRejectsBadEntries() {
+        problems := Bindings_Tests.Load('{ "layers": { "a": { "key": "CapsLock", "suspendWhenActive": ["", 5, "ahk_exe One.exe"] } } }')
+        Assert.Equal(2, problems.Length)
+        Assert.Contains(problems[1], "suspendWhenActive")
+        Assert.Equal(1, Bindings.layers["a"].suspendWhenActive.Length)
+    }
+
+    static Test_LayerSuspendedOnlyWhileListedWindowActive() {
+        Bindings_Tests.Load('{ "layers": { "a": { "key": "CapsLock", "suspendWhenActive": "ahk_exe NoSuchHotkitProcess.exe" },',
+            '"b": { "key": "F20" } } }')
+        Assert.False(Bindings.LayerSuspended(Bindings.layers["a"]))
+        Assert.False(Bindings.LayerSuspended(Bindings.layers["b"]))
+        Bindings.layers["a"].suspendWhenActive.Push("A")  ; "A" = the active window
+        if WinExist("A")
+            Assert.True(Bindings.LayerSuspended(Bindings.layers["a"]))
+    }
+
     static Test_ContextsAreShared() {
         Bindings_Tests.Load('{ "layers": { "caps": { "key": "CapsLock" } }, "bindings": [',
             '{ "keys": "F20", "layer": "caps", "action": "t.a" },',
