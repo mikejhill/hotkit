@@ -14,7 +14,7 @@ All notable changes are listed here. The format follows
 - `quickWindow.toggle` failed with "Target window not found" when the app was running but its window was closed to the tray; it now runs the launch command and brings that window back.
 
 ### Added
-- `hotkit.log` in the config directory records each start, config problems, load failures, skipped reloads and unhandled errors.
+- `hotkit.log` (in `%LOCALAPPDATA%\hotkit`, so a synced config directory has no shared writer) records each start, config problems, load failures, skipped reloads and unhandled errors.
 - `tools/check.py` checks the real config and plugins, prints what the running app logged, and exits non-zero on any problem.
 - The test tools find a standard AutoHotkey v2 install when `AutoHotkey64.exe` is not on `PATH`.
 - Example plugins in `examples/plugins` (break reminder, quick note, stopwatch), loaded by the test suite.

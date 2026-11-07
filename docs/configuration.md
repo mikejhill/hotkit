@@ -38,8 +38,10 @@ runs `--check`, then prints the warnings and errors the running app logged since
 it last started. It exits non-zero when either has a problem.
 
 The running app records each start, config problems, load failures, skipped
-reloads and unhandled script errors in `hotkit.log` in the config directory, so
-anything shown as a dialog or toast can also be read afterwards.
+reloads and unhandled script errors in `%LOCALAPPDATA%\hotkit\hotkit.log`, so
+anything shown as a dialog or toast can also be read afterwards. The log is
+kept out of the config directory so that directory can be synced between
+machines (with `--config-dir`, the log stays next to that config instead).
 
 hotkit refuses to start when it inherits an app package's virtualized profile
 (for example when launched from a shell inside a packaged desktop app). In that

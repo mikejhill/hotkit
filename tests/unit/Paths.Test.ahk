@@ -24,6 +24,22 @@ class Paths_Tests {
         Assert.Equal("E:\over", Paths.ConfigDir())
     }
 
+    static Test_LogFileIsMachineLocalUnlessOverridden() {
+        original := EnvGet("LOCALAPPDATA")
+        try {
+            EnvSet("HOTKIT_CONFIG_DIR", "D:\cfg")
+            EnvSet("LOCALAPPDATA", "C:\local")
+            Assert.Equal("C:\local\hotkit\hotkit.log", Paths.LogFile())
+            EnvSet("LOCALAPPDATA", "")
+            Assert.Equal("D:\cfg\hotkit.log", Paths.LogFile(), "falls back to the config dir")
+            EnvSet("LOCALAPPDATA", "C:\local")
+            Paths.Override := "E:\over"
+            Assert.Equal("E:\over\hotkit.log", Paths.LogFile(), "--config-dir keeps the log beside that config")
+        } finally {
+            EnvSet("LOCALAPPDATA", original)
+        }
+    }
+
     static Test_ExpandEnvironmentAndTilde() {
         EnvSet("AHK_TEST_VAR", "value")
         Assert.Equal("a\value\b", Paths.Expand("a\%AHK_TEST_VAR%\b"))

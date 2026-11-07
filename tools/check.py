@@ -6,7 +6,7 @@
   python tools/check.py --no-log           skip the running app's status log
 
 Prints the --check report, then any WARN/ERROR lines from the latest run in
-<config dir>\\hotkit.log (load failures, skipped reloads, unhandled errors that
+%LOCALAPPDATA%\\hotkit\\hotkit.log (load failures, skipped reloads, unhandled errors that
 the running app showed as a dialog or toast). Exit status: the --check code
 (0 ok, 1 problems, 2 config not loadable, 3 script error), or 4 when the check
 passed but the latest run logged a WARN or ERROR (e.g. a module that failed to
@@ -50,6 +50,13 @@ def config_dir() -> Path:
     return Path(home()) / ".config" / "hotkit"
 
 
+def log_file() -> Path:
+    """Mirrors Paths.LogFile() without the --config-dir override."""
+    if os.environ.get("LOCALAPPDATA"):
+        return Path(os.environ["LOCALAPPDATA"]) / "hotkit" / "hotkit.log"
+    return config_dir() / "hotkit.log"
+
+
 def latest_run(log: Path) -> list[str]:
     """Lines of the newest run (from its last 'started' line on)."""
     if not log.is_file():
@@ -81,7 +88,7 @@ def main(argv: list[str]) -> int:
     code = check.code
 
     if not args.no_log:
-        log = config_dir() / "hotkit.log"
+        log = log_file()
         run = latest_run(log)
         notable = [line for line in run if "[WARN]" in line or "[ERROR]" in line]
         if run:
