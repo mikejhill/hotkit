@@ -21,8 +21,10 @@ for arg in A_Args {
 #Include %A_ScriptDir%\Lib\Debugger.ahk
 #Include %A_ScriptDir%\Lib\Toast.ahk
 #Include %A_ScriptDir%\Lib\JSON.ahk
+#Include %A_ScriptDir%\Lib\PackageVirtualization.ahk
 
 #Include %A_ScriptDir%\Core\Paths.ahk
+#Include %A_ScriptDir%\Core\StatusLog.ahk
 #Include %A_ScriptDir%\Core\Config.ahk
 #Include %A_ScriptDir%\Lib\HotkeyText.ahk
 #Include %A_ScriptDir%\Core\ActionRegistry.ahk

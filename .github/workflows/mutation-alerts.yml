@@ -1,0 +1,46 @@
+name: Mutation alerts
+
+# Only trusted default-branch runs can publish issues. Never run PR code with this token.
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- same-repo default-branch allowlist; trusted checkout; artifact JSON only
+    workflows: [Mutation tests]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: mutation-alerts
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event.workflow_run.event)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Download result data (never execute artifact contents)
+        id: evidence
+        continue-on-error: true
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: mutation-evidence
+          path: mutation-evidence
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Publish or recover durable trackers
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const publish = require('./tools/mutation_alerts.cjs');
+            await publish({github, context, core});

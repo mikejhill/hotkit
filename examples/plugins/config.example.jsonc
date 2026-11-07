@@ -1,0 +1,21 @@
+// Settings and bindings for the example plugins. Merge these sections into
+// your own config.json (tray menu > Edit Config); keys (Ctrl+Win+Alt+letter)
+// are only suggestions.
+{
+  "plugins": {
+    "breakReminder": { "intervalMinutes": 50, "message": "Time for a break: stand up and stretch" },
+    "quickNote": { "file": "~\\Documents\\notes.txt", "timestampFormat": "yyyy-MM-dd HH:mm" },
+    "stopwatch": { "showLaps": 3 }
+  },
+  "bindings": [
+    { "keys": "^#!b", "action": "breakReminder.status", "description": "Time until next break" },
+    { "keys": "^#!p", "action": "breakReminder.togglePause", "description": "Pause/resume break reminders" },
+
+    { "keys": "^#!n", "action": "quickNote.add", "description": "Add a note" },
+    { "keys": "^#!o", "action": "quickNote.open", "description": "Open notes" },
+
+    { "keys": "^#!s", "action": "stopwatch.toggle", "description": "Start/pause stopwatch" },
+    { "keys": "^#!l", "action": "stopwatch.lap", "description": "Stopwatch lap" },
+    { "keys": "^#!r", "action": "stopwatch.reset", "description": "Reset stopwatch" }
+  ]
+}

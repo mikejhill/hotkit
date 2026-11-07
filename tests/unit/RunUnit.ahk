@@ -13,6 +13,7 @@
 #Include %A_ScriptDir%\..\..\src\Lib\HotkeyText.ahk
 #Include %A_ScriptDir%\..\..\src\Lib\AppUtil.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Paths.ahk
+#Include %A_ScriptDir%\..\..\src\Core\StatusLog.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Config.ahk
 #Include %A_ScriptDir%\..\..\src\Core\ActionRegistry.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Bindings.ahk
@@ -23,16 +24,21 @@
 #Include %A_ScriptDir%\..\..\src\Modules\Windows.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\Desktop.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\Display.ahk
+#Include %A_ScriptDir%\..\..\examples\plugins\BreakReminder\BreakSchedule.ahk
+#Include %A_ScriptDir%\..\..\examples\plugins\QuickNote\NoteFormat.ahk
+#Include %A_ScriptDir%\..\..\examples\plugins\Stopwatch\StopwatchClock.ahk
 
 #Include %A_ScriptDir%\ActionRegistry.Test.ahk
 #Include %A_ScriptDir%\Bindings.Test.ahk
 #Include %A_ScriptDir%\Config.Test.ahk
 #Include %A_ScriptDir%\DisplayMath.Test.ahk
+#Include %A_ScriptDir%\ExamplePlugins.Test.ahk
 #Include %A_ScriptDir%\HotkeyText.Test.ahk
 #Include %A_ScriptDir%\JSON.Test.ahk
 #Include %A_ScriptDir%\Modules.Test.ahk
 #Include %A_ScriptDir%\Paths.Test.ahk
 #Include %A_ScriptDir%\Plugins.Test.ahk
+#Include %A_ScriptDir%\StatusLog.Test.ahk
 #Include %A_ScriptDir%\WindowMatcher.Test.ahk
 
 TestRunner.Run()

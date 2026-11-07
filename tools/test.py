@@ -78,7 +78,59 @@ def stage_integration() -> bool:
                 print("  " + "\n  ".join(problems))
                 print("  output:\n    " + r.out.replace("\n", "\n    "))
         ok = check_actions_doc(empty_dir) and ok
+    ok = check_example_plugins() and ok
     return check_plugin_sync() and ok
+
+
+EXAMPLE_ACTIONS = {
+    "breakReminder.now", "breakReminder.togglePause", "breakReminder.status",
+    "quickNote.add", "quickNote.open",
+    "stopwatch.toggle", "stopwatch.lap", "stopwatch.reset", "stopwatch.show",
+}
+
+
+def check_example_plugins() -> bool:
+    """examples/plugins load as a user's plugins, with the example config and with bad settings."""
+    import shutil
+
+    stub = REPO / "local" / "plugins.generated.ahk"
+    backup = stub.read_bytes() if stub.exists() else None
+    example_config = REPO / "examples/plugins/config.example.jsonc"
+    ok = True
+    try:
+        with tempfile.TemporaryDirectory() as cfg_dir:
+            shutil.copytree(REPO / "examples/plugins", Path(cfg_dir) / "plugins")
+            bad_config = Path(cfg_dir) / "bad.json"
+            bad_config.write_text('{ "plugins": { "breakReminder": { "intervalMinutes": 0 } } }', encoding="utf-8")
+            base = ["--config-dir", ahk.to_ahk_path(cfg_dir), "--config"]
+            steps = [
+                ("sync", ["--sync-plugins", *base, ahk.to_ahk_path(example_config)], 0, "plugins: 3"),
+                ("check", ["--check", *base, ahk.to_ahk_path(example_config)], 0, "OK"),
+                ("bad settings", ["--check", *base, ahk.to_ahk_path(bad_config)], 1,
+                 "plugin 'breakReminder': intervalMinutes must be a positive number"),
+            ]
+            for name, args, code, needle in steps:
+                r = ahk.run(MAIN, *args)
+                good = r.code == code and needle in r.out
+                print(f"integration example plugins {name}: {'ok' if good else 'FAIL'}")
+                if not good:
+                    ok = False
+                    print("  output:\n    " + r.out.replace("\n", "\n    "))
+            r = ahk.run(MAIN, "--list-actions", *base, ahk.to_ahk_path(example_config))
+            found = set()
+            if r.code == 0 and "[" in r.out:
+                found = {a["id"] for a in json.loads(r.out[r.out.index("["):]) if a["module"].startswith("plugin:")}
+            missing = EXAMPLE_ACTIONS - found
+            print(f"integration example plugins actions: {'ok' if not missing else 'FAIL'}")
+            if missing:
+                ok = False
+                print("  missing: " + ", ".join(sorted(missing)) + "\n  output:\n    " + r.out.replace("\n", "\n    "))
+    finally:
+        if backup is None:
+            stub.unlink(missing_ok=True)
+        else:
+            stub.write_bytes(backup)
+    return ok
 
 
 def check_plugin_sync() -> bool:

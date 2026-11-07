@@ -24,7 +24,9 @@ class App {
     static _explicitConfig := ""
     static _syncPlugins := true
     static _watchStamp := ""
+    static _pendingStamp := ""
     static _exitAfter := 0
+    static _allowVirtualized := false
     static _args := []
 
     ; ---------------- Plugin API                    ------------------------------
@@ -46,6 +48,18 @@ class App {
     static Main(args := unset) {
         App._args := IsSet(args) ? args : []
         App.ParseArgs(App._args)
+        if (App.Mode = "run") {
+            OnError((err, mode) => StatusLog.OnError(err, mode))
+            StatusLog.Start(App._explicitConfig != "" ? Paths.Normalize(App._explicitConfig) : Paths.ConfigFile())
+        }
+        if (App.Mode = "run" && !App._allowVirtualized) {
+            package := PackageVirtualization.RedirectingPackage()
+            if (package != "")
+                return App.Fail("hotkit was started inside the " package " app package, which keeps its own "
+                    "private copy of the registry and AppData. Settings hotkit changes (tray icons, light/dark theme) "
+                    "would not reach Windows.`n`nStart hotkit from Explorer, the Start menu or a "
+                    "normal terminal, or pass --allow-virtualized to run anyway.")
+        }
         if (App.Mode = "run" && App._syncPlugins && Plugins.Sync()) {
             ; The plugin set changed; restart so the new #Include stub takes effect.
             return App.Restart()
@@ -93,6 +107,8 @@ class App {
                     Paths.Override := args[++i]
                 case "--exit-after":
                     App._exitAfter := Integer(args[++i])
+                case "--allow-virtualized":
+                    App._allowVirtualized := true
                 default:
                     App.Problems.Push("Unknown argument: " arg)
             }
@@ -179,9 +195,12 @@ class App {
         if (Bindings.problems.Length) {
             Toast.ShowToast({ color: "FFB000", fadeDelay: 6000 }, "Config problems: " Bindings.problems.Length,
                 "Tray › Show Config Problems")
-            for p in Bindings.problems
+            for p in Bindings.problems {
                 Debugger.Log(p, "WARN")
+                StatusLog.Warn("problem: " p)
+            }
         }
+        StatusLog.Info("ready, " Bindings.problems.Length " problem(s)")
     }
 
     static RegisterCoreActions() {
@@ -243,7 +262,10 @@ class App {
         MsgBox(text = "" ? "No problems found." : text, "hotkit: config problems", "Icon!")
     }
 
-    ; Reloads when config.json or the plugin folder changes.
+    ; Reloads when config.json or the plugin folder changes. A change is applied
+    ; only after it has stayed the same for one poll (so a save in progress is
+    ; not read half-written) and config.json still parses; otherwise the running
+    ; config is kept and the error goes to a toast and the status log.
     static WatchConfig() {
         App._watchStamp := App._Stamp()
         SetTimer(() => App._CheckWatch(), 2000)
@@ -251,16 +273,31 @@ class App {
 
     static _CheckWatch() {
         stamp := App._Stamp()
-        if (stamp != App._watchStamp) {
-            App._watchStamp := stamp
-            App.Restart()
+        if (stamp = App._watchStamp) {
+            App._pendingStamp := ""
+            return
         }
+        if (stamp != App._pendingStamp) {
+            App._pendingStamp := stamp
+            return
+        }
+        App._pendingStamp := ""
+        App._watchStamp := stamp
+        try {
+            Config.FromFile(App.ConfigPath)
+        } catch as e {
+            StatusLog.Error("config change not applied, keeping the running config: " e.Message)
+            Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Config not reloaded:", e.Message)
+            return
+        }
+        StatusLog.Info("config changed, restarting")
+        App.Restart()
     }
 
     static _Stamp() {
-        stamp := FileExist(App.ConfigPath) ? FileGetTime(App.ConfigPath, "M") : ""
+        stamp := FileExist(App.ConfigPath) ? FileGetTime(App.ConfigPath, "M") ":" FileGetSize(App.ConfigPath) : ""
         for f in Plugins.Discover()
-            stamp .= "|" f ":" FileGetTime(f, "M")
+            stamp .= "|" f ":" FileGetTime(f, "M") ":" FileGetSize(f)
         return stamp
     }
 
@@ -287,8 +324,10 @@ class App {
     }
 
     static Fail(message) {
-        if (App.Mode = "run")
+        if (App.Mode = "run") {
+            StatusLog.Error(message)
             MsgBox(message, "hotkit", "IconX")
+        }
         else
             App.Print("error: " message "`n")
         ExitApp(2)
