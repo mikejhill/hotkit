@@ -163,6 +163,22 @@ class Modules_Tests {
         Assert.Equal(0, DesktopModule.TaskbarHoldKeys([], isDown).Length)
     }
 
+    static Test_TaskbarTriggerKeysUseTheBindingsLayer() {
+        layers := Map("caps", { key: "CapsLock" }, "tab", { key: "Tab" })
+        specs := [
+            { keys: "1", action: "taskbar.activate", layer: "caps" },
+            { keys: "1", action: "app.toggle", layer: "tab" },
+            { keys: "2", action: "taskbar.activate", layer: "tab" },
+            { keys: "F1", action: "taskbar.activate", layer: "" },
+            { keys: "1", kind: "gestures", layer: "tab" },
+        ]
+        keys := DesktopModule.TaskbarTriggerKeys(specs, layers, "1")
+        Assert.Equal(1, keys.Length)
+        Assert.Equal("CapsLock", keys[1])
+        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, layers, "F1").Length)
+        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, layers, "3").Length)
+    }
+
     static Test_TaskbarRepeatKey() {
         Assert.Equal("1", DesktopModule.TaskbarRepeatKey("1"))
         Assert.Equal("N", DesktopModule.TaskbarRepeatKey("<^+N"))

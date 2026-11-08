@@ -127,7 +127,7 @@ class DesktopModule {
         ; digits (AZERTY) don't turn this into Win+Shift+<n> (new instance).
         key := "{vk3" digit "}"
         if (DesktopModule._TaskbarHold) {
-            Send("{Blind}" key)
+            Send("{Blind^!+}" key)
             return
         }
         if (DesktopModule.ForegroundIsFullScreen()) {
@@ -139,7 +139,8 @@ class DesktopModule {
                 return Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Taskbar:", "Could not move focus off the full-screen window")
         }
         isDown := (k) => GetKeyState(k, "P")
-        held := DesktopModule.TaskbarHoldKeys(DesktopModule.TaskbarTriggerKeys(), isDown)
+        held := DesktopModule.TaskbarHoldKeys(
+            DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.layers, A_ThisHotkey), isDown)
         ; Held modifiers would leak into a held Win (Win+Shift+<n> starts a new
         ; instance), so they get the plain press, which releases them for it.
         if (!held.Length || DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt", "Shift"], isDown).Length) {
@@ -155,7 +156,8 @@ class DesktopModule {
         Send("{Blind}{LWin down}" key)
         if (repeat != "") {
             HotIf(DesktopModule._TaskbarHoldContext)
-            Hotkey("*" repeat, (*) => Send("{Blind}" key), "On")
+            ; Win stays held; Ctrl/Alt/Shift are lifted for the key, as on the first press.
+            Hotkey("*" repeat, (*) => Send("{Blind^!+}" key), "On")
             HotIf()
         }
         SetTimer(DesktopModule._TaskbarPoll, 30)
@@ -195,12 +197,15 @@ class DesktopModule {
         return base
     }
 
-    ; Keys that may have triggered the action: every layer key. Modifiers are
-    ; left out; holding Win with them would change the shortcut.
-    static TaskbarTriggerKeys() {
+    ; Pure: the layer keys of the taskbar.activate bindings registered on
+    ; hotkey; empty for bindings outside a layer.
+    static TaskbarTriggerKeys(specs, layers, hotkey) {
         keys := []
-        for _, layer in Bindings.layers
-            keys.Push(layer.key)
+        for spec in specs {
+            if (spec.HasOwnProp("action") && spec.action = "taskbar.activate" && spec.keys = hotkey
+                && spec.layer != "" && layers.Has(spec.layer))
+                keys.Push(layers[spec.layer].key)
+        }
         return keys
     }
 
