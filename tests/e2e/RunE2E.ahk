@@ -200,7 +200,9 @@ class E2E_Tests {
     }
 
     ; Z-order keys restack the active window but never take focus from it.
-    ; Fixture windows A and B overlap; "other" overlaps B but not A.
+    ; The test arranges the fixture windows itself: A and B overlap, "other"
+    ; overlaps neither. Other desktop windows may sit anywhere in the stack, so
+    ; each step starts from an order where the fixture windows are adjacent.
     static Test_05e_ZOrderKeepsFocus() {
         a := "hotkit-e2e-win A", b := "hotkit-e2e-win B", other := "hotkit-e2e-other"
         if (!WinExist(a) || !WinExist(b) || !WinExist(other)) {
@@ -210,23 +212,41 @@ class E2E_Tests {
         for title in [a, b, other]
             Assert.True(WinWait(title, , 10), title " did not open")
         hwndA := WinExist(a), hwndB := WinExist(b), hwndO := WinExist(other)
-        for hwnd in [hwndO, hwndB, hwndA]
-            WinMoveTop(hwnd)
-        WinActivate(hwndA)
-        WinWaitActive(hwndA, , 5)
-        Sleep(300)
-        order := () => E2E_Tests.StackOrder([hwndA, hwndB, hwndO])
+        WinMove(100, 100, 300, 200, hwndA)
+        WinMove(300, 150, 300, 200, hwndB)
+        WinMove(800, 100, 200, 200, hwndO)
+        handles := [hwndA, hwndB, hwndO]
+        order := () => E2E_Tests.StackOrder(handles)
+        arrange(letters) {
+            byName := Map("A", hwndA, "B", hwndB, "O", hwndO)
+            prev := 0
+            for name in StrSplit(letters) {
+                hwnd := byName[name]
+                if (!prev)
+                    WinMoveTop(hwnd)
+                else
+                    DllCall("user32\SetWindowPos", "ptr", hwnd, "ptr", prev, "int", 0, "int", 0,
+                        "int", 0, "int", 0, "uint", 0x13)
+                prev := hwnd
+            }
+            if (WinExist("A") != hwndA) {
+                WinActivate(hwndA)
+                WinWaitActive(hwndA, , 5)
+            }
+            Sleep(300)
+            Assert.Equal(letters, order(), "arrange " letters)
+        }
         step(hk, expected, msg) {
             E2E_Tests.Press(hk)
             Sleep(500)
             Assert.Equal(expected, order(), msg)
             Assert.Equal(hwndA, WinExist("A"), msg ": focus must stay on the window")
         }
-        Assert.Equal("ABO", order(), "setup")
+        arrange("ABO")
         step(">^>!F11", "BAO", "send backward steps behind the overlapping window")
-        step(">^>!F10", "BOA", "send to back goes behind every window")
+        arrange("BOA")
         step(">^>!F9", "ABO", "bring forward skips windows that do not overlap")
-        step(">^>!F10", "BOA", "send to back again")
+        step(">^>!F10", "BOA", "send to back goes behind every window")
         step(">^>!F8", "ABO", "bring to front")
     }
 
