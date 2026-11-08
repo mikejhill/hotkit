@@ -299,13 +299,28 @@ class E2E_Tests {
             pos := Map()
             for i, hwnd in WinGetList()
                 pos[hwnd] := i
-            Assert.True(pos[dialog.Hwnd] > pos[hwndA], "dialog should step behind the window it overlaps")
+            Assert.True(pos[dialog.Hwnd] > pos[hwndA], "dialog should step behind the window it overlaps: "
+                E2E_Tests.DescribeStack())
             Assert.True(pos[dialog.Hwnd] < pos[main.Hwnd], "dialog stays above its owner")
             Assert.Equal(dialog.Hwnd, WinExist("A"), "dialog keeps focus")
         } finally {
             dialog.Destroy()
             main.Destroy()
         }
+    }
+
+    ; Visible top-level windows front to back, for failure messages.
+    static DescribeStack() {
+        out := ""
+        for hwnd in WinGetList() {
+            try {
+                WinGetPos(&x, &y, &w, &h, hwnd)
+                out .= "`n    " Format("0x{:X}", hwnd) " " WinGetClass(hwnd) " '" SubStr(WinGetTitle(hwnd), 1, 30) "' "
+                    x "," y " " w "x" h " ex=" Format("0x{:X}", WinGetExStyle(hwnd))
+                    " owner=" Format("0x{:X}", DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr"))
+            }
+        }
+        return out
     }
 
     ; Letters A/B/O for the given windows, front to back.
