@@ -151,8 +151,9 @@ class Modules_Tests {
     }
 
     static Test_TaskbarHoldKeys() {
-        down := Map("CapsLock", true, "Shift", true)
+        down := Map()
         down.CaseSense := "Off"
+        down["CapsLock"] := true, down["Shift"] := true
         isDown := (k) => down.Has(k)
         held := DesktopModule.TaskbarHoldKeys(["CapsLock", "capslock", "", "Ctrl", "Shift"], isDown)
         Assert.Equal(2, held.Length)
