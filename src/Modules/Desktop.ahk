@@ -113,9 +113,13 @@ class DesktopModule {
     ; Bound on a layer, Win stays down while the layer key (e.g. CapsLock) is
     ; held, as if Win itself were held: repeated presses step through an app's
     ; windows, and Windows switches to the selected one when the layer key is
-    ; released. Outside a layer it is a single Win+<n> press.
+    ; released. Outside a layer, or with Ctrl/Alt/Shift held, it is a single
+    ; Win+<n> press. While Win is held, the triggering key repeats through a
+    ; temporary wildcard hotkey (plain bindings don't match with Win down);
+    ; other keys reach Windows as Win+<key>, as when Win itself is held.
     static _TaskbarHold := ""
     static _TaskbarReleaseRegistered := false
+    static _TaskbarHoldContext := (*) => !!DesktopModule._TaskbarHold
 
     static ActivateTaskbarItem(n) {
         digit := DesktopModule.TaskbarDigit(n)
@@ -134,8 +138,11 @@ class DesktopModule {
             if (!WinWaitActive(hwnd, , 0.5))
                 return Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Taskbar:", "Could not move focus off the full-screen window")
         }
-        held := DesktopModule.TaskbarHoldKeys(DesktopModule.TaskbarTriggerKeys(), (k) => GetKeyState(k, "P"))
-        if (!held.Length) {
+        isDown := (k) => GetKeyState(k, "P")
+        held := DesktopModule.TaskbarHoldKeys(DesktopModule.TaskbarTriggerKeys(), isDown)
+        ; Held modifiers would leak into a held Win (Win+Shift+<n> starts a new
+        ; instance), so they get the plain press, which releases them for it.
+        if (!held.Length || DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt", "Shift"], isDown).Length) {
             Send("#" key)
             return
         }
@@ -143,8 +150,14 @@ class DesktopModule {
             OnExit((*) => DesktopModule.ReleaseTaskbarHold())
             DesktopModule._TaskbarReleaseRegistered := true
         }
-        DesktopModule._TaskbarHold := { keys: held, started: A_TickCount }
+        repeat := DesktopModule.TaskbarRepeatKey(A_ThisHotkey)
+        DesktopModule._TaskbarHold := { keys: held, started: A_TickCount, repeat: repeat }
         Send("{Blind}{LWin down}" key)
+        if (repeat != "") {
+            HotIf(DesktopModule._TaskbarHoldContext)
+            Hotkey("*" repeat, (*) => Send("{Blind}" key), "On")
+            HotIf()
+        }
         SetTimer(DesktopModule._TaskbarPoll, 30)
     }
 
@@ -163,8 +176,23 @@ class DesktopModule {
         SetTimer(DesktopModule._TaskbarPoll, 0)
         if (!DesktopModule._TaskbarHold)
             return
+        repeat := DesktopModule._TaskbarHold.repeat
         DesktopModule._TaskbarHold := ""
+        if (repeat != "") {
+            HotIf(DesktopModule._TaskbarHoldContext)
+            try Hotkey("*" repeat, "Off")
+            HotIf()
+        }
         Send("{Blind}{LWin up}")
+    }
+
+    ; Pure: the plain key of the hotkey that ran the action, for repeating it
+    ; while Win is held; "" for combinations, release hotkeys, or none.
+    static TaskbarRepeatKey(hotkey) {
+        base := RegExReplace(hotkey, "^[~*$#!^+<>]+")
+        if (base = "" || InStr(base, " "))
+            return ""
+        return base
     }
 
     ; Keys that may have triggered the action: every layer key. Modifiers are

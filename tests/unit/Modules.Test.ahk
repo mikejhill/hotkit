@@ -163,6 +163,15 @@ class Modules_Tests {
         Assert.Equal(0, DesktopModule.TaskbarHoldKeys([], isDown).Length)
     }
 
+    static Test_TaskbarRepeatKey() {
+        Assert.Equal("1", DesktopModule.TaskbarRepeatKey("1"))
+        Assert.Equal("N", DesktopModule.TaskbarRepeatKey("<^+N"))
+        Assert.Equal("F13", DesktopModule.TaskbarRepeatKey("~*$F13"))
+        Assert.Equal("", DesktopModule.TaskbarRepeatKey("LShift & Volume_Up"))
+        Assert.Equal("", DesktopModule.TaskbarRepeatKey("1 Up"))
+        Assert.Equal("", DesktopModule.TaskbarRepeatKey(""))
+    }
+
     static Test_FullScreenDetection() {
         mon := { left: 0, top: 0, right: 1920, bottom: 1080 }
         full := { left: 0, top: 0, right: 1920, bottom: 1080 }
