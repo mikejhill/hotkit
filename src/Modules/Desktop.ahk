@@ -39,6 +39,8 @@ class DesktopModule {
         reg("keyboard.toggleNumLock", (*) => DesktopModule.ToggleLock("NumLock"), "Toggle Num Lock (even when forced on)")
 
         reg("trayIcons.showAll", (*) => DesktopModule.ShowAllTrayIcons(), "Promote every tray icon to the visible area")
+        reg("desktop.focus", (*) => DesktopModule.FocusDesktop(),
+            "Focus the desktop without minimizing windows, so system shortcuts reach Windows")
         reg("powerToys.toggleAwake", (*) => DesktopModule.TogglePowerToysAwake(),
             "Toggle PowerToys Awake between indefinite and off")
     }
@@ -85,6 +87,45 @@ class DesktopModule {
             SetCapsLockState(state)
         else
             SetNumLockState(state)
+    }
+
+    ; Gives keyboard focus to the desktop without minimizing, hiding, or moving
+    ; any window, so system-wide shortcuts (Win+<key>, Alt+Tab, ...) reach the
+    ; shell even while a full-screen app is capturing them.
+    static FocusDesktop() {
+        hwnd := DesktopModule.PickDesktopHost(DesktopModule.DesktopCandidates())
+        if (!hwnd)
+            return Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Focus Desktop:", "Desktop window not found")
+        WinActivate(hwnd)
+        ; Focus the icon view so keyboard input lands on the desktop itself.
+        try ControlFocus("SysListView321", hwnd)
+    }
+
+    ; Snapshot of the top-level windows that can host the desktop icons. The
+    ; icon view (SHELLDLL_DefView) lives under Progman, or under a WorkerW once
+    ; a wallpaper slideshow or animation has been started.
+    static DesktopCandidates() {
+        out := []
+        for cls in ["Progman", "WorkerW"] {
+            for hwnd in WinGetList("ahk_class " cls) {
+                defView := DllCall("FindWindowExW", "Ptr", hwnd, "Ptr", 0, "Str", "SHELLDLL_DefView", "Ptr", 0, "Ptr")
+                out.Push({ hwnd: hwnd, cls: cls, hasDefView: defView != 0 })
+            }
+        }
+        return out
+    }
+
+    ; Pure: the window hosting the icon view wins; otherwise Progman; otherwise 0.
+    static PickDesktopHost(candidates) {
+        for c in candidates {
+            if (c.hasDefView)
+                return c.hwnd
+        }
+        for c in candidates {
+            if (c.cls = "Progman")
+                return c.hwnd
+        }
+        return 0
     }
 
     ; Windows 11 hides new tray icons; mark them all as promoted.

@@ -38,6 +38,7 @@ pass `args` as a JSON array in the order listed under **Arguments**
 
 | Action | Arguments | Description |
 | --- | --- | --- |
+| `desktop.focus` |  | Focus the desktop without minimizing windows, so system shortcuts reach Windows |
 | `keyboard.toggleCapsLock` |  | Toggle Caps Lock (even when forced off) |
 | `keyboard.toggleNumLock` |  | Toggle Num Lock (even when forced on) |
 | `media.next` |  | Next track |
