@@ -116,12 +116,16 @@ class DesktopModule {
             hwnd := DesktopModule.FocusDesktop()
             if (!hwnd)
                 return
-            WinWaitActive(hwnd, , 0.5)
+            ; If the app keeps focus, Win+<n> would go to it instead of Windows.
+            if (!WinWaitActive(hwnd, , 0.5))
+                return Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Taskbar:", "Could not move focus off the full-screen window")
         }
-        Send("#" digit)
+        ; Virtual key of the number-row key, so layouts that need Shift for
+        ; digits (AZERTY) don't turn this into Win+Shift+<n> (new instance).
+        Send("#{vk3" digit "}")
     }
 
-    ; Pure: the number key for taskbar slot n (1-9, then 10 or 0 for "0").
+    ; Pure: the number-row digit for taskbar slot n (1-9, then 10 or 0 for "0").
     static TaskbarDigit(n) {
         if (IsInteger(n)) {
             n := Integer(n)
