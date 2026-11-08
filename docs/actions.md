@@ -100,8 +100,8 @@ pass `args` as a JSON array in the order listed under **Arguments**
 | `window.activateLast` | [winTitle] | Activate the most recent other window (optionally matching a WinTitle) |
 | `window.bringForward` |  | Bring the active window in front of the next window it overlaps |
 | `window.bringToFront` |  | Bring the active window in front of all other windows |
-| `window.cycleNext` |  | Focus the next window down, like Alt+Tab (window.cyclePrevious goes back) |
-| `window.cyclePrevious` |  | Focus the previous window (undoes window.cycleNext) |
+| `window.cycleNext` |  | Focus the next window, like Alt+Tab; on a layer, repeat while holding its key |
+| `window.cyclePrevious` |  | Focus the previous window, like Shift+Alt+Tab; on a layer, repeat while holding its key |
 | `window.focusNext` |  | Focus the next window in z-order |
 | `window.sendBackward` |  | Send the active window behind the next window it overlaps (keeps focus) |
 | `window.sendToBack` |  | Send the active window behind all other windows (keeps focus) |

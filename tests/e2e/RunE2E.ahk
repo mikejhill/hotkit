@@ -307,16 +307,29 @@ class E2E_Tests {
             main.Destroy()
         }
 
-        ; Cycling focus moves down the stack and back, like Alt+Tab.
+        ; Outside a layer each cycle press is its own session, so two presses
+        ; toggle between the top two windows, like tapping Alt+Tab.
         arrange("ABO")
         E2E_Tests.Press(">^>!F7")
         Assert.True(WinWaitActive("ahk_id " hwndB, , 3), "cycle next focuses the window under A")
         Sleep(300)
-        Assert.Equal("BOA", order(), "cycle next sends A to the back")
-        E2E_Tests.Press(">^>!F6")
-        Assert.True(WinWaitActive("ahk_id " hwndA, , 3), "cycle previous returns to A")
+        Assert.Equal("BAO", order(), "only the selected window moves")
+        E2E_Tests.Press(">^>!F7")
+        Assert.True(WinWaitActive("ahk_id " hwndA, , 3), "a second press toggles back to A")
         Sleep(300)
-        Assert.Equal("ABO", order(), "cycling back restores the order")
+        Assert.Equal("ABO", order(), "toggling back restores the order")
+
+        ; A held-key session keeps the snapshot: each step raises only the
+        ; selection and puts the previous one back in place.
+        arrange("ABO")
+        session := WindowUtil.CycleSnapshot()
+        steps := [["next", hwndB, "BAO"], ["next", hwndO, "OAB"], ["previous", hwndB, "BAO"], ["previous", hwndA, "ABO"]]
+        for st in steps {
+            WindowUtil.CycleStep(session, st[1])
+            Assert.True(WinWaitActive("ahk_id " st[2], , 3), "session " st[1] " " A_Index " focus")
+            Sleep(300)
+            Assert.Equal(st[3], order(), "session " st[1] " " A_Index " order")
+        }
 
         ; From A's modal-style owned dialog, next leaves the app instead of
         ; landing on A (whose dialog would take focus right back).
@@ -411,6 +424,7 @@ class E2E_Tests {
 }
 
 #Include %A_ScriptDir%\..\..\src\Lib\HotkeyText.ahk
+#Include %A_ScriptDir%\..\..\src\Lib\WindowUtil.ahk
 
 OnExit((*) => E2E_Tests.Cleanup())
 TestRunner.Add(E2E_Tests)
