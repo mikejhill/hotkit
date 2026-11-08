@@ -119,6 +119,11 @@ class Modules_Tests {
         Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F7")))
         Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F1")), "gesture tap")
         Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F2")), "other gesture")
+        layers["nav"] := { key: "Tab" }
+        both := [{ keys: "[", action: "window.cycleNext", layer: "caps" }, { keys: "[", action: "window.cycleNext", layer: "nav" }]
+        onlyNav := (spec) => spec.layer = "nav"
+        Assert.Equal("Tab", Modules_Tests.Join(WindowsModule.CycleHoldKeys(both, layers, "[", onlyNav)), "only the live binding's layer")
+        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(both, layers, "[", (*) => false)))
     }
 
     static Join(arr) {

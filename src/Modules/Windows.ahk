@@ -93,7 +93,8 @@ class WindowsModule {
         session := WindowsModule._cycle
         if (!session) {
             session := WindowUtil.CycleSnapshot()
-            session.keys := WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.layers, A_ThisHotkey)
+            session.keys := WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.layers, A_ThisHotkey,
+                WindowsModule._ContextActive)
         }
         WindowUtil.CycleStep(session, direction)
         if (WindowsModule.AnyDown(session.keys)) {
@@ -115,6 +116,10 @@ class WindowsModule {
         WindowsModule._cycle := ""
     }
 
+    ; True when the binding's layer/group/window conditions hold right now,
+    ; i.e. it is the variant of the hotkey that just fired.
+    static _ContextActive := (spec) => (fn := Bindings._Context(spec)) = "" || fn()
+
     static AnyDown(keys) {
         for k in keys {
             if GetKeyState(k, "P")
@@ -123,13 +128,14 @@ class WindowsModule {
         return false
     }
 
-    ; Pure: layer keys of the cycle bindings registered on hotkey (the keys
-    ; whose release ends a session); empty outside a layer.
-    static CycleHoldKeys(specs, layers, hotkey) {
+    ; Pure: layer keys of the cycle bindings registered on hotkey whose context
+    ; isActive reports as live (the binding that fired), i.e. the keys whose
+    ; release ends a session; empty outside a layer.
+    static CycleHoldKeys(specs, layers, hotkey, isActive := (*) => true) {
         isCycle := (a) => a = "window.cycleNext" || a = "window.cyclePrevious"
         keys := []
         for spec in specs {
-            if (spec.keys != hotkey || spec.layer = "" || !layers.Has(spec.layer))
+            if (spec.keys != hotkey || spec.layer = "" || !layers.Has(spec.layer) || !isActive(spec))
                 continue
             found := spec.HasOwnProp("action") && isCycle(spec.action)
             ; Gesture bindings keep their actions under tap/doubleTap/hold.
