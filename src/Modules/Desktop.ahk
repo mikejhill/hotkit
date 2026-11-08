@@ -41,6 +41,8 @@ class DesktopModule {
         reg("trayIcons.showAll", (*) => DesktopModule.ShowAllTrayIcons(), "Promote every tray icon to the visible area")
         reg("desktop.focus", (*) => DesktopModule.FocusDesktop(),
             "Focus the desktop without minimizing windows, so system shortcuts reach Windows")
+        reg("taskbar.activate", (n) => DesktopModule.ActivateTaskbarItem(n),
+            "Like Win+<n>: start, switch to, or cycle taskbar app n (1-10; 0 = 10), even under a full-screen app", "n")
         reg("powerToys.toggleAwake", (*) => DesktopModule.TogglePowerToysAwake(),
             "Toggle PowerToys Awake between indefinite and off")
     }
@@ -94,11 +96,80 @@ class DesktopModule {
     ; shell even while a full-screen app is capturing them.
     static FocusDesktop() {
         hwnd := DesktopModule.PickDesktopHost(DesktopModule.DesktopCandidates())
-        if (!hwnd)
-            return Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Focus Desktop:", "Desktop window not found")
+        if (!hwnd) {
+            Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Focus Desktop:", "Desktop window not found")
+            return 0
+        }
         WinActivate(hwnd)
         ; Focus the icon view so keyboard input lands on the desktop itself.
         try ControlFocus("SysListView321", hwnd)
+        return hwnd
+    }
+
+    ; Win+<n> for taskbar slot n. A full-screen window (remote desktop, VDI
+    ; viewer, game) usually captures Win+<n> itself, so the desktop gets focus
+    ; first and Windows receives the keystroke. Otherwise Win+<n> is sent as is,
+    ; which keeps its cycling through the app's windows on repeated presses.
+    static ActivateTaskbarItem(n) {
+        digit := DesktopModule.TaskbarDigit(n)
+        if (DesktopModule.ForegroundIsFullScreen()) {
+            hwnd := DesktopModule.FocusDesktop()
+            if (!hwnd)
+                return
+            WinWaitActive(hwnd, , 0.5)
+        }
+        Send("#" digit)
+    }
+
+    ; Pure: the number key for taskbar slot n (1-9, then 10 or 0 for "0").
+    static TaskbarDigit(n) {
+        if (IsInteger(n)) {
+            n := Integer(n)
+            if (n >= 1 && n <= 9)
+                return String(n)
+            if (n = 10 || n = 0)
+                return "0"
+        }
+        throw ValueError("Taskbar slot must be 1-10 (0 means 10): " n)
+    }
+
+    static ForegroundIsFullScreen() {
+        hwnd := WinExist("A")
+        if (!hwnd)
+            return false
+        try {
+            cls := WinGetClass(hwnd)
+            style := WinGetStyle(hwnd)
+        } catch
+            return false
+        win := Buffer(16, 0)
+        if !DllCall("GetWindowRect", "Ptr", hwnd, "Ptr", win)
+            return false
+        mon := DllCall("MonitorFromWindow", "Ptr", hwnd, "UInt", 2, "Ptr") ; MONITOR_DEFAULTTONEAREST
+        info := Buffer(40, 0)
+        NumPut("UInt", 40, info)
+        if (!mon || !DllCall("GetMonitorInfoW", "Ptr", mon, "Ptr", info))
+            return false
+        return DesktopModule.IsFullScreen(cls, style, DesktopModule.ReadRect(win, 0), DesktopModule.ReadRect(info, 4))
+    }
+
+    static ReadRect(buf, offset) {
+        return { left: NumGet(buf, offset, "Int"), top: NumGet(buf, offset + 4, "Int"),
+            right: NumGet(buf, offset + 8, "Int"), bottom: NumGet(buf, offset + 12, "Int") }
+    }
+
+    ; Pure: a captionless window covering its whole monitor, other than the
+    ; shell's own desktop and taskbar windows. Maximized windows keep their
+    ; caption, so they don't count even when the taskbar auto-hides.
+    static IsFullScreen(cls, style, win, monitor) {
+        for shell in ["Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"] {
+            if (cls = shell)
+                return false
+        }
+        if ((style & 0xC00000) = 0xC00000) ; WS_CAPTION
+            return false
+        return win.left <= monitor.left && win.top <= monitor.top
+            && win.right >= monitor.right && win.bottom >= monitor.bottom
     }
 
     ; Snapshot of the top-level windows that can host the desktop icons. The
