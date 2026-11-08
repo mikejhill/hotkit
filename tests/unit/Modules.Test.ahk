@@ -150,6 +150,18 @@ class Modules_Tests {
         Assert.Throws(() => DesktopModule.TaskbarDigit("x"), "Taskbar slot")
     }
 
+    static Test_TaskbarHoldKeys() {
+        down := Map("CapsLock", true, "Shift", true)
+        down.CaseSense := "Off"
+        isDown := (k) => down.Has(k)
+        held := DesktopModule.TaskbarHoldKeys(["CapsLock", "capslock", "", "Ctrl", "Shift"], isDown)
+        Assert.Equal(2, held.Length)
+        Assert.Equal("CapsLock", held[1])
+        Assert.Equal("Shift", held[2])
+        Assert.Equal(0, DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt"], isDown).Length)
+        Assert.Equal(0, DesktopModule.TaskbarHoldKeys([], isDown).Length)
+    }
+
     static Test_FullScreenDetection() {
         mon := { left: 0, top: 0, right: 1920, bottom: 1080 }
         full := { left: 0, top: 0, right: 1920, bottom: 1080 }
