@@ -314,12 +314,15 @@ class WindowUtil {
                 return 0
         }
         if (session.index && WinExist("ahk_id " session.list[session.index])) {
+            ; Anchors closed since the snapshot (1400) or elevated (5) are skipped.
             for anchor in WindowUtil.CycleRestoreAnchors(session.list, session.index) {
+                if (anchor && !DllCall("user32\IsWindow", "ptr", anchor, "int"))
+                    continue
                 try {
                     WindowUtil._SetZOrder(session.list[session.index], anchor)
                     break
                 } catch OSError as e {
-                    if (e.Number != 5)
+                    if (e.Number != 5 && e.Number != 1400)
                         throw e
                 }
             }

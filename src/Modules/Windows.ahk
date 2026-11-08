@@ -126,10 +126,21 @@ class WindowsModule {
     ; Pure: layer keys of the cycle bindings registered on hotkey (the keys
     ; whose release ends a session); empty outside a layer.
     static CycleHoldKeys(specs, layers, hotkey) {
+        isCycle := (a) => a = "window.cycleNext" || a = "window.cyclePrevious"
         keys := []
         for spec in specs {
-            if (spec.HasOwnProp("action") && (spec.action = "window.cycleNext" || spec.action = "window.cyclePrevious")
-                && spec.keys = hotkey && spec.layer != "" && layers.Has(spec.layer))
+            if (spec.keys != hotkey || spec.layer = "" || !layers.Has(spec.layer))
+                continue
+            found := spec.HasOwnProp("action") && isCycle(spec.action)
+            ; Gesture bindings keep their actions under tap/doubleTap/hold.
+            if (!found && spec.HasOwnProp("gestures") && IsObject(spec.gestures)) {
+                for name in ["tap", "doubleTap", "hold"] {
+                    ref := spec.gestures.HasOwnProp(name) ? spec.gestures.%name% : ""
+                    if (IsObject(ref) && isCycle(ref.action))
+                        found := true
+                }
+            }
+            if (found)
                 keys.Push(layers[spec.layer].key)
         }
         return keys

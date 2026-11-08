@@ -110,11 +110,15 @@ class Modules_Tests {
             { keys: "]", action: "window.cyclePrevious", layer: "caps" },
             { keys: "[", action: "window.cycleNext", layer: "" },
             { keys: "[", action: "window.sendBackward", layer: "caps" },
-            { keys: "[", gestures: 1, layer: "caps" }
+            { keys: "[", gestures: 1, layer: "caps" },
+            { keys: "F1", action: "", gestures: { tap: { action: "window.cycleNext" }, doubleTap: "", hold: "" }, layer: "caps" },
+            { keys: "F2", action: "", gestures: { tap: { action: "osd.toggle" }, doubleTap: "", hold: "" }, layer: "caps" }
         ]
         Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "[")))
         Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "]")))
         Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F7")))
+        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F1")), "gesture tap")
+        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F2")), "other gesture")
     }
 
     static Join(arr) {
