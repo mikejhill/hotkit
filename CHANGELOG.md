@@ -14,6 +14,7 @@ All notable changes are listed here. The format follows
 - `quickWindow.toggle` failed with "Target window not found" when the app was running but its window was closed to the tray; it now runs the launch command and brings that window back.
 
 ### Added
+- `desktop.focus` action: moves keyboard focus to the desktop without minimizing any window, so Win+<key>, Alt+Tab and other system shortcuts work while a full-screen app is capturing them.
 - `hotkit.log` (in `%LOCALAPPDATA%\hotkit`, so a synced config directory has no shared writer) records each start, config problems, load failures, skipped reloads and unhandled errors.
 - `tools/check.py` checks the real config and plugins, prints what the running app logged, and exits non-zero on any problem.
 - The test tools find a standard AutoHotkey v2 install when `AutoHotkey64.exe` is not on `PATH`.

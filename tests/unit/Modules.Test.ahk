@@ -35,6 +35,17 @@ class Modules_Tests {
         Assert.Throws(() => QuickWindowsModule.Get("q"), "Unknown window match field")
     }
 
+    static Test_DesktopHostPrefersIconView() {
+        progman := { hwnd: 1, cls: "Progman", hasDefView: false }
+        worker := { hwnd: 2, cls: "WorkerW", hasDefView: true }
+        bare := { hwnd: 3, cls: "WorkerW", hasDefView: false }
+        Assert.Equal(2, DesktopModule.PickDesktopHost([progman, bare, worker]))
+        Assert.Equal(1, DesktopModule.PickDesktopHost([{ hwnd: 1, cls: "Progman", hasDefView: true }, worker]))
+        Assert.Equal(1, DesktopModule.PickDesktopHost([bare, progman]))
+        Assert.Equal(0, DesktopModule.PickDesktopHost([bare]))
+        Assert.Equal(0, DesktopModule.PickDesktopHost([]))
+    }
+
     static Test_AwakeModeFlips() {
         Assert.Equal(0, DesktopModule.NextAwakeMode(1))
         Assert.Equal(1, DesktopModule.NextAwakeMode(0))
