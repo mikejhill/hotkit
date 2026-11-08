@@ -108,10 +108,28 @@ class DesktopModule {
 
     ; Win+<n> for taskbar slot n. A full-screen window (remote desktop, VDI
     ; viewer, game) usually captures Win+<n> itself, so the desktop gets focus
-    ; first and Windows receives the keystroke. Otherwise Win+<n> is sent as is,
-    ; which keeps its cycling through the app's windows on repeated presses.
+    ; first and Windows receives the keystroke.
+    ;
+    ; Bound on a layer, Win stays down while the layer key (e.g. CapsLock) is
+    ; held, as if Win itself were held: repeated presses step through an app's
+    ; windows, and Windows switches to the selected one when the layer key is
+    ; released. Outside a layer, or with Ctrl/Alt/Shift held, it is a single
+    ; Win+<n> press. While Win is held, the triggering key repeats through a
+    ; temporary wildcard hotkey (plain bindings don't match with Win down);
+    ; other keys reach Windows as Win+<key>, as when Win itself is held.
+    static _TaskbarHold := ""
+    static _TaskbarReleaseRegistered := false
+    static _TaskbarHoldContext := (*) => !!DesktopModule._TaskbarHold
+
     static ActivateTaskbarItem(n) {
         digit := DesktopModule.TaskbarDigit(n)
+        ; Virtual key of the number-row key, so layouts that need Shift for
+        ; digits (AZERTY) don't turn this into Win+Shift+<n> (new instance).
+        key := "{vk3" digit "}"
+        if (DesktopModule._TaskbarHold) {
+            Send("{Blind^!+}" key)
+            return
+        }
         if (DesktopModule.ForegroundIsFullScreen()) {
             hwnd := DesktopModule.FocusDesktop()
             if (!hwnd)
@@ -120,9 +138,88 @@ class DesktopModule {
             if (!WinWaitActive(hwnd, , 0.5))
                 return Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Taskbar:", "Could not move focus off the full-screen window")
         }
-        ; Virtual key of the number-row key, so layouts that need Shift for
-        ; digits (AZERTY) don't turn this into Win+Shift+<n> (new instance).
-        Send("#{vk3" digit "}")
+        isDown := (k) => GetKeyState(k, "P")
+        held := DesktopModule.TaskbarHoldKeys(
+            DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.layers, A_ThisHotkey), isDown)
+        ; Held modifiers would leak into a held Win (Win+Shift+<n> starts a new
+        ; instance), so they get the plain press, which releases them for it.
+        if (!held.Length || DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt", "Shift"], isDown).Length) {
+            Send("#" key)
+            return
+        }
+        if (!DesktopModule._TaskbarReleaseRegistered) {
+            OnExit((*) => DesktopModule.ReleaseTaskbarHold())
+            DesktopModule._TaskbarReleaseRegistered := true
+        }
+        repeat := DesktopModule.TaskbarRepeatKey(A_ThisHotkey)
+        DesktopModule._TaskbarHold := { keys: held, started: A_TickCount, repeat: repeat }
+        Send("{Blind}{LWin down}" key)
+        if (repeat != "") {
+            HotIf(DesktopModule._TaskbarHoldContext)
+            ; Win stays held; Ctrl/Alt/Shift are lifted for the key, as on the first press.
+            Hotkey("*" repeat, (*) => Send("{Blind^!+}" key), "On")
+            HotIf()
+        }
+        SetTimer(DesktopModule._TaskbarPoll, 30)
+    }
+
+    static _TaskbarPoll := (*) => DesktopModule.PollTaskbarHold()
+
+    static PollTaskbarHold() {
+        hold := DesktopModule._TaskbarHold
+        if (!hold)
+            return SetTimer(DesktopModule._TaskbarPoll, 0)
+        if (A_TickCount - hold.started > 60000
+            || !DesktopModule.TaskbarHoldKeys(hold.keys, (k) => GetKeyState(k, "P")).Length)
+            DesktopModule.ReleaseTaskbarHold()
+    }
+
+    static ReleaseTaskbarHold() {
+        SetTimer(DesktopModule._TaskbarPoll, 0)
+        if (!DesktopModule._TaskbarHold)
+            return
+        repeat := DesktopModule._TaskbarHold.repeat
+        DesktopModule._TaskbarHold := ""
+        if (repeat != "") {
+            HotIf(DesktopModule._TaskbarHoldContext)
+            try Hotkey("*" repeat, "Off")
+            HotIf()
+        }
+        Send("{Blind}{LWin up}")
+    }
+
+    ; Pure: the plain key of the hotkey that ran the action, for repeating it
+    ; while Win is held; "" for combinations, release hotkeys, or none.
+    static TaskbarRepeatKey(hotkey) {
+        base := RegExReplace(hotkey, "^[~*$#!^+<>]+")
+        if (base = "" || InStr(base, " "))
+            return ""
+        return base
+    }
+
+    ; Pure: the layer keys of the taskbar.activate bindings registered on
+    ; hotkey; empty for bindings outside a layer.
+    static TaskbarTriggerKeys(specs, layers, hotkey) {
+        keys := []
+        for spec in specs {
+            if (spec.HasOwnProp("action") && spec.action = "taskbar.activate" && spec.keys = hotkey
+                && spec.layer != "" && layers.Has(spec.layer))
+                keys.Push(layers[spec.layer].key)
+        }
+        return keys
+    }
+
+    ; Pure: the candidate keys that isDown reports as held, without duplicates.
+    static TaskbarHoldKeys(candidates, isDown) {
+        out := [], seen := Map()
+        seen.CaseSense := "Off"
+        for k in candidates {
+            if (k != "" && !seen.Has(k) && isDown(k)) {
+                seen[k] := true
+                out.Push(k)
+            }
+        }
+        return out
     }
 
     ; Pure: the number-row digit for taskbar slot n (1-9, then 10 or 0 for "0").

@@ -150,6 +150,44 @@ class Modules_Tests {
         Assert.Throws(() => DesktopModule.TaskbarDigit("x"), "Taskbar slot")
     }
 
+    static Test_TaskbarHoldKeys() {
+        down := Map()
+        down.CaseSense := "Off"
+        down["CapsLock"] := true, down["Shift"] := true
+        isDown := (k) => down.Has(k)
+        held := DesktopModule.TaskbarHoldKeys(["CapsLock", "capslock", "", "Ctrl", "Shift"], isDown)
+        Assert.Equal(2, held.Length)
+        Assert.Equal("CapsLock", held[1])
+        Assert.Equal("Shift", held[2])
+        Assert.Equal(0, DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt"], isDown).Length)
+        Assert.Equal(0, DesktopModule.TaskbarHoldKeys([], isDown).Length)
+    }
+
+    static Test_TaskbarTriggerKeysUseTheBindingsLayer() {
+        layers := Map("caps", { key: "CapsLock" }, "tab", { key: "Tab" })
+        specs := [
+            { keys: "1", action: "taskbar.activate", layer: "caps" },
+            { keys: "1", action: "app.toggle", layer: "tab" },
+            { keys: "2", action: "taskbar.activate", layer: "tab" },
+            { keys: "F1", action: "taskbar.activate", layer: "" },
+            { keys: "1", kind: "gestures", layer: "tab" },
+        ]
+        keys := DesktopModule.TaskbarTriggerKeys(specs, layers, "1")
+        Assert.Equal(1, keys.Length)
+        Assert.Equal("CapsLock", keys[1])
+        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, layers, "F1").Length)
+        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, layers, "3").Length)
+    }
+
+    static Test_TaskbarRepeatKey() {
+        Assert.Equal("1", DesktopModule.TaskbarRepeatKey("1"))
+        Assert.Equal("N", DesktopModule.TaskbarRepeatKey("<^+N"))
+        Assert.Equal("F13", DesktopModule.TaskbarRepeatKey("~*$F13"))
+        Assert.Equal("", DesktopModule.TaskbarRepeatKey("LShift & Volume_Up"))
+        Assert.Equal("", DesktopModule.TaskbarRepeatKey("1 Up"))
+        Assert.Equal("", DesktopModule.TaskbarRepeatKey(""))
+    }
+
     static Test_FullScreenDetection() {
         mon := { left: 0, top: 0, right: 1920, bottom: 1080 }
         full := { left: 0, top: 0, right: 1920, bottom: 1080 }
