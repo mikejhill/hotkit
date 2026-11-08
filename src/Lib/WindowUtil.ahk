@@ -274,15 +274,22 @@ class WindowUtil {
     ; Alt+Tab-style focus cycling over the windows Alt+Tab would list that are
     ; on screen (see IsZOrderPeer). "next" activates the window under the
     ; active one and sends the old one to the back; "previous" activates the
-    ; bottom one. The stack rotates, so each undoes the other.
-    ; Returns the activated window, or 0.
+    ; bottom one. The stack rotates, so each undoes the other. Always-on-top
+    ; windows are left out: they can't rotate below normal windows, and they
+    ; are in view anyway. An active owned window (e.g. a modal dialog) counts
+    ; as its owner. Returns the activated window, or 0.
     static CycleFocus(direction) {
         list := []
+        inList := Map()
         for h in WinGetList() {
-            if (WindowUtil.IsZOrderPeer(h))
+            if (WindowUtil.IsZOrderPeer(h) && !(WinGetExStyle(h) & 0x8)) {
                 list.Push(h)
+                inList[h] := true
+            }
         }
         active := WinExist("A")
+        while (active && !inList.Has(active))
+            active := DllCall("user32\GetWindow", "ptr", active, "uint", 4, "ptr") ; GW_OWNER
         plan := WindowUtil.CyclePlan(list, active, direction)
         if (!plan.activate)
             return 0

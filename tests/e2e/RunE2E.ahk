@@ -317,6 +317,19 @@ class E2E_Tests {
         Assert.True(WinWaitActive("ahk_id " hwndA, , 3), "cycle previous returns to A")
         Sleep(300)
         Assert.Equal("ABO", order(), "cycling back restores the order")
+
+        ; From A's modal-style owned dialog, next leaves the app instead of
+        ; landing on A (whose dialog would take focus right back).
+        dialog := Gui("+Owner" hwndA, "hotkit-e2e-dialog")
+        dialog.Show("x150 y150 w200 h100")
+        try {
+            WinWaitActive(dialog.Hwnd, , 5)
+            Sleep(300)
+            E2E_Tests.Press(">^>!F7")
+            Assert.True(WinWaitActive("ahk_id " hwndB, , 3), "cycle next from A's dialog focuses B")
+        } finally {
+            dialog.Destroy()
+        }
     }
 
     ; Visible top-level windows front to back, for failure messages.
