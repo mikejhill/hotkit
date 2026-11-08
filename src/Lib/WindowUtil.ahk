@@ -271,14 +271,12 @@ class WindowUtil {
         return { entries: entries, index: index, owners: owners }
     }
 
-    ; Alt+Tab-style focus cycling over the windows Alt+Tab would list that are
-    ; on screen (see IsZOrderPeer). "next" activates the window under the
-    ; active one and sends the old one to the back; "previous" activates the
-    ; bottom one. The stack rotates, so each undoes the other. Always-on-top
-    ; windows are left out: they can't rotate below normal windows, and they
-    ; are in view anyway. An active owned window (e.g. a modal dialog) counts
-    ; as its owner. Returns the activated window, or 0.
-    static CycleFocus(direction) {
+    ; Alt+Tab-style focus cycling. A session is a snapshot of the windows
+    ; Alt+Tab would list that are on screen (see IsZOrderPeer), front to back,
+    ; and the selected index. Always-on-top windows are left out (they are in
+    ; view anyway), and an active owned window (e.g. a modal dialog) counts as
+    ; its owner. index is 0 when the active window isn't in the list.
+    static CycleSnapshot() {
         list := []
         inList := Map()
         for h in WinGetList() {
@@ -290,15 +288,47 @@ class WindowUtil {
         active := WinExist("A")
         while (active && !inList.Has(active))
             active := DllCall("user32\GetWindow", "ptr", active, "uint", 4, "ptr") ; GW_OWNER
-        plan := WindowUtil.CyclePlan(list, active, direction)
-        if (!plan.activate)
-            return 0
-        WinActivate(plan.activate)
-        WinMoveTop(plan.activate)  ; activation alone doesn't always raise (e.g. Wine)
-        if (plan.sendBack) {
-            try WindowUtil.MoveInZOrder("back", plan.sendBack)
+        index := 0
+        for i, h in list {
+            if (h = active)
+                index := i
         }
-        return plan.activate
+        return { list: list, index: index }
+    }
+
+    ; Select the next/previous window of a session: the window selected so far
+    ; goes back to its place in the snapshot, and the new one is raised and
+    ; focused, so only the selected window ever differs from the snapshot.
+    ; Windows closed since the snapshot are skipped. Returns the new selection,
+    ; or 0 when nothing else can be selected.
+    static CycleStep(session, direction) {
+        n := session.list.Length
+        if (!n)
+            return 0
+        next := session.index
+        loop n {
+            next := WindowUtil.CycleIndex(n, next, direction)
+            if (next != session.index && WinExist("ahk_id " session.list[next]))
+                break
+            if (A_Index = n)
+                return 0
+        }
+        if (session.index && WinExist("ahk_id " session.list[session.index])) {
+            for anchor in WindowUtil.CycleRestoreAnchors(session.list, session.index) {
+                try {
+                    WindowUtil._SetZOrder(session.list[session.index], anchor)
+                    break
+                } catch OSError as e {
+                    if (e.Number != 5)
+                        throw e
+                }
+            }
+        }
+        session.index := next
+        hwnd := session.list[next]
+        WinActivate(hwnd)
+        WinMoveTop(hwnd)  ; activation alone doesn't always raise (e.g. Wine)
+        return hwnd
     }
 
     static _SetZOrder(hwnd, insertAfter) {
@@ -309,28 +339,25 @@ class WindowUtil {
     }
     ; mutate: on
 
-    ; Pure: which window CycleFocus activates, and which (if any) it sends to
-    ; the back. list is front to back.
-    static CyclePlan(list, active, direction) {
-        none := { activate: 0, sendBack: 0 }
-        idx := 0
-        for i, h in list {
-            if (h = active)
-                idx := i
-        }
+    ; Pure: the next index in a cycle over n windows (1-based, wrapping). From
+    ; 0 (nothing selected), "next" picks the first and "previous" the last.
+    static CycleIndex(n, index, direction) {
         switch direction, false {
-            case "next":
-                if (!idx)
-                    return list.Length ? { activate: list[1], sendBack: 0 } : none
-                if (list.Length < 2)
-                    return none
-                return { activate: list[Mod(idx, list.Length) + 1], sendBack: active }
-            case "previous":
-                if (!list.Length || list[list.Length] = active)
-                    return none
-                return { activate: list[list.Length], sendBack: 0 }
+            case "next": return n ? Mod(index, n) + 1 : 0
+            case "previous": return n ? (index > 1 ? index - 1 : n) : 0
         }
         throw ValueError("Unknown cycle direction: " direction)
+    }
+
+    ; Pure: insert-after candidates that put list[index] back where it was:
+    ; behind the windows that were above it (nearest first, in case Windows
+    ; refuses one), then HWND_TOP (0).
+    static CycleRestoreAnchors(list, index) {
+        anchors := []
+        loop index - 1
+            anchors.Push(list[index - A_Index])
+        anchors.Push(0)
+        return anchors
     }
 
     ; Pure: insert-after candidates for a move, best first ([] when the window

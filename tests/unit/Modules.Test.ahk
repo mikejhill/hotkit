@@ -84,21 +84,37 @@ class Modules_Tests {
         Assert.Equal(0, WindowUtil.ZOrderAnchors(z("1", "2"), 1, "front").Length)
     }
 
-    static Test_CyclePlanRotatesBothWays() {
-        p := (list, active, dir) => WindowUtil.CyclePlan(list, active, dir)
-        r := p([1, 2, 3], 1, "next")
-        Assert.Equal(2, r.activate), Assert.Equal(1, r.sendBack)
-        r := p([1, 2, 3], 3, "Next")
-        Assert.Equal(1, r.activate, "wraps"), Assert.Equal(3, r.sendBack)
-        r := p([1, 2, 3], 9, "next")
-        Assert.Equal(1, r.activate, "nothing in the list active"), Assert.Equal(0, r.sendBack)
-        Assert.Equal(0, p([1], 1, "next").activate)
-        Assert.Equal(0, p([], 0, "next").activate)
-        r := p([2, 3, 1], 2, "previous")
-        Assert.Equal(1, r.activate), Assert.Equal(0, r.sendBack)
-        Assert.Equal(0, p([2, 1], 1, "previous").activate, "already the bottom one")
-        Assert.Equal(0, p([], 0, "previous").activate)
-        Assert.Throws(() => p([1], 1, "sideways"), "Unknown cycle direction")
+    static Test_CycleIndexWraps() {
+        Assert.Equal(2, WindowUtil.CycleIndex(3, 1, "next"))
+        Assert.Equal(1, WindowUtil.CycleIndex(3, 3, "Next"), "wraps forward")
+        Assert.Equal(1, WindowUtil.CycleIndex(3, 0, "next"), "nothing selected: first")
+        Assert.Equal(2, WindowUtil.CycleIndex(3, 3, "previous"))
+        Assert.Equal(3, WindowUtil.CycleIndex(3, 1, "previous"), "wraps back")
+        Assert.Equal(3, WindowUtil.CycleIndex(3, 0, "previous"), "nothing selected: last")
+        Assert.Equal(0, WindowUtil.CycleIndex(0, 0, "next"))
+        Assert.Equal(0, WindowUtil.CycleIndex(0, 0, "previous"))
+        Assert.Throws(() => WindowUtil.CycleIndex(1, 1, "sideways"), "Unknown cycle direction")
+    }
+
+    static Test_CycleRestoreAnchorsNearestAboveFirst() {
+        Assert.Equal("12,11,0", Modules_Tests.Join(WindowUtil.CycleRestoreAnchors([11, 12, 13], 3)))
+        Assert.Equal("0", Modules_Tests.Join(WindowUtil.CycleRestoreAnchors([11, 12, 13], 1)))
+    }
+
+    static Test_CycleHoldKeysFromLayerBindingsOnHotkey() {
+        layers := Map()
+        layers.CaseSense := "Off"
+        layers["caps"] := { key: "CapsLock" }
+        specs := [
+            { keys: "[", action: "window.cycleNext", layer: "caps" },
+            { keys: "]", action: "window.cyclePrevious", layer: "caps" },
+            { keys: "[", action: "window.cycleNext", layer: "" },
+            { keys: "[", action: "window.sendBackward", layer: "caps" },
+            { keys: "[", gestures: 1, layer: "caps" }
+        ]
+        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "[")))
+        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "]")))
+        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F7")))
     }
 
     static Join(arr) {

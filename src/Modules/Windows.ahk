@@ -40,10 +40,10 @@ class WindowsModule {
             "Bring the active window in front of the next window it overlaps")
         reg("window.bringToFront", (*) => WindowsModule.MoveInZOrder("front"),
             "Bring the active window in front of all other windows")
-        reg("window.cycleNext", (*) => WindowsModule.Restack((*) => WindowUtil.CycleFocus("next")),
-            "Focus the next window down, like Alt+Tab (window.cyclePrevious goes back)")
-        reg("window.cyclePrevious", (*) => WindowsModule.Restack((*) => WindowUtil.CycleFocus("previous")),
-            "Focus the previous window (undoes window.cycleNext)")
+        reg("window.cycleNext", (*) => WindowsModule.Restack((*) => WindowsModule.Cycle("next")),
+            "Focus the next window, like Alt+Tab; on a layer, repeat while holding its key")
+        reg("window.cyclePrevious", (*) => WindowsModule.Restack((*) => WindowsModule.Cycle("previous")),
+            "Focus the previous window, like Shift+Alt+Tab; on a layer, repeat while holding its key")
         reg("window.focusNext", (*) => WindowUtil.FocusNextWindow(), "Focus the next window in z-order")
         reg("window.activateLast", (winTitle := "") => WindowsModule.ActivateLast(winTitle),
             "Activate the most recent other window (optionally matching a WinTitle)", "[winTitle]")
@@ -79,6 +79,60 @@ class WindowsModule {
             }
         }
         Toast.ShowToast(, "Always on Top:", enabled ? "Enabled" : "Disabled")
+    }
+
+    ; Focus cycling, like holding Alt for Alt+Tab: bound on a layer, the window
+    ; order is captured at the first press and kept while the layer key stays
+    ; held, so each press only changes which window is raised and focused.
+    ; Releasing the key ends the session and leaves the selection in front.
+    ; Outside a layer every press is its own session.
+    static _cycle := ""
+    static _cyclePoll := (*) => WindowsModule.PollCycle()
+
+    static Cycle(direction) {
+        session := WindowsModule._cycle
+        if (!session) {
+            session := WindowUtil.CycleSnapshot()
+            session.keys := WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.layers, A_ThisHotkey)
+        }
+        WindowUtil.CycleStep(session, direction)
+        if (WindowsModule.AnyDown(session.keys)) {
+            WindowsModule._cycle := session
+            SetTimer(WindowsModule._cyclePoll, 30)
+        } else {
+            WindowsModule.EndCycle()
+        }
+    }
+
+    static PollCycle() {
+        session := WindowsModule._cycle
+        if (!session || !WindowsModule.AnyDown(session.keys))
+            WindowsModule.EndCycle()
+    }
+
+    static EndCycle() {
+        SetTimer(WindowsModule._cyclePoll, 0)
+        WindowsModule._cycle := ""
+    }
+
+    static AnyDown(keys) {
+        for k in keys {
+            if GetKeyState(k, "P")
+                return true
+        }
+        return false
+    }
+
+    ; Pure: layer keys of the cycle bindings registered on hotkey (the keys
+    ; whose release ends a session); empty outside a layer.
+    static CycleHoldKeys(specs, layers, hotkey) {
+        keys := []
+        for spec in specs {
+            if (spec.HasOwnProp("action") && (spec.action = "window.cycleNext" || spec.action = "window.cyclePrevious")
+                && spec.keys = hotkey && spec.layer != "" && layers.Has(spec.layer))
+                keys.Push(layers[spec.layer].key)
+        }
+        return keys
     }
 
     static Restack(fn) {
