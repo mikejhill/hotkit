@@ -113,8 +113,10 @@ class DesktopModule {
     ; Bound on a layer, Win stays down while the layer key (e.g. CapsLock) is
     ; held, as if Win itself were held: repeated presses step through an app's
     ; windows, and Windows switches to the selected one when the layer key is
-    ; released. Outside a layer, or with Ctrl/Alt/Shift held, it is a single
-    ; Win+<n> press. While Win is held, the triggering key repeats through a
+    ; released. Outside a layer it is a single Win+<n> press. Held Ctrl/Alt/Shift
+    ; pass through as with Win: Win+Shift+<n> starts a new instance, Win+Ctrl+<n>
+    ; goes to the app's last active window, Win+Alt+<n> opens its jump list
+    ; (bind the key with a "*" prefix so the layer binding fires with them). While Win is held, the triggering key repeats through a
     ; temporary wildcard hotkey (plain bindings don't match with Win down);
     ; other keys reach Windows as Win+<key>, as when Win itself is held.
     static _TaskbarHold := ""
@@ -127,7 +129,7 @@ class DesktopModule {
         ; digits (AZERTY) don't turn this into Win+Shift+<n> (new instance).
         key := "{vk3" digit "}"
         if (DesktopModule._TaskbarHold) {
-            Send("{Blind^!+}" key)
+            Send("{Blind}" key)
             return
         }
         if (DesktopModule.ForegroundIsFullScreen()) {
@@ -141,9 +143,11 @@ class DesktopModule {
         isDown := (k) => GetKeyState(k, "P")
         held := DesktopModule.TaskbarHoldKeys(
             DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.layers, A_ThisHotkey), isDown)
-        ; Held modifiers would leak into a held Win (Win+Shift+<n> starts a new
-        ; instance), so they get the plain press, which releases them for it.
-        if (!held.Length || DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt", "Shift"], isDown).Length) {
+        if (DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt", "Shift"], isDown).Length) {
+            Send("{Blind}#" key)
+            return
+        }
+        if (!held.Length) {
             Send("#" key)
             return
         }
@@ -156,8 +160,7 @@ class DesktopModule {
         Send("{Blind}{LWin down}" key)
         if (repeat != "") {
             HotIf(DesktopModule._TaskbarHoldContext)
-            ; Win stays held; Ctrl/Alt/Shift are lifted for the key, as on the first press.
-            Hotkey("*" repeat, (*) => Send("{Blind^!+}" key), "On")
+            Hotkey("*" repeat, (*) => Send("{Blind}" key), "On")
             HotIf()
         }
         SetTimer(DesktopModule._TaskbarPoll, 30)
