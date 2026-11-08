@@ -202,10 +202,15 @@ class WindowUtil {
     ; needs to move; throws OSError when Windows refuses the move.
     ; mutate: off
     static MoveInZOrder(direction, winTitle := "A") {
-        hwnd := WindowUtil.GetHandle(winTitle)
-        root := DllCall("user32\GetAncestor", "ptr", hwnd, "uint", 3, "ptr") ; GA_ROOTOWNER
-        if (root)
-            hwnd := root
+        active := hwnd := WindowUtil.GetHandle(winTitle)
+        ; Owned windows must stay above their owner. Windows moves an owner with
+        ; its owned windows, Wine does not, so the root owner, the top visible
+        ; owner and the window itself are each placed, in that order. The stack
+        ; position is read from the top visible owner, because a hidden owner
+        ; (common for app and AHK GUI windows) is not in the visible stack.
+        root := DllCall("user32\GetAncestor", "ptr", hwnd, "uint", 3, "ptr") || hwnd ; GA_ROOTOWNER
+        while ((owner := DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr")) && DllCall("user32\IsWindowVisible", "ptr", owner, "int")) ; GW_OWNER
+            hwnd := owner
         entries := []
         index := 0
         for h in WinGetList() {
@@ -224,10 +229,16 @@ class WindowUtil {
         insertAfter := WindowUtil.ZOrderInsertAfter(entries, index, direction)
         if (insertAfter = "")
             return false
-        ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
-        if (!DllCall("user32\SetWindowPos", "ptr", hwnd, "ptr", insertAfter,
-            "int", 0, "int", 0, "int", 0, "int", 0, "uint", 0x13, "int"))
-            throw OSError(A_LastError, , "SetWindowPos")
+        moved := Map()
+        for h in [root, hwnd, active] {
+            if (moved.Has(h))
+                continue
+            moved[h] := true
+            ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+            if (!DllCall("user32\SetWindowPos", "ptr", h, "ptr", insertAfter,
+                "int", 0, "int", 0, "int", 0, "int", 0, "uint", 0x13, "int"))
+                throw OSError(A_LastError, , "SetWindowPos")
+        }
         return true
     }
     ; mutate: on

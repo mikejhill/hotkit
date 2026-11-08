@@ -248,6 +248,29 @@ class E2E_Tests {
         step(">^>!F9", "ABO", "bring forward skips windows that do not overlap")
         step(">^>!F10", "BOA", "send to back goes behind every window")
         step(">^>!F8", "ABO", "bring to front")
+
+        ; A window whose owner is hidden (as for many app and AHK GUI windows)
+        ; must move itself, since the owner is not in the visible stack.
+        owner := Gui()
+        owned := Gui("+Owner" owner.Hwnd, "hotkit-e2e-owned")
+        owned.Show("x150 y150 w200 h100")
+        try {
+            WinActivate(owned.Hwnd)
+            WinWaitActive(owned.Hwnd, , 5)
+            Sleep(300)
+            E2E_Tests.Press(">^>!F10")
+            Sleep(500)
+            list := WinGetList()
+            pos := Map()
+            for i, hwnd in list
+                pos[hwnd] := i
+            Assert.True(pos[owned.Hwnd] > pos[hwndA] && pos[owned.Hwnd] > pos[hwndB],
+                "window with a hidden owner should go to the back: " pos[owned.Hwnd] " A=" pos[hwndA] " B=" pos[hwndB] " active=" WinExist("A") " owned=" owned.Hwnd " n=" list.Length)
+            Assert.Equal(owned.Hwnd, WinExist("A"), "owned window keeps focus")
+        } finally {
+            owned.Destroy()
+            owner.Destroy()
+        }
     }
 
     ; Letters A/B/O for the given windows, front to back.
