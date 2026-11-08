@@ -198,25 +198,28 @@ class WindowUtil {
     ; overlapping window), "back" (behind all), "forward" (in front of the next
     ; overlapping window above), or "front" (in front of all). Always-on-top
     ; windows move only among always-on-top windows, and others never pass them.
-    ; An owned window (dialog) moves with its owner. Returns false when nothing
+    ; An owned window (dialog) takes its owners along. Returns false when nothing
     ; needs to move; throws OSError when Windows refuses the move.
     ; mutate: off
     static MoveInZOrder(direction, winTitle := "A") {
-        active := hwnd := WindowUtil.GetHandle(winTitle)
-        ; Owned windows must stay above their owner. Windows moves an owner with
-        ; its owned windows, Wine does not, so the root owner, the top visible
-        ; owner and the window itself are each placed, in that order. The stack
-        ; position is read from the top visible owner, because a hidden owner
-        ; (common for app and AHK GUI windows) is not in the visible stack.
-        root := DllCall("user32\GetAncestor", "ptr", hwnd, "uint", 3, "ptr") || hwnd ; GA_ROOTOWNER
-        while ((owner := DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr")) && DllCall("user32\IsWindowVisible", "ptr", owner, "int")) ; GW_OWNER
-            hwnd := owner
+        hwnd := WindowUtil.GetHandle(winTitle)
+        ; Band, geometry and stack position come from the window itself. Its
+        ; owners (often a hidden window) must stay below it, so they are not
+        ; peers and move along: Windows moves owners with an owned window, Wine
+        ; does not, so each owner in the window's band is placed first.
+        owners := []
+        h := hwnd
+        while (h := DllCall("user32\GetWindow", "ptr", h, "uint", 4, "ptr")) ; GW_OWNER
+            owners.Push(h)
+        isOwner := Map()
+        for h in owners
+            isOwner[h] := true
         entries := []
         index := 0
         for h in WinGetList() {
             if (h = hwnd)
                 index := entries.Length + 1
-            else if (!WindowUtil.IsZOrderPeer(h)) {
+            else if (isOwner.Has(h) || !WindowUtil.IsZOrderPeer(h)) {
                 entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: false })
                 continue
             }
@@ -229,14 +232,16 @@ class WindowUtil {
         insertAfter := WindowUtil.ZOrderInsertAfter(entries, index, direction)
         if (insertAfter = "")
             return false
-        ; Only windows in the target's band move, so an always-on-top dialog of
-        ; a normal window (or the reverse) keeps its topmost state.
         band := entries[index].topmost
-        moved := Map()
-        for h in [root, hwnd, active] {
-            if (moved.Has(h) || !!(WinGetExStyle(h) & 0x8) != band)
+        group := []
+        loop owners.Length
+            group.Push(owners[owners.Length - A_Index + 1])
+        group.Push(hwnd)
+        for h in group {
+            ; Owners in another band (e.g. a normal window under an always-on-top
+            ; dialog) stay put, so no window's topmost state changes.
+            if (h != hwnd && !!(WinGetExStyle(h) & 0x8) != band)
                 continue
-            moved[h] := true
             ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
             if (!DllCall("user32\SetWindowPos", "ptr", h, "ptr", insertAfter,
                 "int", 0, "int", 0, "int", 0, "int", 0, "uint", 0x13, "int"))

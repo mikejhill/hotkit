@@ -281,6 +281,31 @@ class E2E_Tests {
             owned.Destroy()
             owner.Destroy()
         }
+
+        ; A dialog that sticks out of its visible owner steps behind a window
+        ; it overlaps even when the owner doesn't overlap that window.
+        WinActivate(hwndA)
+        WinWaitActive(hwndA, , 5)
+        main := Gui(, "hotkit-e2e-main")
+        main.Show("x100 y420 w200 h100")
+        dialog := Gui("+Owner" main.Hwnd, "hotkit-e2e-dialog")
+        dialog.Show("x150 y250 w200 h100")
+        try {
+            WinActivate(dialog.Hwnd)
+            WinWaitActive(dialog.Hwnd, , 5)
+            Sleep(300)
+            E2E_Tests.Press(">^>!F11")
+            Sleep(500)
+            pos := Map()
+            for i, hwnd in WinGetList()
+                pos[hwnd] := i
+            Assert.True(pos[dialog.Hwnd] > pos[hwndA], "dialog should step behind the window it overlaps")
+            Assert.True(pos[dialog.Hwnd] < pos[main.Hwnd], "dialog stays above its owner")
+            Assert.Equal(dialog.Hwnd, WinExist("A"), "dialog keeps focus")
+        } finally {
+            dialog.Destroy()
+            main.Destroy()
+        }
     }
 
     ; Letters A/B/O for the given windows, front to back.
