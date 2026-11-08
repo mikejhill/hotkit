@@ -284,8 +284,7 @@ class E2E_Tests {
 
         ; A dialog that sticks out of its visible owner steps behind a window
         ; it overlaps even when the owner doesn't overlap that window.
-        WinActivate(hwndA)
-        WinWaitActive(hwndA, , 5)
+        WinMoveTop(hwndA)  ; WinActivate alone may not raise it on Windows
         main := Gui(, "hotkit-e2e-main")
         main.Show("x100 y420 w200 h100")
         dialog := Gui("+Owner" main.Hwnd, "hotkit-e2e-dialog")
