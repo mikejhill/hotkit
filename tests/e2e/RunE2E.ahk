@@ -252,7 +252,7 @@ class E2E_Tests {
         ; A window whose owner is hidden (as for many app and AHK GUI windows)
         ; must move itself, since the owner is not in the visible stack.
         owner := Gui()
-        owned := Gui("+Owner" owner.Hwnd, "hotkit-e2e-owned")
+        owned := Gui("+Owner" owner.Hwnd " +E0x40000", "hotkit-e2e-owned") ; WS_EX_APPWINDOW
         owned.Show("x150 y150 w200 h100")
         try {
             WinActivate(owned.Hwnd)
@@ -267,6 +267,16 @@ class E2E_Tests {
             Assert.True(pos[owned.Hwnd] > pos[hwndA] && pos[owned.Hwnd] > pos[hwndB],
                 "window with a hidden owner should go to the back: " pos[owned.Hwnd] " A=" pos[hwndA] " B=" pos[hwndB] " active=" WinExist("A") " owned=" owned.Hwnd " n=" list.Length)
             Assert.Equal(owned.Hwnd, WinExist("A"), "owned window keeps focus")
+            ; It is listed in Alt+Tab (WS_EX_APPWINDOW), so others stack around it.
+            WinActivate(hwndA)
+            WinWaitActive(hwndA, , 5)
+            Sleep(300)
+            E2E_Tests.Press(">^>!F10")
+            Sleep(500)
+            list := WinGetList()
+            for i, hwnd in list
+                pos[hwnd] := i
+            Assert.True(pos[hwndA] > pos[owned.Hwnd], "send to back should pass an owned app window")
         } finally {
             owned.Destroy()
             owner.Destroy()

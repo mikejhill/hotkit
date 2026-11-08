@@ -229,9 +229,12 @@ class WindowUtil {
         insertAfter := WindowUtil.ZOrderInsertAfter(entries, index, direction)
         if (insertAfter = "")
             return false
+        ; Only windows in the target's band move, so an always-on-top dialog of
+        ; a normal window (or the reverse) keeps its topmost state.
+        band := entries[index].topmost
         moved := Map()
         for h in [root, hwnd, active] {
-            if (moved.Has(h))
+            if (moved.Has(h) || !!(WinGetExStyle(h) & 0x8) != band)
                 continue
             moved[h] := true
             ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
@@ -286,14 +289,22 @@ class WindowUtil {
         throw ValueError("Unknown z-order direction: " direction)
     }
 
-    ; A window worth stepping past: an Alt+Tab candidate that is not the desktop,
-    ; the taskbar, or a click-through overlay.
+    ; A window worth stepping past: one Alt+Tab would list (visible, restored,
+    ; not cloaked, not a tool window, and unowned or WS_EX_APPWINDOW), that is
+    ; not the desktop, the taskbar, or a click-through overlay.
     static IsZOrderPeer(hwnd) {
         try {
-            if (!WindowUtil.IsAltTabCandidate(hwnd))
+            if (!DllCall("user32\IsWindowVisible", "ptr", hwnd, "int") || DllCall("user32\IsIconic", "ptr", hwnd, "int"))
                 return false
-            if ((WinGetExStyle(hwnd) & 0x80020) = 0x80020) ; WS_EX_LAYERED | WS_EX_TRANSPARENT
+            ex := WinGetExStyle(hwnd)
+            if ((ex & 0x80) || (ex & 0x80020) = 0x80020) ; WS_EX_TOOLWINDOW; WS_EX_LAYERED | WS_EX_TRANSPARENT
                 return false
+            if (!(ex & 0x40000) && DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr")) ; WS_EX_APPWINDOW; GW_OWNER
+                return false
+            try {
+                if (WindowUtil.IsCloaked(hwnd))
+                    return false
+            }
             cls := WinGetClass(hwnd)
             return !(cls = "Progman" || cls = "WorkerW" || cls = "Shell_TrayWnd" || cls = "Shell_SecondaryTrayWnd")
         }
