@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-08
+
 ### Fixed
 - Saving `config.json` could restart the app while the file was half written and show a "Could not load config" dialog. Reloads now wait for the file to settle, and a config that doesn't parse is reported in a toast while the app keeps its previous config.
 - `app.toggle` with several windows raised a different one on each show; it now returns to the window focused last.
