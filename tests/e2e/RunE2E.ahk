@@ -306,6 +306,15 @@ class E2E_Tests {
             dialog.Destroy()
             main.Destroy()
         }
+
+        ; A quick second press also sends the window that covered A (here B,
+        ; which hides A completely) to the back, so the next window shows.
+        WinMove(50, 50, 500, 400, hwndB)
+        WinMove(120, 120, 200, 200, hwndO)
+        Sleep(2100)  ; let the dialog press above fall out of the repeat window
+        arrange("ABO")
+        step(">^>!F11", "BAO", "first press steps behind the covering window")
+        step(">^>!F11", "OAB", "repeat press steps again and sends the covering window back")
     }
 
     ; Visible top-level windows front to back, for failure messages.

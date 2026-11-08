@@ -100,7 +100,7 @@ pass `args` as a JSON array in the order listed under **Arguments**
 | `window.bringForward` |  | Bring the active window in front of the next window it overlaps |
 | `window.bringToFront` |  | Bring the active window in front of all other windows |
 | `window.focusNext` |  | Focus the next window in z-order |
-| `window.sendBackward` |  | Send the active window behind the next window it overlaps (keeps focus) |
+| `window.sendBackward` |  | Send the active window behind the next window it overlaps (keeps focus); repeat to show the next window |
 | `window.sendToBack` |  | Send the active window behind all other windows (keeps focus) |
 | `window.toggleAlwaysOnTop` |  | Pin or unpin the active window |
 | `window.toggleMinimized` |  | Minimize the active window, or restore the last one minimized |

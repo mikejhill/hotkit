@@ -84,6 +84,23 @@ class Modules_Tests {
         Assert.Equal(0, WindowUtil.ZOrderAnchors(z("1", "2"), 1, "front").Length)
     }
 
+    static Test_ZOrderCoveringListsOverlappingPeersAboveInBand() {
+        z := Modules_Tests.ZStack("9:t", "2", "3:far", "4:n", "1", "5")
+        Assert.Equal("2", Modules_Tests.Join(WindowUtil.ZOrderCovering(z, 5)))
+        z := Modules_Tests.ZStack("9:t", "8:t", "1:t", "2")
+        Assert.Equal("9,8", Modules_Tests.Join(WindowUtil.ZOrderCovering(z, 3)))
+        Assert.Equal("", Modules_Tests.Join(WindowUtil.ZOrderCovering(z, 1)))
+    }
+
+    static Test_BackwardRepeatNeedsSameWindowWithinWindow() {
+        last := { hwnd: 7, tick: 1000 }
+        Assert.True(WindowsModule.IsRepeat(last, 7, 2999, 2000))
+        Assert.False(WindowsModule.IsRepeat(last, 7, 3000, 2000), "window elapsed")
+        Assert.False(WindowsModule.IsRepeat(last, 8, 1500, 2000), "different window")
+        Assert.False(WindowsModule.IsRepeat(last, 7, 1500, 0), "disabled")
+        Assert.False(WindowsModule.IsRepeat({ hwnd: 0, tick: 1000 }, 0, 1500, 2000), "no active window")
+    }
+
     static Join(arr) {
         out := ""
         for v in arr

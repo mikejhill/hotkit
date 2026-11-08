@@ -184,6 +184,16 @@
             }
           }
         },
+        "windowOrder": {
+          "type": "object",
+          "properties": {
+            "revealRepeatMs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "A second window.sendBackward within this many ms also sends the windows that covered the window to the back; 0 disables"
+            }
+          }
+        },
         "taskSwitcher": {
           "type": "object",
           "properties": {

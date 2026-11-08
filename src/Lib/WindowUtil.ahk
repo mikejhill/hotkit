@@ -203,30 +203,8 @@ class WindowUtil {
     ; mutate: off
     static MoveInZOrder(direction, winTitle := "A") {
         hwnd := WindowUtil.GetHandle(winTitle)
-        ; Band, geometry and stack position come from the window itself. Its
-        ; owners (often a hidden window) must stay below it, so they are not
-        ; peers and move along: Windows moves owners with an owned window, Wine
-        ; does not, so each owner in the window's band is placed first.
-        owners := []
-        h := hwnd
-        while (h := DllCall("user32\GetWindow", "ptr", h, "uint", 4, "ptr")) ; GW_OWNER
-            owners.Push(h)
-        isOwner := Map()
-        for h in owners
-            isOwner[h] := true
-        entries := []
-        index := 0
-        for h in WinGetList() {
-            if (h = hwnd)
-                index := entries.Length + 1
-            else if (isOwner.Has(h) || !WindowUtil.IsZOrderPeer(h)) {
-                entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: false })
-                continue
-            }
-            WinGetPos(&x, &y, &w, &hgt, h)
-            entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: true,
-                rect: { left: x, top: y, right: x + w, bottom: y + hgt } })
-        }
+        snap := WindowUtil._ZOrderSnapshot(hwnd)
+        entries := snap.entries, index := snap.index, owners := snap.owners
         if (!index)
             return false
         anchors := WindowUtil.ZOrderAnchors(entries, index, direction)
@@ -263,6 +241,53 @@ class WindowUtil {
         return true
     }
 
+    ; Front-to-back stack around hwnd for the pure planners (see
+    ; ZOrderInsertAfter), with hwnd's owners, which are never its peers.
+    static _ZOrderSnapshot(hwnd) {
+        ; Band, geometry and stack position come from the window itself. Its
+        ; owners (often a hidden window) must stay below it, so they are not
+        ; peers and move along: Windows moves owners with an owned window, Wine
+        ; does not, so each owner in the window's band is placed first.
+        owners := []
+        h := hwnd
+        while (h := DllCall("user32\GetWindow", "ptr", h, "uint", 4, "ptr")) ; GW_OWNER
+            owners.Push(h)
+        isOwner := Map()
+        for h in owners
+            isOwner[h] := true
+        entries := []
+        index := 0
+        for h in WinGetList() {
+            if (h = hwnd)
+                index := entries.Length + 1
+            else if (isOwner.Has(h) || !WindowUtil.IsZOrderPeer(h)) {
+                entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: false })
+                continue
+            }
+            WinGetPos(&x, &y, &w, &hgt, h)
+            entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: true,
+                rect: { left: x, top: y, right: x + w, bottom: y + hgt } })
+        }
+        return { entries: entries, index: index, owners: owners }
+    }
+
+    ; Repeat-press variant of "backward": the window steps back once more and
+    ; the windows that covered it go to the back, so each press shows the next
+    ; window down while the window keeps focus. Returns false when it can't
+    ; step further.
+    static RevealNextBelow(winTitle := "A") {
+        hwnd := WindowUtil.GetHandle(winTitle)
+        snap := WindowUtil._ZOrderSnapshot(hwnd)
+        if (!snap.index)
+            return false
+        covering := WindowUtil.ZOrderCovering(snap.entries, snap.index)
+        if (!WindowUtil.MoveInZOrder("backward", hwnd))
+            return false
+        for h in covering
+            WindowUtil.MoveInZOrder("back", h)
+        return true
+    }
+
     static _SetZOrder(hwnd, insertAfter) {
         ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
         if (!DllCall("user32\SetWindowPos", "ptr", hwnd, "ptr", insertAfter,
@@ -270,6 +295,19 @@ class WindowUtil {
             throw OSError(A_LastError, , "SetWindowPos")
     }
     ; mutate: on
+
+    ; Pure: peers above entries[index] in its band that overlap it, front to back.
+    static ZOrderCovering(entries, index) {
+        self := entries[index]
+        out := []
+        loop index - 1 {
+            e := entries[A_Index]
+            if (e.peer && e.topmost = self.topmost && e.rect.left < self.rect.right && self.rect.left < e.rect.right
+                && e.rect.top < self.rect.bottom && self.rect.top < e.rect.bottom)
+                out.Push(e.hwnd)
+        }
+        return out
+    }
 
     ; Pure: insert-after candidates for a move, best first ([] when the window
     ; is already in place). After the ideal anchor come the next windows in the
