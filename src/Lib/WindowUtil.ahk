@@ -229,27 +229,83 @@ class WindowUtil {
         }
         if (!index)
             return false
-        insertAfter := WindowUtil.ZOrderInsertAfter(entries, index, direction)
-        if (insertAfter = "")
+        anchors := WindowUtil.ZOrderAnchors(entries, index, direction)
+        if (!anchors.Length)
             return false
         band := entries[index].topmost
         group := []
         loop owners.Length
             group.Push(owners[owners.Length - A_Index + 1])
         group.Push(hwnd)
+        ; Windows refuses an elevated window as the anchor (UIPI, error 5), so
+        ; the next anchor in the same direction is tried.
+        insertAfter := ""
         for h in group {
             ; Owners in another band (e.g. a normal window under an always-on-top
             ; dialog) stay put, so no window's topmost state changes.
             if (h != hwnd && !!(WinGetExStyle(h) & 0x8) != band)
                 continue
-            ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
-            if (!DllCall("user32\SetWindowPos", "ptr", h, "ptr", insertAfter,
-                "int", 0, "int", 0, "int", 0, "int", 0, "uint", 0x13, "int"))
-                throw OSError(A_LastError, , "SetWindowPos")
+            if (insertAfter != "") {
+                WindowUtil._SetZOrder(h, insertAfter)
+                continue
+            }
+            for anchor in anchors {
+                try {
+                    WindowUtil._SetZOrder(h, anchor)
+                    insertAfter := anchor
+                    break
+                } catch OSError as e {
+                    if (e.Number != 5 || A_Index = anchors.Length)
+                        throw e
+                }
+            }
         }
         return true
     }
+
+    static _SetZOrder(hwnd, insertAfter) {
+        ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+        if (!DllCall("user32\SetWindowPos", "ptr", hwnd, "ptr", insertAfter,
+            "int", 0, "int", 0, "int", 0, "int", 0, "uint", 0x13, "int"))
+            throw OSError(A_LastError, , "SetWindowPos")
+    }
     ; mutate: on
+
+    ; Pure: insert-after candidates for a move, best first ([] when the window
+    ; is already in place). After the ideal anchor come the next windows in the
+    ; same band in the direction of travel, then HWND_TOP (0) going up or, for
+    ; normal windows, HWND_BOTTOM (1) going down; HWND_TOP is never refused.
+    static ZOrderAnchors(entries, index, direction) {
+        first := WindowUtil.ZOrderInsertAfter(entries, index, direction)
+        if (first = "")
+            return []
+        anchors := [first]
+        if (first = 0)
+            return anchors
+        band := entries[index].topmost
+        j := 0
+        for i, e in entries {
+            if (e.hwnd = first)
+                j := i
+        }
+        if (j < index) {
+            loop j - 1 {
+                e := entries[j - A_Index]
+                if (e.topmost = band)
+                    anchors.Push(e.hwnd)
+            }
+            anchors.Push(0)
+        } else {
+            loop entries.Length - j {
+                e := entries[j + A_Index]
+                if (e.topmost = band)
+                    anchors.Push(e.hwnd)
+            }
+            if (!band)
+                anchors.Push(1)
+        }
+        return anchors
+    }
 
     ; Pure: where to put entries[index] for a move. entries are front to back,
     ; each { hwnd, topmost, peer, rect: { left, top, right, bottom } } (rect only

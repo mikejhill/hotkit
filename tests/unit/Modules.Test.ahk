@@ -74,6 +74,23 @@ class Modules_Tests {
         Assert.Throws(() => WindowUtil.ZOrderInsertAfter(z("1"), 1, "sideways"), "Unknown z-order direction")
     }
 
+    static Test_ZOrderAnchorsFallBackInDirectionOfTravel() {
+        z := (s*) => Modules_Tests.ZStack(s*)
+        Assert.Equal("3,4,5,1", Modules_Tests.Join(WindowUtil.ZOrderAnchors(z("1", "2:far", "3", "4:n", "5"), 1, "backward")))
+        Assert.Equal("5,1", Modules_Tests.Join(WindowUtil.ZOrderAnchors(z("1", "3", "5"), 1, "back")))
+        Assert.Equal("3,4", Modules_Tests.Join(WindowUtil.ZOrderAnchors(z("1:t", "3:t", "4:t", "5"), 1, "backward")), "topmost: no HWND_BOTTOM")
+        Assert.Equal("7,9,0", Modules_Tests.Join(WindowUtil.ZOrderAnchors(z("8:t", "9", "7", "3", "1"), 5, "forward")))
+        Assert.Equal("0", Modules_Tests.Join(WindowUtil.ZOrderAnchors(z("3", "1"), 2, "front")))
+        Assert.Equal(0, WindowUtil.ZOrderAnchors(z("1", "2"), 1, "front").Length)
+    }
+
+    static Join(arr) {
+        out := ""
+        for v in arr
+            out .= (A_Index > 1 ? "," : "") v
+        return out
+    }
+
     static Test_QuickWindowLaunchCommand() {
         Assert.Equal('app.exe --app="u"', QuickWindowsModule.LaunchCommand("app.exe", '--app="u"'))
         Assert.Equal("app.exe --a=x --b", QuickWindowsModule.LaunchCommand("app.exe --a={mode} --b", "x"))
