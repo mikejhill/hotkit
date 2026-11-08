@@ -45,6 +45,7 @@ pass `args` as a JSON array in the order listed under **Arguments**
 | `media.playPause` |  | Play/pause media |
 | `media.previous` |  | Previous track |
 | `powerToys.toggleAwake` |  | Toggle PowerToys Awake between indefinite and off |
+| `taskbar.activate` | n | Like Win+<n>: start, switch to, or cycle taskbar app n (1-10; 0 = 10), even under a full-screen app |
 | `theme.toggle` |  | Toggle Windows light/dark theme (and wallpaper) |
 | `trayIcons.showAll` |  | Promote every tray icon to the visible area |
 | `wallpaper.bing` |  | Set today's Bing image as wallpaper |

@@ -140,6 +140,37 @@ class Modules_Tests {
         Assert.Equal(0, DesktopModule.PickDesktopHost([]))
     }
 
+    static Test_TaskbarDigit() {
+        Assert.Equal("1", DesktopModule.TaskbarDigit(1))
+        Assert.Equal("9", DesktopModule.TaskbarDigit("9"))
+        Assert.Equal("0", DesktopModule.TaskbarDigit(10))
+        Assert.Equal("0", DesktopModule.TaskbarDigit(0))
+        Assert.Throws(() => DesktopModule.TaskbarDigit(11), "Taskbar slot")
+        Assert.Throws(() => DesktopModule.TaskbarDigit(-1), "Taskbar slot")
+        Assert.Throws(() => DesktopModule.TaskbarDigit("x"), "Taskbar slot")
+    }
+
+    static Test_FullScreenDetection() {
+        mon := { left: 0, top: 0, right: 1920, bottom: 1080 }
+        full := { left: 0, top: 0, right: 1920, bottom: 1080 }
+        maxed := { left: -8, top: -8, right: 1928, bottom: 1088 }
+        work := { left: -8, top: -8, right: 1928, bottom: 1048 }
+        popup := 0x80000000, caption := 0xC00000
+        Assert.True(DesktopModule.IsFullScreen("TscShellContainerClass", popup, full, mon))
+        Assert.True(DesktopModule.IsFullScreen("X", 0x800000, maxed, mon)) ; border only, not a caption
+        Assert.False(DesktopModule.IsFullScreen("X", caption, maxed, mon))
+        Assert.False(DesktopModule.IsFullScreen("X", popup, work, mon))
+        Assert.False(DesktopModule.IsFullScreen("X", popup, { left: 1, top: 0, right: 1920, bottom: 1080 }, mon))
+        Assert.False(DesktopModule.IsFullScreen("X", popup, { left: 0, top: 1, right: 1920, bottom: 1080 }, mon))
+        Assert.False(DesktopModule.IsFullScreen("X", popup, { left: 0, top: 0, right: 1919, bottom: 1080 }, mon))
+        Assert.False(DesktopModule.IsFullScreen("Progman", popup, full, mon))
+        Assert.False(DesktopModule.IsFullScreen("WorkerW", popup, full, mon))
+        Assert.False(DesktopModule.IsFullScreen("Shell_TrayWnd", popup, full, mon))
+        Assert.False(DesktopModule.IsFullScreen("Shell_SecondaryTrayWnd", popup, full, mon))
+        second := { left: 1920, top: 0, right: 4480, bottom: 1440 }
+        Assert.True(DesktopModule.IsFullScreen("X", popup, second, second))
+    }
+
     static Test_AwakeModeFlips() {
         Assert.Equal(0, DesktopModule.NextAwakeMode(1))
         Assert.Equal(1, DesktopModule.NextAwakeMode(0))

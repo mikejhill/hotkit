@@ -14,6 +14,7 @@ All notable changes are listed here. The format follows
 - `quickWindow.toggle` failed with "Target window not found" when the app was running but its window was closed to the tray; it now runs the launch command and brings that window back.
 
 ### Added
+- `taskbar.activate` action: Win+<n> for taskbar slot n, bindable to any key (e.g. Caps+1..0). When a full-screen window has focus it focuses the desktop first, so the keystroke reaches Windows instead of the app.
 - `window.sendBackward`, `window.sendToBack`, `window.bringForward`, `window.bringToFront`: restack the active window without minimizing it or taking focus from it. Stepping skips windows it doesn't overlap, and always-on-top windows stay in their own layer.
 - `window.cycleNext` / `window.cyclePrevious`: Alt+Tab-style focus cycling through on-screen windows; each undoes the other.
 - `desktop.focus` action: moves keyboard focus to the desktop without minimizing any window, so Win+<key>, Alt+Tab and other system shortcuts work while a full-screen app is capturing them.
