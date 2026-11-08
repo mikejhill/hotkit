@@ -14,6 +14,7 @@ All notable changes are listed here. The format follows
 - `quickWindow.toggle` failed with "Target window not found" when the app was running but its window was closed to the tray; it now runs the launch command and brings that window back.
 
 ### Added
+- `window.sendBackward`, `window.sendToBack`, `window.bringForward`, `window.bringToFront`: restack the active window without minimizing it or taking focus from it. Stepping skips windows it doesn't overlap, and always-on-top windows stay in their own layer.
 - `desktop.focus` action: moves keyboard focus to the desktop without minimizing any window, so Win+<key>, Alt+Tab and other system shortcuts work while a full-screen app is capturing them.
 - `hotkit.log` (in `%LOCALAPPDATA%\hotkit`, so a synced config directory has no shared writer) records each start, config problems, load failures, skipped reloads and unhandled errors.
 - `tools/check.py` checks the real config and plugins, prints what the running app logged, and exits non-zero on any problem.

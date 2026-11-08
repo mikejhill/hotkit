@@ -191,6 +191,187 @@ class WindowUtil {
         return 0
     }
 
+    ; ---------------- Z-order (stacking) ------------------------------------------
+
+    ; Move a window within the stacking order without activating, minimizing, or
+    ; hiding it, so it keeps focus. direction is "backward" (behind the next
+    ; overlapping window), "back" (behind all), "forward" (in front of the next
+    ; overlapping window above), or "front" (in front of all). Always-on-top
+    ; windows move only among always-on-top windows, and others never pass them.
+    ; An owned window (dialog) takes its owners along. Returns false when nothing
+    ; needs to move; throws OSError when Windows refuses the move.
+    ; mutate: off
+    static MoveInZOrder(direction, winTitle := "A") {
+        hwnd := WindowUtil.GetHandle(winTitle)
+        ; Band, geometry and stack position come from the window itself. Its
+        ; owners (often a hidden window) must stay below it, so they are not
+        ; peers and move along: Windows moves owners with an owned window, Wine
+        ; does not, so each owner in the window's band is placed first.
+        owners := []
+        h := hwnd
+        while (h := DllCall("user32\GetWindow", "ptr", h, "uint", 4, "ptr")) ; GW_OWNER
+            owners.Push(h)
+        isOwner := Map()
+        for h in owners
+            isOwner[h] := true
+        entries := []
+        index := 0
+        for h in WinGetList() {
+            if (h = hwnd)
+                index := entries.Length + 1
+            else if (isOwner.Has(h) || !WindowUtil.IsZOrderPeer(h)) {
+                entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: false })
+                continue
+            }
+            WinGetPos(&x, &y, &w, &hgt, h)
+            entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: true,
+                rect: { left: x, top: y, right: x + w, bottom: y + hgt } })
+        }
+        if (!index)
+            return false
+        anchors := WindowUtil.ZOrderAnchors(entries, index, direction)
+        if (!anchors.Length)
+            return false
+        band := entries[index].topmost
+        group := []
+        loop owners.Length
+            group.Push(owners[owners.Length - A_Index + 1])
+        group.Push(hwnd)
+        ; Windows refuses an elevated window as the anchor (UIPI, error 5), so
+        ; the next anchor in the same direction is tried.
+        insertAfter := ""
+        for h in group {
+            ; Owners in another band (e.g. a normal window under an always-on-top
+            ; dialog) stay put, so no window's topmost state changes.
+            if (h != hwnd && !!(WinGetExStyle(h) & 0x8) != band)
+                continue
+            if (insertAfter != "") {
+                WindowUtil._SetZOrder(h, insertAfter)
+                continue
+            }
+            for anchor in anchors {
+                try {
+                    WindowUtil._SetZOrder(h, anchor)
+                    insertAfter := anchor
+                    break
+                } catch OSError as e {
+                    if (e.Number != 5 || A_Index = anchors.Length)
+                        throw e
+                }
+            }
+        }
+        return true
+    }
+
+    static _SetZOrder(hwnd, insertAfter) {
+        ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+        if (!DllCall("user32\SetWindowPos", "ptr", hwnd, "ptr", insertAfter,
+            "int", 0, "int", 0, "int", 0, "int", 0, "uint", 0x13, "int"))
+            throw OSError(A_LastError, , "SetWindowPos")
+    }
+    ; mutate: on
+
+    ; Pure: insert-after candidates for a move, best first ([] when the window
+    ; is already in place). After the ideal anchor come the next windows in the
+    ; same band in the direction of travel, then HWND_TOP (0) going up or, for
+    ; normal windows, HWND_BOTTOM (1) going down; HWND_TOP is never refused.
+    static ZOrderAnchors(entries, index, direction) {
+        first := WindowUtil.ZOrderInsertAfter(entries, index, direction)
+        if (first = "")
+            return []
+        anchors := [first]
+        if (first = 0)
+            return anchors
+        band := entries[index].topmost
+        j := 0
+        for i, e in entries {
+            if (e.hwnd = first)
+                j := i
+        }
+        if (j < index) {
+            loop j - 1 {
+                e := entries[j - A_Index]
+                if (e.topmost = band)
+                    anchors.Push(e.hwnd)
+            }
+            anchors.Push(0)
+        } else {
+            loop entries.Length - j {
+                e := entries[j + A_Index]
+                if (e.topmost = band)
+                    anchors.Push(e.hwnd)
+            }
+            if (!band)
+                anchors.Push(1)
+        }
+        return anchors
+    }
+
+    ; Pure: where to put entries[index] for a move. entries are front to back,
+    ; each { hwnd, topmost, peer, rect: { left, top, right, bottom } } (rect only
+    ; needed on peers). Returns the hwnd to insert after, 0 for the top of the
+    ; window's band (HWND_TOP), or "" when the window is already in place.
+    static ZOrderInsertAfter(entries, index, direction) {
+        self := entries[index]
+        isPeer(e) => e.peer && e.topmost = self.topmost
+        overlaps(e) => e.rect.left < self.rect.right && self.rect.left < e.rect.right
+            && e.rect.top < self.rect.bottom && self.rect.top < e.rect.bottom
+        switch direction, false {
+            case "backward":
+                loop entries.Length - index {
+                    e := entries[index + A_Index]
+                    if (isPeer(e) && overlaps(e))
+                        return e.hwnd
+                }
+                return ""
+            case "back":
+                loop entries.Length - index {
+                    e := entries[entries.Length - A_Index + 1]
+                    if (isPeer(e))
+                        return e.hwnd
+                }
+                return ""
+            case "forward":
+                loop index - 1 {
+                    j := index - A_Index
+                    if (!isPeer(entries[j]) || !overlaps(entries[j]))
+                        continue
+                    above := j > 1 ? entries[j - 1] : ""
+                    return (above && above.topmost = self.topmost) ? above.hwnd : 0
+                }
+                return ""
+            case "front":
+                loop index - 1 {
+                    if (isPeer(entries[A_Index]))
+                        return 0
+                }
+                return ""
+        }
+        throw ValueError("Unknown z-order direction: " direction)
+    }
+
+    ; A window worth stepping past: one Alt+Tab would list (visible, restored,
+    ; not cloaked, not a tool window, and unowned or WS_EX_APPWINDOW), that is
+    ; not the desktop, the taskbar, or a click-through overlay.
+    static IsZOrderPeer(hwnd) {
+        try {
+            if (!DllCall("user32\IsWindowVisible", "ptr", hwnd, "int") || DllCall("user32\IsIconic", "ptr", hwnd, "int"))
+                return false
+            ex := WinGetExStyle(hwnd)
+            if ((ex & 0x80) || (ex & 0x80020) = 0x80020) ; WS_EX_TOOLWINDOW; WS_EX_LAYERED | WS_EX_TRANSPARENT
+                return false
+            if (!(ex & 0x40000) && DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr")) ; WS_EX_APPWINDOW; GW_OWNER
+                return false
+            try {
+                if (WindowUtil.IsCloaked(hwnd))
+                    return false
+            }
+            cls := WinGetClass(hwnd)
+            return !(cls = "Progman" || cls = "WorkerW" || cls = "Shell_TrayWnd" || cls = "Shell_SecondaryTrayWnd")
+        }
+        return false
+    }
+
     ; Determine if a window is a valid Alt+Tab candidate.
     ; Returns true if window is visible, not minimized, not cloaked, and not a toolwindow.
     static IsAltTabCandidate(hwnd) {

@@ -118,7 +118,7 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F16")
         Assert.True(WinWait(win, , 10), "overlay did not open")
         total := ListViewGetContent("Count", "SysListView321", win)
-        Assert.Equal(8, Integer(total), "one row per binding")
+        Assert.Equal(12, Integer(total), "one row per binding")
         ControlSetText("gesture", "Edit1", win)
         Sleep(300)
         Assert.Equal(1, Integer(ListViewGetContent("Count", "SysListView321", win)), "filter narrows rows")
@@ -197,6 +197,138 @@ class E2E_Tests {
         Assert.True(WinWaitActive("ahk_id " hwnd, , 10), "toggle should show and focus the hidden window again")
         alpha := WinGetTransparent(hwnd)
         Assert.True(alpha = "" || alpha = 255, "window should be opaque, alpha=" alpha)
+    }
+
+    ; Z-order keys restack the active window but never take focus from it.
+    ; The test arranges the fixture windows itself: A and B overlap, "other"
+    ; overlaps neither. Other desktop windows may sit anywhere in the stack, so
+    ; each step starts from an order where the fixture windows are adjacent.
+    static Test_05e_ZOrderKeepsFocus() {
+        a := "hotkit-e2e-win A", b := "hotkit-e2e-win B", other := "hotkit-e2e-other"
+        if (!WinExist(a) || !WinExist(b) || !WinExist(other)) {
+            Run('"' A_AhkPath '" "' A_ScriptDir '\fixture\Windows.ahk"', , , &pid)
+            E2E_Tests.WindowsPid := pid
+        }
+        for title in [a, b, other]
+            Assert.True(WinWait(title, , 10), title " did not open")
+        hwndA := WinExist(a), hwndB := WinExist(b), hwndO := WinExist(other)
+        WinMove(100, 100, 300, 200, hwndA)
+        WinMove(300, 150, 300, 200, hwndB)
+        WinMove(800, 100, 200, 200, hwndO)
+        handles := [hwndA, hwndB, hwndO]
+        order := () => E2E_Tests.StackOrder(handles)
+        arrange(letters) {
+            byName := Map("A", hwndA, "B", hwndB, "O", hwndO)
+            prev := 0
+            for name in StrSplit(letters) {
+                hwnd := byName[name]
+                if (!prev)
+                    WinMoveTop(hwnd)
+                else
+                    DllCall("user32\SetWindowPos", "ptr", hwnd, "ptr", prev, "int", 0, "int", 0,
+                        "int", 0, "int", 0, "uint", 0x13)
+                prev := hwnd
+            }
+            if (WinExist("A") != hwndA) {
+                WinActivate(hwndA)
+                WinWaitActive(hwndA, , 5)
+            }
+            Sleep(300)
+            Assert.Equal(letters, order(), "arrange " letters)
+        }
+        step(hk, expected, msg) {
+            E2E_Tests.Press(hk)
+            Sleep(500)
+            Assert.Equal(expected, order(), msg)
+            Assert.Equal(hwndA, WinExist("A"), msg ": focus must stay on the window")
+        }
+        arrange("ABO")
+        step(">^>!F11", "BAO", "send backward steps behind the overlapping window")
+        arrange("BOA")
+        step(">^>!F9", "ABO", "bring forward skips windows that do not overlap")
+        step(">^>!F10", "BOA", "send to back goes behind every window")
+        step(">^>!F8", "ABO", "bring to front")
+
+        ; A window whose owner is hidden (as for many app and AHK GUI windows)
+        ; must move itself, since the owner is not in the visible stack.
+        owner := Gui()
+        owned := Gui("+Owner" owner.Hwnd " +E0x40000", "hotkit-e2e-owned") ; WS_EX_APPWINDOW
+        owned.Show("x150 y150 w200 h100")
+        try {
+            WinActivate(owned.Hwnd)
+            WinWaitActive(owned.Hwnd, , 5)
+            Sleep(300)
+            E2E_Tests.Press(">^>!F10")
+            Sleep(500)
+            list := WinGetList()
+            pos := Map()
+            for i, hwnd in list
+                pos[hwnd] := i
+            Assert.True(pos[owned.Hwnd] > pos[hwndA] && pos[owned.Hwnd] > pos[hwndB],
+                "window with a hidden owner should go to the back: " pos[owned.Hwnd] " A=" pos[hwndA] " B=" pos[hwndB] " active=" WinExist("A") " owned=" owned.Hwnd " n=" list.Length)
+            Assert.Equal(owned.Hwnd, WinExist("A"), "owned window keeps focus")
+            ; It is listed in Alt+Tab (WS_EX_APPWINDOW), so others stack around it.
+            WinActivate(hwndA)
+            WinWaitActive(hwndA, , 5)
+            Sleep(300)
+            E2E_Tests.Press(">^>!F10")
+            Sleep(500)
+            list := WinGetList()
+            for i, hwnd in list
+                pos[hwnd] := i
+            Assert.True(pos[hwndA] > pos[owned.Hwnd], "send to back should pass an owned app window")
+        } finally {
+            owned.Destroy()
+            owner.Destroy()
+        }
+
+        ; A dialog that sticks out of its visible owner steps behind a window
+        ; it overlaps even when the owner doesn't overlap that window.
+        WinMoveTop(hwndA)  ; WinActivate alone may not raise it on Windows
+        main := Gui(, "hotkit-e2e-main")
+        main.Show("x100 y420 w200 h100")
+        dialog := Gui("+Owner" main.Hwnd, "hotkit-e2e-dialog")
+        dialog.Show("x150 y250 w200 h100")
+        try {
+            WinActivate(dialog.Hwnd)
+            WinWaitActive(dialog.Hwnd, , 5)
+            Sleep(300)
+            E2E_Tests.Press(">^>!F11")
+            Sleep(500)
+            pos := Map()
+            for i, hwnd in WinGetList()
+                pos[hwnd] := i
+            Assert.True(pos[dialog.Hwnd] > pos[hwndA], "dialog should step behind the window it overlaps: "
+                E2E_Tests.DescribeStack())
+            Assert.True(pos[dialog.Hwnd] < pos[main.Hwnd], "dialog stays above its owner")
+            Assert.Equal(dialog.Hwnd, WinExist("A"), "dialog keeps focus")
+        } finally {
+            dialog.Destroy()
+            main.Destroy()
+        }
+    }
+
+    ; Visible top-level windows front to back, for failure messages.
+    static DescribeStack() {
+        out := ""
+        for hwnd in WinGetList() {
+            try {
+                WinGetPos(&x, &y, &w, &h, hwnd)
+                out .= "`n    " Format("0x{:X}", hwnd) " " WinGetClass(hwnd) " '" SubStr(WinGetTitle(hwnd), 1, 30) "' "
+                    . x "," y " " w "x" h " ex=" Format("0x{:X}", WinGetExStyle(hwnd))
+                    . " owner=" Format("0x{:X}", DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr"))
+            }
+        }
+        return out
+    }
+
+    ; Letters A/B/O for the given windows, front to back.
+    static StackOrder(handles) {
+        names := Map(handles[1], "A", handles[2], "B", handles[3], "O")
+        out := ""
+        for hwnd in WinGetList()
+            out .= names.Has(hwnd) ? names[hwnd] : ""
+        return out
     }
 
     static Test_06_ConfigReload() {

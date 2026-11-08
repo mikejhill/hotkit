@@ -17,7 +17,11 @@
     { "keys": ">^>!F16", "action": "osd.toggle" },
     { "keys": ">^>!F15", "action": "app.exit" },
     { "keys": ">^>!F13", "action": "app.toggle", "args": ["e2ewin"] },
-    { "keys": ">^>!F12", "action": "quickWindow.toggle", "args": ["qw"] }
+    { "keys": ">^>!F12", "action": "quickWindow.toggle", "args": ["qw"] },
+    { "keys": ">^>!F11", "action": "window.sendBackward" },
+    { "keys": ">^>!F10", "action": "window.sendToBack" },
+    { "keys": ">^>!F9", "action": "window.bringForward" },
+    { "keys": ">^>!F8", "action": "window.bringToFront" }
     {{EXTRA}}
   ]
 }
