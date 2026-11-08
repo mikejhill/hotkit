@@ -316,8 +316,8 @@ class E2E_Tests {
             try {
                 WinGetPos(&x, &y, &w, &h, hwnd)
                 out .= "`n    " Format("0x{:X}", hwnd) " " WinGetClass(hwnd) " '" SubStr(WinGetTitle(hwnd), 1, 30) "' "
-                    x "," y " " w "x" h " ex=" Format("0x{:X}", WinGetExStyle(hwnd))
-                    " owner=" Format("0x{:X}", DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr"))
+                    . x "," y " " w "x" h " ex=" Format("0x{:X}", WinGetExStyle(hwnd))
+                    . " owner=" Format("0x{:X}", DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr"))
             }
         }
         return out
