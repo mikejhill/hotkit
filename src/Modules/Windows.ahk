@@ -40,6 +40,10 @@ class WindowsModule {
             "Bring the active window in front of the next window it overlaps")
         reg("window.bringToFront", (*) => WindowsModule.MoveInZOrder("front"),
             "Bring the active window in front of all other windows")
+        reg("window.cycleNext", (*) => WindowsModule.Restack((*) => WindowUtil.CycleFocus("next")),
+            "Focus the next window down, like Alt+Tab (window.cyclePrevious goes back)")
+        reg("window.cyclePrevious", (*) => WindowsModule.Restack((*) => WindowUtil.CycleFocus("previous")),
+            "Focus the previous window (undoes window.cycleNext)")
         reg("window.focusNext", (*) => WindowUtil.FocusNextWindow(), "Focus the next window in z-order")
         reg("window.activateLast", (winTitle := "") => WindowsModule.ActivateLast(winTitle),
             "Activate the most recent other window (optionally matching a WinTitle)", "[winTitle]")
@@ -75,6 +79,16 @@ class WindowsModule {
             }
         }
         Toast.ShowToast(, "Always on Top:", enabled ? "Enabled" : "Disabled")
+    }
+
+    static Restack(fn) {
+        try {
+            fn()
+        } catch TargetError {
+            return
+        } catch as e {
+            Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Window order:", e.Message)
+        }
     }
 
     static MoveInZOrder(direction) {

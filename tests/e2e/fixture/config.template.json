@@ -21,7 +21,9 @@
     { "keys": ">^>!F11", "action": "window.sendBackward" },
     { "keys": ">^>!F10", "action": "window.sendToBack" },
     { "keys": ">^>!F9", "action": "window.bringForward" },
-    { "keys": ">^>!F8", "action": "window.bringToFront" }
+    { "keys": ">^>!F8", "action": "window.bringToFront" },
+    { "keys": ">^>!F7", "action": "window.cycleNext" },
+    { "keys": ">^>!F6", "action": "window.cyclePrevious" }
     {{EXTRA}}
   ]
 }

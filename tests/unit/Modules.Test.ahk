@@ -84,6 +84,23 @@ class Modules_Tests {
         Assert.Equal(0, WindowUtil.ZOrderAnchors(z("1", "2"), 1, "front").Length)
     }
 
+    static Test_CyclePlanRotatesBothWays() {
+        p := (list, active, dir) => WindowUtil.CyclePlan(list, active, dir)
+        r := p([1, 2, 3], 1, "next")
+        Assert.Equal(2, r.activate), Assert.Equal(1, r.sendBack)
+        r := p([1, 2, 3], 3, "Next")
+        Assert.Equal(1, r.activate, "wraps"), Assert.Equal(3, r.sendBack)
+        r := p([1, 2, 3], 9, "next")
+        Assert.Equal(1, r.activate, "nothing in the list active"), Assert.Equal(0, r.sendBack)
+        Assert.Equal(0, p([1], 1, "next").activate)
+        Assert.Equal(0, p([], 0, "next").activate)
+        r := p([2, 3, 1], 2, "previous")
+        Assert.Equal(1, r.activate), Assert.Equal(0, r.sendBack)
+        Assert.Equal(0, p([2, 1], 1, "previous").activate, "already the bottom one")
+        Assert.Equal(0, p([], 0, "previous").activate)
+        Assert.Throws(() => p([1], 1, "sideways"), "Unknown cycle direction")
+    }
+
     static Join(arr) {
         out := ""
         for v in arr

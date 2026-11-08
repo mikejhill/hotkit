@@ -118,7 +118,7 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F16")
         Assert.True(WinWait(win, , 10), "overlay did not open")
         total := ListViewGetContent("Count", "SysListView321", win)
-        Assert.Equal(12, Integer(total), "one row per binding")
+        Assert.Equal(14, Integer(total), "one row per binding")
         ControlSetText("gesture", "Edit1", win)
         Sleep(300)
         Assert.Equal(1, Integer(ListViewGetContent("Count", "SysListView321", win)), "filter narrows rows")
@@ -305,6 +305,30 @@ class E2E_Tests {
         } finally {
             dialog.Destroy()
             main.Destroy()
+        }
+
+        ; Cycling focus moves down the stack and back, like Alt+Tab.
+        arrange("ABO")
+        E2E_Tests.Press(">^>!F7")
+        Assert.True(WinWaitActive("ahk_id " hwndB, , 3), "cycle next focuses the window under A")
+        Sleep(300)
+        Assert.Equal("BOA", order(), "cycle next sends A to the back")
+        E2E_Tests.Press(">^>!F6")
+        Assert.True(WinWaitActive("ahk_id " hwndA, , 3), "cycle previous returns to A")
+        Sleep(300)
+        Assert.Equal("ABO", order(), "cycling back restores the order")
+
+        ; From A's modal-style owned dialog, next leaves the app instead of
+        ; landing on A (whose dialog would take focus right back).
+        dialog := Gui("+Owner" hwndA, "hotkit-e2e-dialog")
+        dialog.Show("x150 y150 w200 h100")
+        try {
+            WinWaitActive(dialog.Hwnd, , 5)
+            Sleep(300)
+            E2E_Tests.Press(">^>!F7")
+            Assert.True(WinWaitActive("ahk_id " hwndB, , 3), "cycle next from A's dialog focuses B")
+        } finally {
+            dialog.Destroy()
         }
     }
 
