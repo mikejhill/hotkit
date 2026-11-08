@@ -25,7 +25,7 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 | **Quick windows** | Summon and dismiss any app as a floating window with one key. Generic; you define the instances. |
 | **App toggles** | Focus, minimize, or launch an app from a hotkey. |
 | **Display** | DDC/CI and WMI brightness, gamma dimming, Night Light strength, display scale stepping. |
-| **Desktop** | Light/dark theme with wallpaper, media keys, always-on-top with an indicator, last-window switching, lock-key state. |
+| **Desktop** | Light/dark theme with wallpaper, media keys, always-on-top with an indicator, last-window switching, window stacking (send back / bring forward without losing focus), lock-key state. |
 | **Plugins** | Drop an `.ahk` file into your config folder to add private actions. |
 | **One config location** | `%USERPROFILE%\.config\hotkit\`, live-reloaded on save. |
 

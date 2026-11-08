@@ -191,6 +191,104 @@ class WindowUtil {
         return 0
     }
 
+    ; ---------------- Z-order (stacking) ------------------------------------------
+
+    ; Move a window within the stacking order without activating, minimizing, or
+    ; hiding it, so it keeps focus. direction is "backward" (behind the next
+    ; overlapping window), "back" (behind all), "forward" (in front of the next
+    ; overlapping window above), or "front" (in front of all). Always-on-top
+    ; windows move only among always-on-top windows, and others never pass them.
+    ; An owned window (dialog) moves with its owner. Returns false when nothing
+    ; needs to move; throws OSError when Windows refuses the move.
+    ; mutate: off
+    static MoveInZOrder(direction, winTitle := "A") {
+        hwnd := WindowUtil.GetHandle(winTitle)
+        root := DllCall("user32\GetAncestor", "ptr", hwnd, "uint", 3, "ptr") ; GA_ROOTOWNER
+        if (root)
+            hwnd := root
+        entries := []
+        index := 0
+        for h in WinGetList() {
+            if (h = hwnd)
+                index := entries.Length + 1
+            else if (!WindowUtil.IsZOrderPeer(h)) {
+                entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: false })
+                continue
+            }
+            WinGetPos(&x, &y, &w, &hgt, h)
+            entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: true,
+                rect: { left: x, top: y, right: x + w, bottom: y + hgt } })
+        }
+        if (!index)
+            return false
+        insertAfter := WindowUtil.ZOrderInsertAfter(entries, index, direction)
+        if (insertAfter = "")
+            return false
+        ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+        if (!DllCall("user32\SetWindowPos", "ptr", hwnd, "ptr", insertAfter,
+            "int", 0, "int", 0, "int", 0, "int", 0, "uint", 0x13, "int"))
+            throw OSError(A_LastError, , "SetWindowPos")
+        return true
+    }
+    ; mutate: on
+
+    ; Pure: where to put entries[index] for a move. entries are front to back,
+    ; each { hwnd, topmost, peer, rect: { left, top, right, bottom } } (rect only
+    ; needed on peers). Returns the hwnd to insert after, 0 for the top of the
+    ; window's band (HWND_TOP), or "" when the window is already in place.
+    static ZOrderInsertAfter(entries, index, direction) {
+        self := entries[index]
+        isPeer(e) => e.peer && e.topmost = self.topmost
+        overlaps(e) => e.rect.left < self.rect.right && self.rect.left < e.rect.right
+            && e.rect.top < self.rect.bottom && self.rect.top < e.rect.bottom
+        switch direction, false {
+            case "backward":
+                loop entries.Length - index {
+                    e := entries[index + A_Index]
+                    if (isPeer(e) && overlaps(e))
+                        return e.hwnd
+                }
+                return ""
+            case "back":
+                loop entries.Length - index {
+                    e := entries[entries.Length - A_Index + 1]
+                    if (isPeer(e))
+                        return e.hwnd
+                }
+                return ""
+            case "forward":
+                loop index - 1 {
+                    j := index - A_Index
+                    if (!isPeer(entries[j]) || !overlaps(entries[j]))
+                        continue
+                    above := j > 1 ? entries[j - 1] : ""
+                    return (above && above.topmost = self.topmost) ? above.hwnd : 0
+                }
+                return ""
+            case "front":
+                loop index - 1 {
+                    if (isPeer(entries[A_Index]))
+                        return 0
+                }
+                return ""
+        }
+        throw ValueError("Unknown z-order direction: " direction)
+    }
+
+    ; A window worth stepping past: an Alt+Tab candidate that is not the desktop,
+    ; the taskbar, or a click-through overlay.
+    static IsZOrderPeer(hwnd) {
+        try {
+            if (!WindowUtil.IsAltTabCandidate(hwnd))
+                return false
+            if ((WinGetExStyle(hwnd) & 0x80020) = 0x80020) ; WS_EX_LAYERED | WS_EX_TRANSPARENT
+                return false
+            cls := WinGetClass(hwnd)
+            return !(cls = "Progman" || cls = "WorkerW" || cls = "Shell_TrayWnd" || cls = "Shell_SecondaryTrayWnd")
+        }
+        return false
+    }
+
     ; Determine if a window is a valid Alt+Tab candidate.
     ; Returns true if window is visible, not minimized, not cloaked, and not a toolwindow.
     static IsAltTabCandidate(hwnd) {

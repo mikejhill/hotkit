@@ -32,6 +32,14 @@ class WindowsModule {
         reg("window.toggleAlwaysOnTop", (*) => WindowsModule.ToggleAlwaysOnTop(), "Pin or unpin the active window")
         reg("window.toggleMinimized", (*) => WindowUtil.ToggleActiveWindowMinimized(),
             "Minimize the active window, or restore the last one minimized")
+        reg("window.sendBackward", (*) => WindowsModule.MoveInZOrder("backward"),
+            "Send the active window behind the next window it overlaps (keeps focus)")
+        reg("window.sendToBack", (*) => WindowsModule.MoveInZOrder("back"),
+            "Send the active window behind all other windows (keeps focus)")
+        reg("window.bringForward", (*) => WindowsModule.MoveInZOrder("forward"),
+            "Bring the active window in front of the next window it overlaps")
+        reg("window.bringToFront", (*) => WindowsModule.MoveInZOrder("front"),
+            "Bring the active window in front of all other windows")
         reg("window.focusNext", (*) => WindowUtil.FocusNextWindow(), "Focus the next window in z-order")
         reg("window.activateLast", (winTitle := "") => WindowsModule.ActivateLast(winTitle),
             "Activate the most recent other window (optionally matching a WinTitle)", "[winTitle]")
@@ -67,6 +75,16 @@ class WindowsModule {
             }
         }
         Toast.ShowToast(, "Always on Top:", enabled ? "Enabled" : "Disabled")
+    }
+
+    static MoveInZOrder(direction) {
+        try {
+            WindowUtil.MoveInZOrder(direction)
+        } catch TargetError {
+            return
+        } catch as e {
+            Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Window order:", e.Message)
+        }
     }
 
     static ActivateLast(winTitle := "") {

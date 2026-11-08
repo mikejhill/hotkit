@@ -118,7 +118,7 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F16")
         Assert.True(WinWait(win, , 10), "overlay did not open")
         total := ListViewGetContent("Count", "SysListView321", win)
-        Assert.Equal(8, Integer(total), "one row per binding")
+        Assert.Equal(12, Integer(total), "one row per binding")
         ControlSetText("gesture", "Edit1", win)
         Sleep(300)
         Assert.Equal(1, Integer(ListViewGetContent("Count", "SysListView321", win)), "filter narrows rows")
@@ -197,6 +197,46 @@ class E2E_Tests {
         Assert.True(WinWaitActive("ahk_id " hwnd, , 10), "toggle should show and focus the hidden window again")
         alpha := WinGetTransparent(hwnd)
         Assert.True(alpha = "" || alpha = 255, "window should be opaque, alpha=" alpha)
+    }
+
+    ; Z-order keys restack the active window but never take focus from it.
+    ; Fixture windows A and B overlap; "other" overlaps B but not A.
+    static Test_05e_ZOrderKeepsFocus() {
+        a := "hotkit-e2e-win A", b := "hotkit-e2e-win B", other := "hotkit-e2e-other"
+        if (!WinExist(a) || !WinExist(b) || !WinExist(other)) {
+            Run('"' A_AhkPath '" "' A_ScriptDir '\fixture\Windows.ahk"', , , &pid)
+            E2E_Tests.WindowsPid := pid
+        }
+        for title in [a, b, other]
+            Assert.True(WinWait(title, , 10), title " did not open")
+        hwndA := WinExist(a), hwndB := WinExist(b), hwndO := WinExist(other)
+        for hwnd in [hwndO, hwndB, hwndA]
+            WinMoveTop(hwnd)
+        WinActivate(hwndA)
+        WinWaitActive(hwndA, , 5)
+        Sleep(300)
+        order := () => E2E_Tests.StackOrder([hwndA, hwndB, hwndO])
+        step(hk, expected, msg) {
+            E2E_Tests.Press(hk)
+            Sleep(500)
+            Assert.Equal(expected, order(), msg)
+            Assert.Equal(hwndA, WinExist("A"), msg ": focus must stay on the window")
+        }
+        Assert.Equal("ABO", order(), "setup")
+        step(">^>!F11", "BAO", "send backward steps behind the overlapping window")
+        step(">^>!F10", "BOA", "send to back goes behind every window")
+        step(">^>!F9", "ABO", "bring forward skips windows that do not overlap")
+        step(">^>!F10", "BOA", "send to back again")
+        step(">^>!F8", "ABO", "bring to front")
+    }
+
+    ; Letters A/B/O for the given windows, front to back.
+    static StackOrder(handles) {
+        names := Map(handles[1], "A", handles[2], "B", handles[3], "O")
+        out := ""
+        for hwnd in WinGetList()
+            out .= names.Has(hwnd) ? names[hwnd] : ""
+        return out
     }
 
     static Test_06_ConfigReload() {

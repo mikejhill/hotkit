@@ -14,6 +14,66 @@ class Modules_Tests {
         Assert.True(WindowsModule.IsSwitchable({ exStyle: 0, exe: "x.exe", title: "Shown" }, ignore))
     }
 
+    ; Front-to-back stack for ZOrderInsertAfter. Spec: "hwnd[:flags]" where
+    ; flags hold "t" (topmost) and/or "n" (not a peer); every window overlaps
+    ; the 0..100 square unless its spec is "hwnd:far".
+    static ZStack(specs*) {
+        out := []
+        for spec in specs {
+            parts := StrSplit(spec, ":")
+            flags := parts.Length > 1 ? parts[2] : ""
+            far := flags = "far"
+            out.Push({ hwnd: Integer(parts[1]), topmost: !far && InStr(flags, "t") > 0,
+                peer: far || !InStr(flags, "n"),
+                rect: far ? { left: 500, top: 0, right: 600, bottom: 100 } : { left: 0, top: 0, right: 100, bottom: 100 } })
+        }
+        return out
+    }
+
+    static Test_ZOrderBackwardSkipsNonPeersAndFarWindows() {
+        z := (s*) => Modules_Tests.ZStack(s*)
+        Assert.Equal(3, WindowUtil.ZOrderInsertAfter(z("1", "2:n", "3", "4"), 1, "backward"))
+        Assert.Equal(4, WindowUtil.ZOrderInsertAfter(z("1", "2:far", "4"), 1, "backward"))
+        Assert.Equal(3, WindowUtil.ZOrderInsertAfter(z("2", "1", "3"), 2, "Backward"))
+        Assert.Equal("", WindowUtil.ZOrderInsertAfter(z("1", "2:far", "3:n"), 1, "backward"))
+    }
+
+    static Test_ZOrderBackwardOverlapIsStrict() {
+        z := Modules_Tests.ZStack("1", "2")
+        for edge in [{ left: 100, top: 0, right: 200, bottom: 100 }, { left: -100, top: 0, right: 0, bottom: 100 },
+            { left: 0, top: 100, right: 100, bottom: 200 }, { left: 0, top: -100, right: 100, bottom: 0 }] {
+            z[2].rect := edge
+            Assert.Equal("", WindowUtil.ZOrderInsertAfter(z, 1, "backward"), "touching edges do not overlap")
+        }
+        z[2].rect := { left: 99, top: 99, right: 200, bottom: 200 }
+        Assert.Equal(2, WindowUtil.ZOrderInsertAfter(z, 1, "backward"))
+    }
+
+    static Test_ZOrderToBackUsesLastPeerInBand() {
+        z := (s*) => Modules_Tests.ZStack(s*)
+        Assert.Equal(4, WindowUtil.ZOrderInsertAfter(z("1", "2", "3:far", "4", "5:n"), 1, "back"))
+        Assert.Equal(3, WindowUtil.ZOrderInsertAfter(z("1:t", "2:t", "3:t", "4", "5"), 1, "back"), "topmost stays topmost")
+        Assert.Equal("", WindowUtil.ZOrderInsertAfter(z("2", "1", "3:n"), 2, "back"))
+        Assert.Equal("", WindowUtil.ZOrderInsertAfter(z("1:t", "2", "3"), 1, "back"))
+    }
+
+    static Test_ZOrderForwardInsertsAboveNextOverlap() {
+        z := (s*) => Modules_Tests.ZStack(s*)
+        Assert.Equal(2, WindowUtil.ZOrderInsertAfter(z("2", "3", "4:far", "1"), 4, "forward"))
+        Assert.Equal(0, WindowUtil.ZOrderInsertAfter(z("3", "2:n", "1"), 3, "forward"), "first window: HWND_TOP")
+        Assert.Equal(0, WindowUtil.ZOrderInsertAfter(z("9:t", "3", "1"), 3, "forward"), "never above topmost")
+        Assert.Equal(9, WindowUtil.ZOrderInsertAfter(z("9:t", "3:t", "1:t"), 3, "forward"))
+        Assert.Equal("", WindowUtil.ZOrderInsertAfter(z("9:t", "2:far", "1"), 3, "forward"))
+    }
+
+    static Test_ZOrderToFront() {
+        z := (s*) => Modules_Tests.ZStack(s*)
+        Assert.Equal(0, WindowUtil.ZOrderInsertAfter(z("2:far", "1"), 2, "front"))
+        Assert.Equal("", WindowUtil.ZOrderInsertAfter(z("9:t", "2:n", "1"), 3, "front"))
+        Assert.Equal("", WindowUtil.ZOrderInsertAfter(z("1", "2"), 1, "front"))
+        Assert.Throws(() => WindowUtil.ZOrderInsertAfter(z("1"), 1, "sideways"), "Unknown z-order direction")
+    }
+
     static Test_QuickWindowLaunchCommand() {
         Assert.Equal('app.exe --app="u"', QuickWindowsModule.LaunchCommand("app.exe", '--app="u"'))
         Assert.Equal("app.exe --a=x --b", QuickWindowsModule.LaunchCommand("app.exe --a={mode} --b", "x"))
