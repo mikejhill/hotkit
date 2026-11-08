@@ -203,30 +203,8 @@ class WindowUtil {
     ; mutate: off
     static MoveInZOrder(direction, winTitle := "A") {
         hwnd := WindowUtil.GetHandle(winTitle)
-        ; Band, geometry and stack position come from the window itself. Its
-        ; owners (often a hidden window) must stay below it, so they are not
-        ; peers and move along: Windows moves owners with an owned window, Wine
-        ; does not, so each owner in the window's band is placed first.
-        owners := []
-        h := hwnd
-        while (h := DllCall("user32\GetWindow", "ptr", h, "uint", 4, "ptr")) ; GW_OWNER
-            owners.Push(h)
-        isOwner := Map()
-        for h in owners
-            isOwner[h] := true
-        entries := []
-        index := 0
-        for h in WinGetList() {
-            if (h = hwnd)
-                index := entries.Length + 1
-            else if (isOwner.Has(h) || !WindowUtil.IsZOrderPeer(h)) {
-                entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: false })
-                continue
-            }
-            WinGetPos(&x, &y, &w, &hgt, h)
-            entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: true,
-                rect: { left: x, top: y, right: x + w, bottom: y + hgt } })
-        }
+        snap := WindowUtil._ZOrderSnapshot(hwnd)
+        entries := snap.entries, index := snap.index, owners := snap.owners
         if (!index)
             return false
         anchors := WindowUtil.ZOrderAnchors(entries, index, direction)
@@ -263,6 +241,66 @@ class WindowUtil {
         return true
     }
 
+    ; Front-to-back stack around hwnd for the pure planners (see
+    ; ZOrderInsertAfter), with hwnd's owners, which are never its peers.
+    static _ZOrderSnapshot(hwnd) {
+        ; Band, geometry and stack position come from the window itself. Its
+        ; owners (often a hidden window) must stay below it, so they are not
+        ; peers and move along: Windows moves owners with an owned window, Wine
+        ; does not, so each owner in the window's band is placed first.
+        owners := []
+        h := hwnd
+        while (h := DllCall("user32\GetWindow", "ptr", h, "uint", 4, "ptr")) ; GW_OWNER
+            owners.Push(h)
+        isOwner := Map()
+        for h in owners
+            isOwner[h] := true
+        entries := []
+        index := 0
+        for h in WinGetList() {
+            if (h = hwnd)
+                index := entries.Length + 1
+            else if (isOwner.Has(h) || !WindowUtil.IsZOrderPeer(h)) {
+                entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: false })
+                continue
+            }
+            WinGetPos(&x, &y, &w, &hgt, h)
+            entries.Push({ hwnd: h, topmost: !!(WinGetExStyle(h) & 0x8), peer: true,
+                rect: { left: x, top: y, right: x + w, bottom: y + hgt } })
+        }
+        return { entries: entries, index: index, owners: owners }
+    }
+
+    ; Alt+Tab-style focus cycling over the windows Alt+Tab would list that are
+    ; on screen (see IsZOrderPeer). "next" activates the window under the
+    ; active one and sends the old one to the back; "previous" activates the
+    ; bottom one. The stack rotates, so each undoes the other. Always-on-top
+    ; windows are left out: they can't rotate below normal windows, and they
+    ; are in view anyway. An active owned window (e.g. a modal dialog) counts
+    ; as its owner. Returns the activated window, or 0.
+    static CycleFocus(direction) {
+        list := []
+        inList := Map()
+        for h in WinGetList() {
+            if (WindowUtil.IsZOrderPeer(h) && !(WinGetExStyle(h) & 0x8)) {
+                list.Push(h)
+                inList[h] := true
+            }
+        }
+        active := WinExist("A")
+        while (active && !inList.Has(active))
+            active := DllCall("user32\GetWindow", "ptr", active, "uint", 4, "ptr") ; GW_OWNER
+        plan := WindowUtil.CyclePlan(list, active, direction)
+        if (!plan.activate)
+            return 0
+        WinActivate(plan.activate)
+        WinMoveTop(plan.activate)  ; activation alone doesn't always raise (e.g. Wine)
+        if (plan.sendBack) {
+            try WindowUtil.MoveInZOrder("back", plan.sendBack)
+        }
+        return plan.activate
+    }
+
     static _SetZOrder(hwnd, insertAfter) {
         ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
         if (!DllCall("user32\SetWindowPos", "ptr", hwnd, "ptr", insertAfter,
@@ -270,6 +308,30 @@ class WindowUtil {
             throw OSError(A_LastError, , "SetWindowPos")
     }
     ; mutate: on
+
+    ; Pure: which window CycleFocus activates, and which (if any) it sends to
+    ; the back. list is front to back.
+    static CyclePlan(list, active, direction) {
+        none := { activate: 0, sendBack: 0 }
+        idx := 0
+        for i, h in list {
+            if (h = active)
+                idx := i
+        }
+        switch direction, false {
+            case "next":
+                if (!idx)
+                    return list.Length ? { activate: list[1], sendBack: 0 } : none
+                if (list.Length < 2)
+                    return none
+                return { activate: list[Mod(idx, list.Length) + 1], sendBack: active }
+            case "previous":
+                if (!list.Length || list[list.Length] = active)
+                    return none
+                return { activate: list[list.Length], sendBack: 0 }
+        }
+        throw ValueError("Unknown cycle direction: " direction)
+    }
 
     ; Pure: insert-after candidates for a move, best first ([] when the window
     ; is already in place). After the ideal anchor come the next windows in the
