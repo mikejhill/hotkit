@@ -7,7 +7,6 @@
 ;
 ;   "modules": {
 ;     "alwaysOnTop": { "indicatorColor": "4F8CC9" },    // border color; "" to disable
-;     "windowOrder": { "revealRepeatMs": 2000 },        // 0: repeats only step back
 ;     "taskSwitcher": {
 ;       "ignore": [ { "exe": "SomeWrapper.exe", "emptyTitle": true } ]
 ;     },
@@ -19,15 +18,12 @@
 class WindowsModule {
     static Name := "windows"
     static IndicatorColor := "4F8CC9"
-    static RevealRepeatMs := 2000
-    static _lastBackward := { hwnd: 0, tick: 0 }
     static Ignore := []
     static Rules := []
     static _ruleTimer := 0
 
     static Register(cfg) {
         WindowsModule.IndicatorColor := cfg.Get("modules.alwaysOnTop.indicatorColor", "4F8CC9")
-        WindowsModule.RevealRepeatMs := cfg.Get("modules.windowOrder.revealRepeatMs", 2000)
         WindowsModule.Ignore := cfg.List("modules.taskSwitcher.ignore")
         WindowsModule.Rules := cfg.List("modules.windowRules.rules")
         reg := (id, fn, desc, params := "") => ActionRegistry.Register(id, fn,
@@ -36,14 +32,18 @@ class WindowsModule {
         reg("window.toggleAlwaysOnTop", (*) => WindowsModule.ToggleAlwaysOnTop(), "Pin or unpin the active window")
         reg("window.toggleMinimized", (*) => WindowUtil.ToggleActiveWindowMinimized(),
             "Minimize the active window, or restore the last one minimized")
-        reg("window.sendBackward", (*) => WindowsModule.SendBackward(),
-            "Send the active window behind the next window it overlaps (keeps focus); repeat to show the next window")
+        reg("window.sendBackward", (*) => WindowsModule.MoveInZOrder("backward"),
+            "Send the active window behind the next window it overlaps (keeps focus)")
         reg("window.sendToBack", (*) => WindowsModule.MoveInZOrder("back"),
             "Send the active window behind all other windows (keeps focus)")
         reg("window.bringForward", (*) => WindowsModule.MoveInZOrder("forward"),
             "Bring the active window in front of the next window it overlaps")
         reg("window.bringToFront", (*) => WindowsModule.MoveInZOrder("front"),
             "Bring the active window in front of all other windows")
+        reg("window.cycleNext", (*) => WindowsModule.Restack((*) => WindowUtil.CycleFocus("next")),
+            "Focus the next window down, like Alt+Tab (window.cyclePrevious goes back)")
+        reg("window.cyclePrevious", (*) => WindowsModule.Restack((*) => WindowUtil.CycleFocus("previous")),
+            "Focus the previous window (undoes window.cycleNext)")
         reg("window.focusNext", (*) => WindowUtil.FocusNextWindow(), "Focus the next window in z-order")
         reg("window.activateLast", (winTitle := "") => WindowsModule.ActivateLast(winTitle),
             "Activate the most recent other window (optionally matching a WinTitle)", "[winTitle]")
@@ -81,27 +81,15 @@ class WindowsModule {
         Toast.ShowToast(, "Always on Top:", enabled ? "Enabled" : "Disabled")
     }
 
-    ; A quick repeat on the same window also sends the windows that covered it
-    ; to the back, so each press shows the next window down (useful when the
-    ; window just revealed is maximized and hides the rest).
-    static SendBackward() {
-        hwnd := WinExist("A")
-        now := A_TickCount
-        last := WindowsModule._lastBackward
-        WindowsModule._lastBackward := { hwnd: hwnd, tick: now }
-        if (!WindowsModule.IsRepeat(last, hwnd, now, WindowsModule.RevealRepeatMs))
-            return WindowsModule.MoveInZOrder("backward")
+    static Restack(fn) {
         try {
-            WindowUtil.RevealNextBelow(hwnd)
+            fn()
         } catch TargetError {
             return
         } catch as e {
             Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Window order:", e.Message)
         }
     }
-
-    ; Pure: is this press a quick repeat on the same window?
-    static IsRepeat(last, hwnd, now, windowMs) => windowMs > 0 && hwnd && last.hwnd = hwnd && now - last.tick < windowMs
 
     static MoveInZOrder(direction) {
         try {

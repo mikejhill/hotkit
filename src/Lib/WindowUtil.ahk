@@ -271,21 +271,27 @@ class WindowUtil {
         return { entries: entries, index: index, owners: owners }
     }
 
-    ; Repeat-press variant of "backward": the window steps back once more and
-    ; the windows that covered it go to the back, so each press shows the next
-    ; window down while the window keeps focus. Returns false when it can't
-    ; step further.
-    static RevealNextBelow(winTitle := "A") {
-        hwnd := WindowUtil.GetHandle(winTitle)
-        snap := WindowUtil._ZOrderSnapshot(hwnd)
-        if (!snap.index)
-            return false
-        covering := WindowUtil.ZOrderCovering(snap.entries, snap.index)
-        if (!WindowUtil.MoveInZOrder("backward", hwnd))
-            return false
-        for h in covering
-            WindowUtil.MoveInZOrder("back", h)
-        return true
+    ; Alt+Tab-style focus cycling over the windows Alt+Tab would list that are
+    ; on screen (see IsZOrderPeer). "next" activates the window under the
+    ; active one and sends the old one to the back; "previous" activates the
+    ; bottom one. The stack rotates, so each undoes the other.
+    ; Returns the activated window, or 0.
+    static CycleFocus(direction) {
+        list := []
+        for h in WinGetList() {
+            if (WindowUtil.IsZOrderPeer(h))
+                list.Push(h)
+        }
+        active := WinExist("A")
+        plan := WindowUtil.CyclePlan(list, active, direction)
+        if (!plan.activate)
+            return 0
+        WinActivate(plan.activate)
+        WinMoveTop(plan.activate)  ; activation alone doesn't always raise (e.g. Wine)
+        if (plan.sendBack) {
+            try WindowUtil.MoveInZOrder("back", plan.sendBack)
+        }
+        return plan.activate
     }
 
     static _SetZOrder(hwnd, insertAfter) {
@@ -296,17 +302,28 @@ class WindowUtil {
     }
     ; mutate: on
 
-    ; Pure: peers above entries[index] in its band that overlap it, front to back.
-    static ZOrderCovering(entries, index) {
-        self := entries[index]
-        out := []
-        loop index - 1 {
-            e := entries[A_Index]
-            if (e.peer && e.topmost = self.topmost && e.rect.left < self.rect.right && self.rect.left < e.rect.right
-                && e.rect.top < self.rect.bottom && self.rect.top < e.rect.bottom)
-                out.Push(e.hwnd)
+    ; Pure: which window CycleFocus activates, and which (if any) it sends to
+    ; the back. list is front to back.
+    static CyclePlan(list, active, direction) {
+        none := { activate: 0, sendBack: 0 }
+        idx := 0
+        for i, h in list {
+            if (h = active)
+                idx := i
         }
-        return out
+        switch direction, false {
+            case "next":
+                if (!idx)
+                    return list.Length ? { activate: list[1], sendBack: 0 } : none
+                if (list.Length < 2)
+                    return none
+                return { activate: list[Mod(idx, list.Length) + 1], sendBack: active }
+            case "previous":
+                if (!list.Length || list[list.Length] = active)
+                    return none
+                return { activate: list[list.Length], sendBack: 0 }
+        }
+        throw ValueError("Unknown cycle direction: " direction)
     }
 
     ; Pure: insert-after candidates for a move, best first ([] when the window

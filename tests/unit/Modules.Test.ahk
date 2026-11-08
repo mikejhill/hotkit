@@ -84,21 +84,21 @@ class Modules_Tests {
         Assert.Equal(0, WindowUtil.ZOrderAnchors(z("1", "2"), 1, "front").Length)
     }
 
-    static Test_ZOrderCoveringListsOverlappingPeersAboveInBand() {
-        z := Modules_Tests.ZStack("9:t", "2", "3:far", "4:n", "1", "5")
-        Assert.Equal("2", Modules_Tests.Join(WindowUtil.ZOrderCovering(z, 5)))
-        z := Modules_Tests.ZStack("9:t", "8:t", "1:t", "2")
-        Assert.Equal("9,8", Modules_Tests.Join(WindowUtil.ZOrderCovering(z, 3)))
-        Assert.Equal("", Modules_Tests.Join(WindowUtil.ZOrderCovering(z, 1)))
-    }
-
-    static Test_BackwardRepeatNeedsSameWindowWithinWindow() {
-        last := { hwnd: 7, tick: 1000 }
-        Assert.True(WindowsModule.IsRepeat(last, 7, 2999, 2000))
-        Assert.False(WindowsModule.IsRepeat(last, 7, 3000, 2000), "window elapsed")
-        Assert.False(WindowsModule.IsRepeat(last, 8, 1500, 2000), "different window")
-        Assert.False(WindowsModule.IsRepeat(last, 7, 1500, 0), "disabled")
-        Assert.False(WindowsModule.IsRepeat({ hwnd: 0, tick: 1000 }, 0, 1500, 2000), "no active window")
+    static Test_CyclePlanRotatesBothWays() {
+        p := (list, active, dir) => WindowUtil.CyclePlan(list, active, dir)
+        r := p([1, 2, 3], 1, "next")
+        Assert.Equal(2, r.activate), Assert.Equal(1, r.sendBack)
+        r := p([1, 2, 3], 3, "Next")
+        Assert.Equal(1, r.activate, "wraps"), Assert.Equal(3, r.sendBack)
+        r := p([1, 2, 3], 9, "next")
+        Assert.Equal(1, r.activate, "nothing in the list active"), Assert.Equal(0, r.sendBack)
+        Assert.Equal(0, p([1], 1, "next").activate)
+        Assert.Equal(0, p([], 0, "next").activate)
+        r := p([2, 3, 1], 2, "previous")
+        Assert.Equal(1, r.activate), Assert.Equal(0, r.sendBack)
+        Assert.Equal(0, p([2, 1], 1, "previous").activate, "already the bottom one")
+        Assert.Equal(0, p([], 0, "previous").activate)
+        Assert.Throws(() => p([1], 1, "sideways"), "Unknown cycle direction")
     }
 
     static Join(arr) {

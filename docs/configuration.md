@@ -182,7 +182,6 @@ Quick windows hide by turning fully transparent and click-through rather than mi
 | `displayBrightness` | `step` (10), `swapFallback` (85), `gamma: { min, max, default }` |
 | `displayScale` | `setDpiPath` (path to a [SetDPI](https://github.com/imniko/SetDPI) build), `presets`, `debounceMs` |
 | `alwaysOnTop` | `indicatorColor` (hex, `""` for none) |
-| `windowOrder` | `revealRepeatMs` (default 2000): pressing `window.sendBackward` again within this time also sends the windows that covered the window to the back, so each press shows the next window down; `0` turns this off |
 | `theme` | `wallpaper: { light, dark }` (`"bing"`, a path, or `""`), `bing: { cacheDir, maxAgeDays }` |
 | `trayIcons` | `enabled`, `intervalSeconds`: keep all notification-area icons visible |
 | `taskSwitcher` | `ignore: [{ exe, title, emptyTitle }]` windows skipped by `window.activateLast` |

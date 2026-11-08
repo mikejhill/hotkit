@@ -118,7 +118,7 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F16")
         Assert.True(WinWait(win, , 10), "overlay did not open")
         total := ListViewGetContent("Count", "SysListView321", win)
-        Assert.Equal(12, Integer(total), "one row per binding")
+        Assert.Equal(14, Integer(total), "one row per binding")
         ControlSetText("gesture", "Edit1", win)
         Sleep(300)
         Assert.Equal(1, Integer(ListViewGetContent("Count", "SysListView321", win)), "filter narrows rows")
@@ -307,14 +307,16 @@ class E2E_Tests {
             main.Destroy()
         }
 
-        ; A quick second press also sends the window that covered A (here B,
-        ; which hides A completely) to the back, so the next window shows.
-        WinMove(50, 50, 500, 400, hwndB)
-        WinMove(120, 120, 200, 200, hwndO)
-        Sleep(2100)  ; let the dialog press above fall out of the repeat window
+        ; Cycling focus moves down the stack and back, like Alt+Tab.
         arrange("ABO")
-        step(">^>!F11", "BAO", "first press steps behind the covering window")
-        step(">^>!F11", "OAB", "repeat press steps again and sends the covering window back")
+        E2E_Tests.Press(">^>!F7")
+        Assert.True(WinWaitActive("ahk_id " hwndB, , 3), "cycle next focuses the window under A")
+        Sleep(300)
+        Assert.Equal("BOA", order(), "cycle next sends A to the back")
+        E2E_Tests.Press(">^>!F6")
+        Assert.True(WinWaitActive("ahk_id " hwndA, , 3), "cycle previous returns to A")
+        Sleep(300)
+        Assert.Equal("ABO", order(), "cycling back restores the order")
     }
 
     ; Visible top-level windows front to back, for failure messages.
