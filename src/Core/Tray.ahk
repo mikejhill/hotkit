@@ -10,12 +10,30 @@
 ;       { "separator": true }
 ;     ]
 ;   }
+;
+; When "layers" are defined, a Layer submenu lists them with the active one
+; checked; picking one switches to it.
 class Tray {
+    static LayerMenu := ""
+    static _layerItems := Map()
+
     static Build(cfg, moduleMenus) {
         root := A_TrayMenu
         root.Delete()
         root.Add("Show &Shortcuts", ActionRegistry.Callback("osd.toggle"))
         root.Default := "Show &Shortcuts"
+        Tray.LayerMenu := ""
+        Tray._layerItems := Map()
+        if (Bindings.layerOrder.Length) {
+            Tray.LayerMenu := Menu()
+            for i, name in Bindings.layerOrder {
+                item := Tray.LayerItemText(i, Bindings.layers[name])
+                Tray._layerItems[name] := item
+                Tray.LayerMenu.Add(item, Tray._LayerCallback(name), "Radio")
+            }
+            root.Add("&Layer", Tray.LayerMenu)
+            Tray.UpdateLayers()
+        }
 
         actions := Menu()
         count := Tray.AddItems(actions, cfg.List("tray.items"))
@@ -36,6 +54,28 @@ class Tray {
         root.AddStandard()
         for name in ["&Edit Script", "&Window Spy"]
             try root.Delete(name)
+    }
+
+    ; Pure: menu text for the i-th layer; the first ten get 1-9, 0 as access keys.
+    static LayerItemText(i, layer) {
+        text := StrReplace(layer.label, "&", "&&")
+        if (layer.description != "")
+            text .= "`t" StrReplace(layer.description, "&", "&&")
+        return i <= 10 ? "&" Mod(i, 10) " " text : text
+    }
+
+    static _LayerCallback(name) => ActionRegistry.Callback(Map("action", "layer.activate", "args", [name]))
+
+    ; Checks the active layer in the Layer submenu.
+    static UpdateLayers() {
+        if !IsObject(Tray.LayerMenu)
+            return
+        for name, item in Tray._layerItems {
+            if (name = Bindings.activeLayer)
+                Tray.LayerMenu.Check(item)
+            else
+                Tray.LayerMenu.Uncheck(item)
+        }
     }
 
     ; Adds config items to a menu; returns how many were added.

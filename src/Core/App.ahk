@@ -175,6 +175,7 @@ class App {
                 }
             }
         }
+        App.RestoreLayer()
         Bindings.Apply()
         menus := []
         for m in App.Modules {
@@ -185,7 +186,7 @@ class App {
         }
         ShortcutOsd.ConfigPath := App.ConfigPath
         Tray.Build(cfg, menus)
-        A_IconTip := "hotkit " App.Version
+        App.UpdateIconTip()
         if (cfg.Get("settings.watchConfig", true))
             App.WatchConfig()
         if (App._exitAfter > 0)
@@ -215,6 +216,78 @@ class App {
         reg("bindings.toggleGroup", (name) => App.ToggleGroup(name), "Turn a binding group on or off", "group")
         reg("bindings.enableGroup", (name) => Bindings.SetGroup(name, true), "Turn a binding group on", "group")
         reg("bindings.disableGroup", (name) => Bindings.SetGroup(name, false), "Turn a binding group off", "group")
+        reg("layer.activate", (name) => App.ActivateLayer(name), "Switch to a layer", "layer")
+        reg("layer.next", (*) => App.StepLayer(1), "Switch to the next layer")
+        reg("layer.previous", (*) => App.StepLayer(-1), "Switch to the previous layer")
+    }
+
+    ; ---------------- Layers                        ------------------------------
+
+    ; Switches the active layer, remembers it across restarts, and shows it.
+    static ActivateLayer(name) {
+        try {
+            name := Bindings.SetLayer(name)
+        } catch ValueError as e {
+            Toast.ShowToast({ color: "FF6060", fadeDelay: 3000 }, "Layer:", e.Message)
+            return
+        }
+        App.SaveState()
+        Tray.UpdateLayers()
+        App.UpdateIconTip()
+        if ShortcutOsd.IsOpen()
+            ShortcutOsd.Refresh()
+        layer := Bindings.layers[name]
+        if (layer.description != "")
+            Toast.ShowToast(, layer.label, layer.description)
+        else
+            Toast.ShowToast(, layer.label)
+        StatusLog.Info("layer: " name)
+    }
+
+    static StepLayer(step) {
+        if (!Bindings.layerOrder.Length)
+            return Toast.ShowToast({ color: "FF6060", fadeDelay: 3000 }, "Layer:", "No layers defined")
+        App.ActivateLayer(Bindings.StepLayer(Bindings.layerOrder, Bindings.activeLayer, step))
+    }
+
+    ; Goes back to the layer that was active before the last restart (config
+    ; saves restart the app), when it still exists.
+    static RestoreLayer() {
+        name := MapGet(App.LoadState(), "layer", "")
+        if (name != "" && !IsObject(name) && Bindings.layers.Has(String(name)))
+            Bindings.SetLayer(name)
+    }
+
+    static UpdateIconTip() {
+        tip := "hotkit " App.Version
+        if (Bindings.activeLayer != "")
+            tip .= " · " Bindings.layers[Bindings.activeLayer].label
+        A_IconTip := tip
+    }
+
+    static LoadState() {
+        try {
+            path := Paths.StateFile()
+            if FileExist(path) {
+                state := Config.FromFile(path).data
+                if (state is Map)
+                    return state
+            }
+        }
+        return Map()
+    }
+
+    static SaveState() {
+        try {
+            path := Paths.StateFile()
+            SplitPath(path, , &dir)
+            DirCreate(dir)
+            f := FileOpen(path, "w", "UTF-8-RAW")
+            f.Write(JSON.Stringify(Map("layer", Bindings.activeLayer)))
+            f.Close()
+        } catch as e {
+            StatusLog.Warn("could not save state: " e.Message)
+        }
     }
 
     ; Like Reload(), but keeps command-line arguments (Reload drops them).

@@ -110,15 +110,16 @@ class DesktopModule {
     ; viewer, game) usually captures Win+<n> itself, so the desktop gets focus
     ; first and Windows receives the keystroke.
     ;
-    ; Bound on a layer, Win stays down while the layer key (e.g. CapsLock) is
-    ; held, as if Win itself were held: repeated presses step through an app's
-    ; windows, and Windows switches to the selected one when the layer key is
-    ; released. Outside a layer it is a single Win+<n> press. Held Ctrl/Alt/Shift
-    ; pass through as with Win: Win+Shift+<n> starts a new instance, Win+Ctrl+<n>
-    ; goes to the app's last active window, Win+Alt+<n> opens its jump list
-    ; (bind the key with a "*" prefix so the layer binding fires with them). While Win is held, the triggering key repeats through a
+    ; Held Win/Ctrl/Alt/Shift pass through, so a binding such as "*#1" (Win+1
+    ; with any other modifiers) behaves like Windows' own: holding Win steps
+    ; through the app's windows, Win+Shift+<n> starts a new instance,
+    ; Win+Ctrl+<n> goes to the app's last active window, Win+Alt+<n> opens its
+    ; jump list. Bound with a held-key modifier (e.g. CapsLock) and without
+    ; Win, Win stays down while the modifier is held, as if Win itself were
+    ; held, and Windows switches to the selected window when it is released.
+    ; While Win is held that way, the triggering key repeats through a
     ; temporary wildcard hotkey (plain bindings don't match with Win down);
-    ; other keys reach Windows as Win+<key>, as when Win itself is held.
+    ; other keys reach Windows as Win+<key>. Otherwise it is a single press.
     static _TaskbarHold := ""
     static _TaskbarReleaseRegistered := false
     static _TaskbarHoldContext := (*) => !!DesktopModule._TaskbarHold
@@ -132,6 +133,7 @@ class DesktopModule {
             Send("{Blind}" key)
             return
         }
+        movedFocus := false
         if (DesktopModule.ForegroundIsFullScreen()) {
             hwnd := DesktopModule.FocusDesktop()
             if (!hwnd)
@@ -139,10 +141,19 @@ class DesktopModule {
             ; If the app keeps focus, Win+<n> would go to it instead of Windows.
             if (!WinWaitActive(hwnd, , 0.5))
                 return Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Taskbar:", "Could not move focus off the full-screen window")
+            movedFocus := true
         }
         isDown := (k) => GetKeyState(k, "P")
         held := DesktopModule.TaskbarHoldKeys(
-            DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.layers, A_ThisHotkey), isDown)
+            DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey), isDown)
+        if (DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown).Length) {
+            ; Win is already down. A full-screen app that had focus when it was
+            ; pressed (remote desktop) may have kept that press from Windows,
+            ; so press it again for Windows; vkE8 (unassigned) keeps the
+            ; release from opening Start.
+            Send(movedFocus ? "{Blind}{vkE8}{LWin up}{LWin down}" key : "{Blind}" key)
+            return
+        }
         if (DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt", "Shift"], isDown).Length) {
             Send("{Blind}#" key)
             return
@@ -200,14 +211,14 @@ class DesktopModule {
         return base
     }
 
-    ; Pure: the layer keys of the taskbar.activate bindings registered on
-    ; hotkey; empty for bindings outside a layer.
-    static TaskbarTriggerKeys(specs, layers, hotkey) {
+    ; Pure: the modifier keys of the taskbar.activate bindings registered on
+    ; hotkey; empty for bindings without a modifier.
+    static TaskbarTriggerKeys(specs, modifiers, hotkey) {
         keys := []
         for spec in specs {
             if (spec.HasOwnProp("action") && spec.action = "taskbar.activate" && spec.keys = hotkey
-                && spec.layer != "" && layers.Has(spec.layer))
-                keys.Push(layers[spec.layer].key)
+                && spec.modifier != "" && modifiers.Has(spec.modifier))
+                keys.Push(modifiers[spec.modifier].key)
         }
         return keys
     }

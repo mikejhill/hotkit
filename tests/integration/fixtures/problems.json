@@ -1,13 +1,17 @@
 // Every binding below is wrong in a different way; --check must report each.
 {
-  "layers": { "caps": { "key": "CapsLock" } },
+  "modifiers": { "caps": { "key": "CapsLock" } },
+  "layers": ["1"],
   "bindings": [
     { "keys": "F13", "action": "does.not.exist" },
     { "keys": "F14", "layer": "nope", "action": "osd.toggle" },
     { "action": "osd.toggle" },
     { "keys": "F15", "action": "osd.toggle" },
     { "keys": "F15", "action": "app.reload" },
-    { "keys": "F16", "gestures": {} }
+    { "keys": "F16", "gestures": {} },
+    { "keys": "F17", "modifier": "nomod", "action": "osd.toggle" },
+    { "keys": "F18", "layer": "1", "action": "layer.activate", "args": ["1"] },
+    { "keys": "F18", "layer": ["1"], "action": "layer.next" }
   ],
   "tray": { "items": [ { "label": "Broken", "action": "missing.action" } ] }
 }

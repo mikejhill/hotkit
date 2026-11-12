@@ -6,6 +6,8 @@
     "contains": [
       "unknown action 'does.not.exist'",
       "unknown layer 'nope'",
+      "unknown modifier 'nomod'",
+      "Conflict: 'F18'",
       "missing 'keys'",
       "Conflict: 'F15'",
       "at least one of tap, doubleTap, hold",

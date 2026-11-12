@@ -41,9 +41,9 @@ class WindowsModule {
         reg("window.bringToFront", (*) => WindowsModule.MoveInZOrder("front"),
             "Bring the active window in front of all other windows")
         reg("window.cycleNext", (*) => WindowsModule.Restack((*) => WindowsModule.Cycle("next")),
-            "Focus the next window, like Alt+Tab; on a layer, repeat while holding its key")
+            "Focus the next window, like Alt+Tab; with a modifier, repeat while holding it")
         reg("window.cyclePrevious", (*) => WindowsModule.Restack((*) => WindowsModule.Cycle("previous")),
-            "Focus the previous window, like Shift+Alt+Tab; on a layer, repeat while holding its key")
+            "Focus the previous window, like Shift+Alt+Tab; with a modifier, repeat while holding it")
         reg("window.focusNext", (*) => WindowUtil.FocusNextWindow(), "Focus the next window in z-order")
         reg("window.activateLast", (winTitle := "") => WindowsModule.ActivateLast(winTitle),
             "Activate the most recent other window (optionally matching a WinTitle)", "[winTitle]")
@@ -81,11 +81,11 @@ class WindowsModule {
         Toast.ShowToast(, "Always on Top:", enabled ? "Enabled" : "Disabled")
     }
 
-    ; Focus cycling, like holding Alt for Alt+Tab: bound on a layer, the window
-    ; order is captured at the first press and kept while the layer key stays
+    ; Focus cycling, like holding Alt for Alt+Tab: bound with a modifier, the
+    ; window order is captured at the first press and kept while the modifier stays
     ; held, so each press only changes which window is raised and focused.
     ; Releasing the key ends the session and leaves the selection in front.
-    ; Outside a layer every press is its own session.
+    ; Without a modifier every press is its own session.
     static _cycle := ""
     static _cyclePoll := (*) => WindowsModule.PollCycle()
 
@@ -93,7 +93,7 @@ class WindowsModule {
         session := WindowsModule._cycle
         if (!session) {
             session := WindowUtil.CycleSnapshot()
-            session.keys := WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.layers, A_ThisHotkey,
+            session.keys := WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
                 WindowsModule._ContextActive)
         }
         WindowUtil.CycleStep(session, direction)
@@ -116,7 +116,7 @@ class WindowsModule {
         WindowsModule._cycle := ""
     }
 
-    ; True when the binding's layer/group/window conditions hold right now,
+    ; True when the binding's modifier/layer/group/window conditions hold now,
     ; i.e. it is the variant of the hotkey that just fired.
     static _ContextActive := (spec) => (fn := Bindings._Context(spec)) = "" || fn()
 
@@ -128,14 +128,14 @@ class WindowsModule {
         return false
     }
 
-    ; Pure: layer keys of the cycle bindings registered on hotkey whose context
-    ; isActive reports as live (the binding that fired), i.e. the keys whose
-    ; release ends a session; empty outside a layer.
-    static CycleHoldKeys(specs, layers, hotkey, isActive := (*) => true) {
+    ; Pure: modifier keys of the cycle bindings registered on hotkey whose
+    ; context isActive reports as live (the binding that fired), i.e. the keys
+    ; whose release ends a session; empty without a modifier.
+    static CycleHoldKeys(specs, modifiers, hotkey, isActive := (*) => true) {
         isCycle := (a) => a = "window.cycleNext" || a = "window.cyclePrevious"
         keys := []
         for spec in specs {
-            if (spec.keys != hotkey || spec.layer = "" || !layers.Has(spec.layer) || !isActive(spec))
+            if (spec.keys != hotkey || spec.modifier = "" || !modifiers.Has(spec.modifier) || !isActive(spec))
                 continue
             found := spec.HasOwnProp("action") && isCycle(spec.action)
             ; Gesture bindings keep their actions under tap/doubleTap/hold.
@@ -147,7 +147,7 @@ class WindowsModule {
                 }
             }
             if (found)
-                keys.Push(layers[spec.layer].key)
+                keys.Push(modifiers[spec.modifier].key)
         }
         return keys
     }

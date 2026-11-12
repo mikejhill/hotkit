@@ -31,9 +31,9 @@
         }
       }
     },
-    "layers": {
+    "modifiers": {
       "type": "object",
-      "description": "Layers are active while their key is physically held.",
+      "description": "Keys that act as modifiers while physically held.",
       "additionalProperties": {
         "type": "object",
         "required": [
@@ -48,15 +48,60 @@
             "type": "string"
           },
           "suspendWhenActive": {
-            "description": "WinTitle(s) that pause the layer while active, e.g. windows that scramble keystrokes sent to keyboard hooks.",
+            "description": "WinTitle(s) that pause the modifier while active, e.g. windows that scramble keystrokes sent to keyboard hooks.",
             "oneOf": [
-              { "type": "string", "minLength": 1 },
-              { "type": "array", "items": { "type": "string", "minLength": 1 } }
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
             ]
           }
         },
         "additionalProperties": false
       }
+    },
+    "layers": {
+      "description": "Switchable sets of bindings; exactly one is active at a time. A list of names, or an object of name -> settings (listed in natural order).",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Shown in toasts, the tray menu and the shortcut overlay."
+              },
+              "description": {
+                "type": "string"
+              },
+              "default": {
+                "type": "boolean",
+                "description": "Start on this layer (default: the first)."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ]
     },
     "groups": {
       "type": "object",
@@ -467,8 +512,30 @@
         "waitRelease": {
           "type": "boolean"
         },
+        "modifier": {
+          "type": "string",
+          "description": "Name from 'modifiers'; only active while its key is held."
+        },
         "layer": {
-          "type": "string"
+          "description": "Layer name or list of names from 'layers'; only active on those layers. Omitted: every layer.",
+          "oneOf": [
+            {
+              "type": [
+                "string",
+                "integer"
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              },
+              "minItems": 1
+            }
+          ]
         },
         "group": {
           "type": "string"

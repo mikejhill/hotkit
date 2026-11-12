@@ -3,6 +3,7 @@
   "settings": { "watchConfig": true },
   "plugins": { "probe": { "file": "{{PROBE}}" } },
   "groups": { "g": { "enabled": true } },
+  "layers": ["1", "2"],
   "apps": { "e2ewin": { "name": "E2E window", "run": "does-not-exist.exe", "match": "^hotkit-e2e-win " } },
   "quickWindows": { "qw": { "exe": "AutoHotkey64.exe", "launch": "\"{{AHK}}\" \"{{FIXTURE}}\\ShowQw.ahk\"",
     "match": { "title": "^hotkit-e2e-qw$", "visible": true }, "claimExisting": true } },
@@ -23,7 +24,11 @@
     { "keys": ">^>!F9", "action": "window.bringForward" },
     { "keys": ">^>!F8", "action": "window.bringToFront" },
     { "keys": ">^>!F7", "action": "window.cycleNext" },
-    { "keys": ">^>!F6", "action": "window.cyclePrevious" }
+    { "keys": ">^>!F6", "action": "window.cyclePrevious" },
+    { "keys": ">^>!F5", "action": "probe.mark", "args": ["layer1"], "layer": "1" },
+    { "keys": ">^>!F5", "action": "probe.mark", "args": ["layer2"], "layer": "2" },
+    { "keys": ">^>!F4", "action": "layer.activate", "args": ["2"] },
+    { "keys": ">^>!F3", "action": "layer.activate", "args": ["1"] }
     {{EXTRA}}
   ]
 }

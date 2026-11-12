@@ -10,10 +10,17 @@
     "keyboard": { "capsLock": "AlwaysOff" }
   },
 
-  // A layer is active while its key is held. With Caps Lock forced off above,
-  // CapsLock becomes a spare modifier: CapsLock+N, CapsLock+PgUp, ...
-  "layers": {
+  // A modifier is active while its key is held. With Caps Lock forced off
+  // above, CapsLock becomes a spare modifier: CapsLock+N, CapsLock+PgUp, ...
+  "modifiers": {
     "caps": { "key": "CapsLock", "label": "CapsLock" }
+  },
+
+  // Layers are switchable sets of bindings (CapsLock+1 / CapsLock+2 below).
+  // Bindings with a "layer" fire only on that layer; the rest on every layer.
+  "layers": {
+    "1": { "label": "Main" },
+    "2": { "label": "Media", "description": "Arrow keys control playback" }
   },
 
   "modules": {
@@ -46,19 +53,25 @@
   "bindings": [
     { "keys": ">^>!/", "action": "osd.toggle", "description": "Show keyboard shortcuts" },
 
-    { "layer": "caps", "keys": "BackSpace", "action": "keyboard.toggleCapsLock" },
-    { "layer": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"], "description": "Notepad" },
-    { "layer": "caps", "keys": "+N", "action": "app.cycle", "args": ["notepad"], "description": "Notepad: switch windows" },
-    { "layer": "caps", "keys": "G", "action": "window.toggleAlwaysOnTop" },
-    { "layer": "caps", "keys": "Z", "action": "window.toggleMinimized" },
-    { "layer": "caps", "keys": "[", "action": "window.cycleNext" },
-    { "layer": "caps", "keys": "]", "action": "window.cyclePrevious" },
-    { "layer": "caps", "keys": "^[", "action": "window.sendBackward" },
-    { "layer": "caps", "keys": "^]", "action": "window.bringForward" },
-    { "layer": "caps", "keys": "^+[", "action": "window.sendToBack" },
-    { "layer": "caps", "keys": "^+]", "action": "window.bringToFront" },
-    { "layer": "caps", "keys": "S", "action": "quickWindow.toggle", "args": ["scratchpad"], "description": "Scratchpad" },
-    { "layer": "caps", "keys": "<^S", "action": "quickWindow.create", "args": ["scratchpad"], "description": "New scratchpad" },
+    { "modifier": "caps", "keys": "1", "action": "layer.activate", "args": ["1"] },
+    { "modifier": "caps", "keys": "2", "action": "layer.activate", "args": ["2"] },
+    { "layer": "2", "keys": "Left", "action": "media.previous" },
+    { "layer": "2", "keys": "Right", "action": "media.next" },
+    { "layer": "2", "keys": "Down", "action": "media.playPause" },
+
+    { "modifier": "caps", "keys": "BackSpace", "action": "keyboard.toggleCapsLock" },
+    { "modifier": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"], "description": "Notepad" },
+    { "modifier": "caps", "keys": "+N", "action": "app.cycle", "args": ["notepad"], "description": "Notepad: switch windows" },
+    { "modifier": "caps", "keys": "G", "action": "window.toggleAlwaysOnTop" },
+    { "modifier": "caps", "keys": "Z", "action": "window.toggleMinimized" },
+    { "modifier": "caps", "keys": "[", "action": "window.cycleNext" },
+    { "modifier": "caps", "keys": "]", "action": "window.cyclePrevious" },
+    { "modifier": "caps", "keys": "^[", "action": "window.sendBackward" },
+    { "modifier": "caps", "keys": "^]", "action": "window.bringForward" },
+    { "modifier": "caps", "keys": "^+[", "action": "window.sendToBack" },
+    { "modifier": "caps", "keys": "^+]", "action": "window.bringToFront" },
+    { "modifier": "caps", "keys": "S", "action": "quickWindow.toggle", "args": ["scratchpad"], "description": "Scratchpad" },
+    { "modifier": "caps", "keys": "<^S", "action": "quickWindow.create", "args": ["scratchpad"], "description": "New scratchpad" },
 
     { "keys": ">^>!PgUp", "action": "brightness.increase" },
     { "keys": ">^>!PgDn", "action": "brightness.decrease" },

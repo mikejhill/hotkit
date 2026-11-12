@@ -12,7 +12,9 @@
 ;   gestures     {tap, doubleTap, hold, holdMs, doubleTapMs}   (multi-gesture key)
 ;   onRelease    action reference run when the key is released (press-and-hold)
 ;   waitRelease  wait for the key to be released after the action runs
-;   layer        name of a layer from "layers" (active while its key is held)
+;   modifier     name of a held key from "modifiers" (active while it is held)
+;   layer        layer name, or list of names, from "layers" (active only while
+;                one of them is the active layer; omitted = every layer)
 ;   group        name of a group that can be toggled on/off at runtime
 ;   whenActive   WinTitle; binding only fires while a matching window is active
 ;   description  shown in the shortcut overlay
@@ -22,7 +24,11 @@
 class Bindings {
     static specs := []
     static problems := []
+    static modifiers := Bindings._CaseMap()
+    ; Switchable layers: exactly one is active at a time.
     static layers := Bindings._CaseMap()
+    static layerOrder := []
+    static activeLayer := ""
     static groups := Bindings._CaseMap()
     static _contexts := Bindings._CaseMap()
     static _registered := []
@@ -37,15 +43,20 @@ class Bindings {
         Bindings.UnregisterAll()
         Bindings.specs := []
         Bindings.problems := []
+        Bindings.modifiers := Bindings._CaseMap()
         Bindings.layers := Bindings._CaseMap()
+        Bindings.layerOrder := []
+        Bindings.activeLayer := ""
         Bindings.groups := Bindings._CaseMap()
         Bindings._contexts := Bindings._CaseMap()
     }
 
-    ; Loads layers, groups, and bindings from a Config. Returns problems found.
+    ; Loads modifiers, layers, groups, and bindings from a Config. Returns
+    ; problems found.
     static LoadConfig(cfg, source := "config") {
-        for name, layer in cfg.Section("layers")
-            Bindings.DefineLayer(name, layer)
+        for name, modifier in cfg.Section("modifiers")
+            Bindings.DefineModifier(name, modifier)
+        Bindings.DefineLayers(cfg.Get("layers", ""))
         for name, group in cfg.Section("groups")
             Bindings.DefineGroup(name, MapGet(group, "enabled", true), MapGet(group, "description", ""))
         for index, raw in cfg.List("bindings")
@@ -53,32 +64,134 @@ class Bindings {
         return Bindings.problems
     }
 
-    static DefineLayer(name, layer) {
-        key := (layer is Map) ? MapGet(layer, "key", "") : String(layer)
+    static DefineModifier(name, modifier) {
+        key := (modifier is Map) ? MapGet(modifier, "key", "") : String(modifier)
         if (key = "") {
-            Bindings.problems.Push("Layer '" name "' has no key.")
+            Bindings.problems.Push("Modifier '" name "' has no key.")
             return
         }
-        label := (layer is Map) ? MapGet(layer, "label", key) : key
+        label := (modifier is Map) ? MapGet(modifier, "label", key) : key
         titles := []
-        raw := (layer is Map) ? MapGet(layer, "suspendWhenActive", []) : []
+        raw := (modifier is Map) ? MapGet(modifier, "suspendWhenActive", []) : []
         for title in (raw is Array ? raw : [raw]) {
             if (title is String && Trim(title) != "")
                 titles.Push(title)
             else
-                Bindings.problems.Push("Layer '" name "': suspendWhenActive entries must be non-empty WinTitle strings.")
+                Bindings.problems.Push("Modifier '" name "': suspendWhenActive entries must be non-empty WinTitle strings.")
         }
-        Bindings.layers[name] := { name: name, key: key, label: label, suspendWhenActive: titles }
+        Bindings.modifiers[name] := { name: name, key: key, label: label, suspendWhenActive: titles }
     }
 
-    ; True when a window listed in the layer's suspendWhenActive is active.
+    ; True when a window listed in the modifier's suspendWhenActive is active.
     ; Some windows (anti-keylogging protection) feed scrambled keystrokes to
-    ; keyboard hooks, so layer bindings would fire on random keys there.
-    static LayerSuspended(layer) {
-        for title in layer.suspendWhenActive
+    ; keyboard hooks, so modifier bindings would fire on random keys there.
+    static ModifierSuspended(modifier) {
+        for title in modifier.suspendWhenActive
             if WinActive(title)
                 return true
         return false
+    }
+
+    ; "layers" is a list of names (["1", "2"]) or an object of name -> settings
+    ; ({ "1": { "label": "Main", "default": true } }). Objects list in natural
+    ; name order (2 before 10). The default layer is the one marked "default",
+    ; else the first. An entry with a "key" is a held-key modifier from before
+    ; modifiers had their own section: it still works, and is reported.
+    static DefineLayers(raw) {
+        entries := []
+        if (raw is Array) {
+            for name in raw {
+                if (!IsObject(name) && Trim(String(name)) != "")
+                    entries.Push({ name: String(name), def: Map() })
+                else
+                    Bindings.problems.Push("layers: entries must be non-empty names.")
+            }
+        } else if (raw is Map) {
+            for name, def in raw {
+                if (def is Map && def.Has("key")) {
+                    Bindings.DefineModifier(name, def)
+                    Bindings.modifiers[name].legacy := true
+                    Bindings.problems.Push("Layer '" name "' has a key: held keys are now modifiers. Move it to "
+                        '"modifiers" and change "layer": "' name '" to "modifier": "' name '" in its bindings.')
+                    continue
+                }
+                entries.Push({ name: String(name), def: def })
+            }
+            entries := Bindings.SortLayerEntries(entries)
+        } else if (IsObject(raw) || raw != "") {
+            Bindings.problems.Push("'layers' must be a list of names or an object.")
+        }
+        defaultName := ""
+        for e in entries {
+            if (Bindings.layers.Has(e.name)) {
+                Bindings.problems.Push("Layer '" e.name "' is defined twice.")
+                continue
+            }
+            def := e.def
+            if !(def is Map) {
+                Bindings.problems.Push("Layer '" e.name "': settings must be an object.")
+                def := Map()
+            }
+            label := MapGet(def, "label", "")
+            if (label = "")
+                label := Bindings.DefaultLayerLabel(e.name)
+            Bindings.layers[e.name] := { name: e.name, label: label, description: MapGet(def, "description", "") }
+            Bindings.layerOrder.Push(e.name)
+            if (MapGet(def, "default", false) && defaultName = "")
+                defaultName := e.name
+        }
+        if (Bindings.layerOrder.Length)
+            Bindings.activeLayer := defaultName != "" ? defaultName : Bindings.layerOrder[1]
+    }
+
+    ; Pure: "1" -> "Layer 1"; other names are their own label.
+    static DefaultLayerLabel(name) => IsInteger(name) ? "Layer " name : name
+
+    ; Pure: natural order: integer names numerically first, then the rest
+    ; alphabetically (case-insensitive).
+    static SortLayerEntries(entries) {
+        out := []
+        for e in entries {
+            i := out.Length + 1
+            while (i > 1 && Bindings._LayerNameLess(e.name, out[i - 1].name))
+                i--
+            out.InsertAt(i, e)
+        }
+        return out
+    }
+
+    static _LayerNameLess(a, b) {
+        ai := IsInteger(a), bi := IsInteger(b)
+        if (ai && bi)
+            return Integer(a) < Integer(b)
+        if (ai != bi)
+            return ai
+        return StrCompare(a, b) < 0
+    }
+
+    static LayerActive(name) => Bindings.activeLayer != "" && Bindings.activeLayer = name
+
+    ; Makes a layer active. Returns its canonical name; throws for unknown names.
+    static SetLayer(name) {
+        name := String(name)
+        if !Bindings.layers.Has(name)
+            throw ValueError("Unknown layer: " name)
+        Bindings.activeLayer := Bindings.layers[name].name
+        return Bindings.activeLayer
+    }
+
+    ; Pure: the layer `step` places after `current` in `order`, wrapping around.
+    static StepLayer(order, current, step) {
+        if (!order.Length)
+            return ""
+        index := 0
+        for i, name in order {
+            if (name = current)
+                index := i
+        }
+        if (!index)
+            return order[1]
+        return order[Mod(Mod(index - 1 + step, order.Length) + order.Length, order.Length) + 1]
     }
 
     static DefineGroup(name, enabled := true, description := "") {
@@ -102,7 +215,8 @@ class Bindings {
             keys: keys,
             source: source,
             description: MapGet(raw, "description", ""),
-            layer: MapGet(raw, "layer", ""),
+            modifier: Bindings._Name(MapGet(raw, "modifier", "")),
+            layers: [],
             group: MapGet(raw, "group", ""),
             whenActive: MapGet(raw, "whenActive", ""),
             waitRelease: !!MapGet(raw, "waitRelease", false),
@@ -129,9 +243,25 @@ class Bindings {
             Bindings.problems.Push(source " (" keys "): " e.Message)
             return ""
         }
-        if (spec.layer != "" && !Bindings.layers.Has(spec.layer)) {
-            Bindings.problems.Push(source " (" keys "): unknown layer '" spec.layer "'.")
+        rawLayer := MapGet(raw, "layer", "")
+        ; Bindings written before modifiers had their own section.
+        if (rawLayer is String && spec.modifier = "" && Bindings.modifiers.Has(rawLayer)
+            && Bindings.modifiers[rawLayer].HasOwnProp("legacy") && !Bindings.layers.Has(rawLayer)) {
+            spec.modifier := rawLayer
+            rawLayer := ""
+        }
+        if (spec.modifier != "" && !Bindings.modifiers.Has(spec.modifier)) {
+            Bindings.problems.Push(source " (" keys "): unknown modifier '" spec.modifier "'.")
             return ""
+        }
+        for name in (rawLayer is Array ? rawLayer : (IsObject(rawLayer) || rawLayer != "" ? [rawLayer] : [])) {
+            if (IsObject(name) || !Bindings.layers.Has(String(name))) {
+                Bindings.problems.Push(source " (" keys "): unknown layer '" (IsObject(name) ? "{…}" : name) "'.")
+                return ""
+            }
+            canonical := Bindings.layers[String(name)].name
+            if !Bindings._Includes(spec.layers, canonical)
+                spec.layers.Push(canonical)
         }
         if (spec.group != "" && !Bindings.groups.Has(spec.group))
             Bindings.DefineGroup(spec.group)
@@ -141,7 +271,9 @@ class Bindings {
         return spec
     }
 
-    ; Validates action ids and detects duplicate key assignments.
+    ; Validates action ids and detects duplicate key assignments. Bindings on
+    ; the same keys conflict when their layers overlap; one limited to layers
+    ; and one on every layer don't: the layer binding wins on its layers.
     static Validate() {
         seen := Bindings._CaseMap()
         for spec in Bindings.specs {
@@ -149,24 +281,53 @@ class Bindings {
                 if !ActionRegistry.Has(ref.action)
                     Bindings.problems.Push(spec.source " (" spec.keys "): unknown action '" ref.action "'.")
             }
-            id := Bindings.ContextKey(spec) "|" spec.keys
-            if (seen.Has(id))
-                Bindings.problems.Push("Conflict: '" spec.keys "' bound by " seen[id] " and " spec.source ".")
-            else
-                seen[id] := spec.source
+            id := spec.modifier "|" spec.group "|" spec.whenActive "|" spec.keys
+            if !seen.Has(id)
+                seen[id] := []
+            for prev in seen[id] {
+                if Bindings.LayersOverlap(prev.layers, spec.layers) {
+                    Bindings.problems.Push("Conflict: '" spec.keys "' bound by " prev.source " and " spec.source ".")
+                    break
+                }
+            }
+            seen[id].Push(spec)
         }
         return Bindings.problems
     }
 
-    static ContextKey(spec) => spec.layer "|" spec.group "|" spec.whenActive
+    ; Pure: whether two bindings' layer lists can be live at the same time
+    ; (an empty list means every layer, and is overridden by a non-empty one).
+    static LayersOverlap(a, b) {
+        if (!a.Length || !b.Length)
+            return !a.Length && !b.Length
+        for x in a {
+            if Bindings._Includes(b, x)
+                return true
+        }
+        return false
+    }
+
+    static ContextKey(spec) {
+        layerText := ""
+        for i, name in spec.layers
+            layerText .= (i = 1 ? "" : ",") name
+        return spec.modifier "|" layerText "|" spec.group "|" spec.whenActive
+    }
 
     ; Registers every spec as a live hotkey. Problems are collected, not thrown.
+    ; Layer bindings go first: when several variants of a hotkey are eligible,
+    ; AutoHotkey runs the one created earliest, so a layer binding overrides an
+    ; every-layer binding on the same keys.
     static Apply() {
-        for spec in Bindings.specs {
-            try {
-                Bindings._Register(spec)
-            } catch as e {
-                Bindings.problems.Push(spec.source " (" spec.keys "): " e.Message)
+        for layered in [true, false] {
+            for spec in Bindings.specs {
+                if ((spec.layers.Length > 0) != layered)
+                    continue
+                try {
+                    Bindings._Register(spec)
+                } catch as e {
+                    Bindings.problems.Push(spec.source " (" spec.keys "): " e.Message)
+                }
             }
         }
         return Bindings.problems
@@ -198,15 +359,21 @@ class Bindings {
     static Rows() {
         rows := []
         for spec in Bindings.specs {
-            label := spec.layer != "" ? Bindings.layers[spec.layer].label : ""
+            label := spec.modifier != "" ? Bindings.modifiers[spec.modifier].label : ""
+            layerText := ""
+            for i, name in spec.layers
+                layerText .= (i = 1 ? "" : ", ") Bindings.layers[name].label
+            onLayer := !spec.layers.Length || Bindings._Includes(spec.layers, Bindings.activeLayer)
             rows.Push({
                 keys: HotkeyText.Format(spec.keys, label),
                 raw: spec.keys,
                 description: spec.description,
                 action: spec.kind = "gestures" ? "(gestures)" : spec.action,
-                layer: spec.layer,
+                modifier: spec.modifier,
+                layers: layerText,
+                onLayer: onLayer,
                 group: spec.group,
-                active: spec.group = "" || Bindings.GroupEnabled(spec.group),
+                active: onLayer && (spec.group = "" || Bindings.GroupEnabled(spec.group)),
                 source: spec.source,
             })
         }
@@ -230,19 +397,21 @@ class Bindings {
         }
     }
 
-    ; Returns a shared HotIf callback for a layer/group/window combination,
-    ; or "" for global bindings.
+    ; Returns a shared HotIf callback for a modifier/layer/group/window
+    ; combination, or "" for global bindings.
     static _Context(spec) {
         id := Bindings.ContextKey(spec)
-        if (id = "||")
+        if (id = "|||")
             return ""
         if (Bindings._contexts.Has(id))
             return Bindings._contexts[id]
-        layer := spec.layer != "" ? Bindings.layers[spec.layer] : ""
-        layerKey := layer ? layer.key : ""
+        modifier := spec.modifier != "" ? Bindings.modifiers[spec.modifier] : ""
+        modifierKey := modifier ? modifier.key : ""
+        layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
-        fn := (*) => (layerKey = "" || (GetKeyState(layerKey, "P") && !Bindings.LayerSuspended(layer)))
+        fn := (*) => (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)))
+            && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
         Bindings._contexts[id] := fn
@@ -347,6 +516,17 @@ class Bindings {
         if (g.tap = "" && g.doubleTap = "" && g.hold = "")
             throw ValueError("'gestures' needs at least one of tap, doubleTap, hold.")
         return g
+    }
+
+    ; A name read from config, as text ("{…}" for objects, which match nothing).
+    static _Name(value) => IsObject(value) ? "{…}" : String(value)
+
+    static _Includes(list, value) {
+        for item in list {
+            if (item = value)
+                return true
+        }
+        return false
     }
 
     static _Refs(spec) {
