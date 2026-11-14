@@ -362,6 +362,12 @@ class Bindings_Tests {
         Assert.Equal(0, Bindings.layerOrder.Length)
     }
 
+    static Test_EmptyLayerListIsReported() {
+        problems := Bindings_Tests.Load('{ "layers": ["1"], "bindings": [ { "keys": "F13", "action": "t.a", "layer": [] } ] }')
+        Assert.Contains(problems[1], "empty list")
+        Assert.Equal(0, Bindings.specs.Length)
+    }
+
     static Test_UnknownModifierIsReported() {
         problems := Bindings_Tests.Load('{ "bindings": [ { "keys": "F13", "modifier": "x", "action": "t.a" } ] }')
         Assert.Contains(problems[1], "unknown modifier 'x'")

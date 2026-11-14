@@ -258,6 +258,10 @@ class Bindings {
             Bindings.problems.Push(source " (" keys "): unknown modifier '" spec.modifier "'.")
             return ""
         }
+        if (rawLayer is Array && !rawLayer.Length) {
+            Bindings.problems.Push(source " (" keys "): 'layer' is an empty list; omit it to bind on every layer.")
+            return ""
+        }
         for name in (rawLayer is Array ? rawLayer : (IsObject(rawLayer) || rawLayer != "" ? [rawLayer] : [])) {
             if (IsObject(name) || !Bindings.layers.Has(String(name))) {
                 Bindings.problems.Push(source " (" keys "): unknown layer '" (IsObject(name) ? "{…}" : name) "'.")
