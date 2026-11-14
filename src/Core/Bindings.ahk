@@ -474,7 +474,11 @@ class Bindings {
     ; combination, or "" for global bindings.
     static _Context(spec) {
         id := Bindings.ContextKey(spec)
-        if (id = "|||")
+        ; While a latch waits for its next key, every other binding stands
+        ; aside so that key reaches the latch's InputHook (hook hotkeys see
+        ; keys first, so an eligible hotkey would swallow it).
+        gated := Bindings._HasLatch()
+        if (id = "|||" && !gated)
             return ""
         if (Bindings._contexts.Has(id))
             return Bindings._contexts[id]
@@ -483,7 +487,8 @@ class Bindings {
         layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
-        fn := (*) => (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)))
+        fn := (*) => (!gated || !Bindings.LatchWaiting())
+            && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
@@ -754,6 +759,23 @@ class Bindings {
         out := vk ? Format("{{}vk{:X}{}}", vk) : ""
         out .= sc ? Format("{{}sc{:X}{}}", sc) : ""
         return out != "" ? out : "{" key "}"
+    }
+
+    ; True while a latch binding waits for its next key.
+    static LatchWaiting() {
+        for state in Bindings._latchStates {
+            if (state.active && state.hook != "")
+                return true
+        }
+        return false
+    }
+
+    static _HasLatch() {
+        for spec in Bindings.specs {
+            if (spec.kind = "latch")
+                return true
+        }
+        return false
     }
 
     ; Pure: whether a key never ends a latch (a modifier on its own).

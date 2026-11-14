@@ -310,6 +310,23 @@ class Bindings_Tests {
         Assert.Equal("a,b", Bindings_Tests.Joined(calls))
     }
 
+    static Test_OtherBindingsStandAsideWhileLatchWaits() {
+        Bindings_Tests.LoadKeyBindings(
+            '{ "keys": "^Space", "action": "t.start", "onNextKey": "t.stop" },'
+            . '{ "keys": "F2", "action": "t.start2" }')
+        context := Bindings._Context(Bindings.specs[2])
+        Assert.True(context != "", "global bindings get a context once a latch exists")
+        Assert.True(context.Call())
+        state := Bindings.NewKeyState()
+        Bindings._latchStates.Push(state)
+        Bindings.LatchPress(Bindings.specs[1], state)
+        Assert.False(context.Call(), "the next key must reach the latch")
+        hook := state.hook
+        hook.Finish("EndKey", "F2")
+        Bindings.LatchHookEnded(Bindings.specs[1], state, hook)
+        Assert.True(context.Call())
+    }
+
     static Test_RowsUseModifierLabels() {
         Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock", "label": "Caps" } },',
             '"bindings": [ { "keys": "<^c", "modifier": "caps", "action": "t.a", "description": "Do it" } ] }')
