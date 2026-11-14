@@ -18,6 +18,8 @@ concurrency:
 
 jobs:
   publish:
+    # Manual runs may only publish main, never an unmerged branch.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

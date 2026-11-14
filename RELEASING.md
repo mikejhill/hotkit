@@ -73,4 +73,6 @@ python tools\release.py publish --dry-run  # show what the workflow would publis
 ```
 
 If the workflow fails after a merge, fix the cause and rerun it from the
-Actions tab (it also has a manual trigger). `publish` is idempotent.
+Actions tab (it also has a manual trigger, which only publishes `main`).
+`publish` is idempotent: it skips a version that already has a release, and
+creates a missing release on an existing tag without moving the tag.

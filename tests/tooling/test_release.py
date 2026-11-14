@@ -96,5 +96,21 @@ class TagTests(unittest.TestCase):
         self.assertEqual(release.check_against_tags("1.8.0", CHANGELOG, {"1.7.0": CHANGELOG}), [])
 
 
+class PublishCommandTests(unittest.TestCase):
+    def test_existing_release_is_left_alone(self):
+        self.assertIsNone(release.publish_command("v1.8.0", "abc", tag_exists=True, release_exists=True))
+
+    def test_new_version_tags_the_pushed_commit(self):
+        command = release.publish_command("v1.8.0", "abc", tag_exists=False, release_exists=False)
+        self.assertEqual(command[:4], ["gh", "release", "create", "v1.8.0"])
+        self.assertIn("--target", command)
+        self.assertEqual(command[command.index("--target") + 1], "abc")
+
+    def test_missing_release_uses_existing_tag_without_moving_it(self):
+        command = release.publish_command("v1.8.0", "abc", tag_exists=True, release_exists=False)
+        self.assertIn("--verify-tag", command)
+        self.assertNotIn("--target", command)
+
+
 if __name__ == "__main__":
     unittest.main()

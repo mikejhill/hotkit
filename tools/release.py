@@ -158,8 +158,18 @@ def check_against_tags(version: str, changelog: str, tags: dict[str, str | None]
     return problems
 
 
-# --- Git and GitHub -------------------------------------------------------
+def publish_command(tag: str, sha: str, tag_exists: bool, release_exists: bool) -> list[str] | None:
+    """The `gh` command that publishes `tag`, or None when it is already released.
 
+    An existing tag is never moved: a missing release is created on the tag as it is.
+    """
+    if release_exists:
+        return None
+    command = ["gh", "release", "create", tag, "--title", tag, "--latest"]
+    return command + (["--verify-tag"] if tag_exists else ["--target", sha])
+
+
+# --- Git and GitHub -------------------------------------------------------
 def git(*args: str, check: bool = True) -> str:
     r = subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, encoding="utf-8")
     if check and r.returncode != 0:
@@ -250,24 +260,26 @@ def cmd_publish(args: argparse.Namespace) -> int:
         raise ReleaseError("; ".join(problems))
     version = app_version(read(APP))
     tag = f"v{version}"
-    if git("ls-remote", "--tags", "origin", f"refs/tags/{tag}").strip():
+    tag_exists = bool(git("ls-remote", "--tags", "origin", f"refs/tags/{tag}").strip())
+    release_exists = subprocess.run(["gh", "release", "view", tag], cwd=REPO, capture_output=True).returncode == 0
+    sha = os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD").strip()
+    command = publish_command(tag, sha, tag_exists, release_exists)
+    if command is None:
         print(f"{tag} is already released; nothing to publish.")
         return 0
     entries = section(read(CHANGELOG), version)
     if not entries:
         raise ReleaseError(f"CHANGELOG.md has no entries under [{version}]")
-    sha = os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD").strip()
     if args.dry_run:
-        print(f"Would create release {tag} at {sha} with notes:\n{entries}")
+        print(f"Would run: {' '.join(command)} --notes-file <notes>\nNotes:\n{entries}")
         return 0
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as f:
         f.write(entries + "\n")
     try:
-        subprocess.run(["gh", "release", "create", tag, "--target", sha, "--title", tag,
-                        "--notes-file", f.name, "--latest"], cwd=REPO, check=True)
+        subprocess.run([*command, "--notes-file", f.name], cwd=REPO, check=True)
     finally:
         os.unlink(f.name)
-    print(f"Published {tag} at {sha}.")
+    print(f"Published {tag}.")
     return 0
 
 
