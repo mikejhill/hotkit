@@ -126,5 +126,35 @@ class Tray_Tests {
             Paths.Override := saved
         }
     }
+    static Test_BadgeSitsInLowerRightCorner() {
+        Assert.Equal("", Tray.BadgePixel(0, 0, 16), "top-left shows the icon")
+        Assert.Equal("", Tray.BadgePixel(15, 0, 16), "top-right shows the icon")
+        Assert.Equal("", Tray.BadgePixel(0, 15, 16), "bottom-left shows the icon")
+        Assert.NotEqual("", Tray.BadgePixel(12, 12, 16))
+    }
+
+    static Test_BadgeHasRingFillAndMark() {
+        for size in [16, 20, 24, 32, 64] {
+            seen := Map("ring", 0, "fill", 0, "mark", 0)
+            loop size {
+                y := A_Index - 1
+                loop size {
+                    kind := Tray.BadgePixel(A_Index - 1, y, size)
+                    if (kind != "")
+                        seen[kind] += 1
+                }
+            }
+            for kind, n in seen
+                Assert.True(n > 0, kind " at " size "px")
+            Assert.True(seen["fill"] > seen["mark"], "mostly amber at " size "px")
+        }
+    }
+
+    static Test_BadgedIconFromDefaultIcon() {
+        h := Tray.BadgedIcon(Tray.DefaultIcon(), 1, 16)
+        Assert.True(h != 0)
+        DllCall("DestroyIcon", "Ptr", h)
+        Assert.Equal(0, Tray.BadgedIcon(Tray_Tests.Dir "\icons\my.ico", 1, 16), "unloadable icon")
+    }
 }
 TestRunner.Add(Tray_Tests)
