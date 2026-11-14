@@ -133,6 +133,9 @@ class DesktopModule {
             Send("{Blind}" key)
             return
         }
+        ; Before focus moves: the binding's whenActive must still match.
+        triggers := DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
+            (spec) => (fn := Bindings._Context(spec)) = "" || fn())
         movedFocus := false
         if (DesktopModule.ForegroundIsFullScreen()) {
             hwnd := DesktopModule.FocusDesktop()
@@ -144,9 +147,7 @@ class DesktopModule {
             movedFocus := true
         }
         isDown := (k) => GetKeyState(k, "P")
-        held := DesktopModule.TaskbarHoldKeys(
-            DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
-                (spec) => (fn := Bindings._Context(spec)) = "" || fn()), isDown)
+        held := DesktopModule.TaskbarHoldKeys(triggers, isDown)
         win := DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
         if (win.Length) {
             ; Win is already down. A full-screen app that had focus when it was

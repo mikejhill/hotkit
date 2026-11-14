@@ -22,6 +22,25 @@ AutoHotkey under Wine and Xvfb (`AHK_WRAPPER`, default `xvfb-run -a wine`).
 | End-to-end / UX | A running instance: hotkeys fire actions, layers and groups gate them, the active layer survives a restart, the shortcut overlay opens and filters, config edits restart the app, plugins load | `tests/e2e/RunE2E.ahk` |
 | Mutation | The unit suite fails when logic in Core and Lib is altered | `tools/mutate.py` |
 
+## Trying things out
+
+Run throwaway AutoHotkey code through `tools/probe.py` instead of starting
+AutoHotkey directly:
+
+```powershell
+python tools\probe.py --include src\Core\Paths.ahk --include src\Core\Tray.ahk --code 'FileAppend(Tray.BadgePixel(12, 12, 16), "*")'
+python tools\probe.py .tmp\try.ahk -- --some-arg
+```
+
+The probe sends `#Warn` warnings and unhandled errors to its output, prints
+the exit code, and stops after `--timeout` seconds (60 by default).
+
+Every run through `tools/ahk.py` (all test stages, `check.py` and the probe)
+watches for dialogs. If the script opens one, such as an AutoHotkey warning or
+error window or a `MsgBox`, the runner reads its text, ends the script, and
+reports `dialog: <title>: <text>` with exit code 125. No window is left
+waiting on the desktop, and the message is in the output for whoever ran it.
+
 ## Writing unit tests
 
 ```ahk
