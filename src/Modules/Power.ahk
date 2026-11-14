@@ -59,7 +59,7 @@ class PowerModule {
     static Start(cfg) {
         if (!PowerModule.Enabled) {
             ; A reload that disabled the module must not leave toggles to revive later.
-            try FileDelete(PowerModule.HandoffFile())
+            PowerModule.ReadHandoff()
             return
         }
         Tray.AddStatus(() => PowerModule.Summary(PowerModule.State))
@@ -220,8 +220,8 @@ class PowerModule {
     }
 
     ; Pure: whether physical input happened after the monitors went off. The
-    ; first second is ignored so the hotkey's own key-up doesn't count.
-    static InputSince(offAt, now, idleMs) => now - offAt > 1000 && idleMs < now - offAt - 1000
+    ; hotkey's own key-up comes before that (MonitorsOff waits first).
+    static InputSince(offAt, now, idleMs) => idleMs < now - offAt
 
     ; ---------------- Tray                          ------------------------------
 
@@ -250,9 +250,13 @@ class PowerModule {
 
     ; A config reload restarts hotkit; the toggles are handed to the new
     ; process through a short-lived file so an overnight session survives a
-    ; config sync. A normal exit or a crash leaves no handoff, so toggles
-    ; start off on the next launch.
-    static HandoffFile() => A_Temp "\hotkit-power-handoff.ini"
+    ; config sync. The file is named by a random token that only the
+    ; replacement process receives (in its environment), so a normal launch,
+    ; another checkout, or a launch after a failed reload never picks it up
+    ; and starts with everything off.
+    static HandoffEnv := "HOTKIT_POWER_HANDOFF"
+    static HandoffDir() => A_Temp
+    static HandoffFile(token) => PowerModule.HandoffDir() "\hotkit-power-handoff-" token ".ini"
 
     static _RegisterExit() {
         if (PowerModule._exitRegistered)
@@ -267,30 +271,43 @@ class PowerModule {
     static BeforeRestart() {
         if (!PowerModule.Enabled || PowerModule.Summary(PowerModule.State) = "")
             return
-        f := PowerModule.HandoffFile()
-        try FileDelete(f)
+        token := ""
+        loop 4
+            token .= Format("{:08x}", Random(0, 0x7FFFFFFF))
+        f := PowerModule.HandoffFile(token)
         IniWrite(A_Now, f, "power", "written")
         for name in ["keepAwake", "keepScreenOn", "keepUnlocked"]
             IniWrite(PowerModule.State.%name% ? 1 : 0, f, "power", name)
         IniWrite(PowerModule.MonitorsOffSince ? 1 : 0, f, "power", "monitorsOff")
+        EnvSet(PowerModule.HandoffEnv, token)
     }
 
+    ; Reads and removes this process's handoff (if any), and clears the token
+    ; so processes hotkit launches don't inherit it. Also removes handoffs left
+    ; behind by reloads that never finished.
     static ReadHandoff() {
         out := { keepAwake: false, keepScreenOn: false, keepUnlocked: false, monitorsOff: false }
-        f := PowerModule.HandoffFile()
-        if (!FileExist(f))
-            return out
-        try {
-            written := IniRead(f, "power", "written", "")
-            if (PowerModule.HandoffFresh(written, A_Now)) {
-                for name in ["keepAwake", "keepScreenOn", "keepUnlocked", "monitorsOff"]
-                    out.%name% := IniRead(f, "power", name, 0) = 1
+        token := EnvGet(PowerModule.HandoffEnv)
+        EnvSet(PowerModule.HandoffEnv)
+        if (RegExMatch(token, "^[0-9a-f]{32}$")) {
+            f := PowerModule.HandoffFile(token)
+            if (FileExist(f)) {
+                try {
+                    written := IniRead(f, "power", "written", "")
+                    if (PowerModule.HandoffFresh(written, A_Now)) {
+                        for name in ["keepAwake", "keepScreenOn", "keepUnlocked", "monitorsOff"]
+                            out.%name% := IniRead(f, "power", name, 0) = 1
+                    }
+                }
+                try FileDelete(f)
             }
         }
-        try FileDelete(f)
+        loop files PowerModule.HandoffDir() "\hotkit-power-handoff-*.ini" {
+            if (!PowerModule.HandoffFresh(FileGetTime(A_LoopFileFullPath, "M"), A_Now))
+                try FileDelete(A_LoopFileFullPath)
+        }
         return out
     }
-
     ; Pure: a handoff counts only if written within the last two minutes.
     static HandoffFresh(written, now) {
         if (written = "" || !IsTime(written))

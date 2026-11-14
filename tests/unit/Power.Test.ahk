@@ -48,11 +48,12 @@ class Power_Tests {
         Assert.Contains(PowerModule.LockPolicy({ inactivityTimeoutSecs: "", screenSaveActive: "", screenSaverIsSecure: "1" }), "screen saver")
     }
 
-    static Test_InputSinceIgnoresFirstSecond() {
-        Assert.False(PowerModule.InputSince(1000, 1800, 0), "inside the grace period")
+    static Test_InputSinceCountsAnyInputAfterOff() {
         Assert.False(PowerModule.InputSince(1000, 5000, 4000), "idle since the monitors went off")
+        Assert.False(PowerModule.InputSince(1000, 5000, 4600), "last input came before")
         Assert.True(PowerModule.InputSince(1000, 5000, 200), "recent input")
-        Assert.False(PowerModule.InputSince(1000, 5000, 3000), "input during the grace period only")
+        Assert.True(PowerModule.InputSince(1000, 5000, 3800), "input right after off still counts")
+        Assert.True(PowerModule.InputSince(1000, 1300, 100))
     }
 
     static Test_HandoffFreshness() {
