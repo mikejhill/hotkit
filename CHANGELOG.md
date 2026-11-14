@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-14
+
 ### Added
 - Stay-awake toggles (tray › Actions › Stay Awake, or the `power.*` actions): Keep Awake (no sleep), Keep Screen On, and Keep Unlocked (screen on and your own screen saver paused). All start off, show in the tray tooltip while on, survive config reloads, and use standard Windows power requests. Keep Unlocked refuses to turn on when a policy enforces a lock. Read the security notes in `docs/stay-awake.md` first.
 - `monitors.off` action: turns all monitors off, and works while Keep Screen On or Keep Unlocked is on.
