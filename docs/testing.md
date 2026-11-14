@@ -16,8 +16,8 @@ AutoHotkey under Wine and Xvfb (`AHK_WRAPPER`, default `xvfb-run -a wine`).
 
 | Layer | What it proves | Where |
 | --- | --- | --- |
-| Lint | Syntax hygiene, AHK v1 leftovers, personal paths / private terms, every unit test file included, example config matches schema | `tools/lint.py` |
-| Unit | Pure logic: config parsing, action registry, binding parsing/conflicts/contexts, hotkey text, window matching, brightness/scale math, plugin stub rendering, example plugin helpers | `tests/unit/*.Test.ahk` |
+| Lint | Syntax hygiene, AHK v1 leftovers, personal paths / private terms, every unit test file included, example config and documented `tray.icon` forms match schema | `tools/lint.py` |
+| Unit | Pure logic: config parsing, action registry, binding parsing/conflicts/contexts, tray icon resolution, hotkey text, window matching, brightness/scale math, plugin stub rendering, example plugin helpers | `tests/unit/*.Test.ahk` |
 | Integration | The real entry point validates good and broken configs with the right exit codes and messages, and loads `examples/plugins` as user plugins | `tests/integration` |
 | End-to-end / UX | A running instance: hotkeys fire actions, layers and groups gate them, the shortcut overlay opens and filters, config edits restart the app, plugins load | `tests/e2e/RunE2E.ahk` |
 | Mutation | The unit suite fails when logic in Core and Lib is altered | `tools/mutate.py` |

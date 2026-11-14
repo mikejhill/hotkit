@@ -6,6 +6,10 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- hotkit now has its own tray icon (`assets/hotkit.ico`) instead of the AutoHotkey icon.
+- `tray.icon` config option: use your own icon file, or an icon from a `.dll`/`.exe` with `{ "file": ..., "index": ... }`. An icon that can't be used falls back to the default and is listed as a config problem.
+
 ## [1.1.0] - 2026-11-08
 
 ### Fixed

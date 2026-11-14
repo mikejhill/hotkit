@@ -9,5 +9,8 @@
     { "keys": "F15", "action": "app.reload" },
     { "keys": "F16", "gestures": {} }
   ],
-  "tray": { "items": [ { "label": "Broken", "action": "missing.action" } ] }
+  "tray": {
+    "icon": "no-such-icon.ico",
+    "items": [ { "label": "Broken", "action": "missing.action" } ]
+  }
 }

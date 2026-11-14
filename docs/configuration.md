@@ -59,7 +59,7 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 | `apps` | Apps used by `app.toggle` and `app.launch` |
 | `quickWindows` | Floating windows used by `quickWindow.*` |
 | `modules` | Per-module settings; any module accepts `"enabled": false` |
-| `tray` | Extra tray menu items |
+| `tray` | Tray icon and extra tray menu items |
 | `plugins` | Settings handed to each plugin, keyed by plugin name |
 
 ## Bindings
@@ -191,6 +191,7 @@ Quick windows hide by turning fully transparent and click-through rather than mi
 
 ```jsonc
 "tray": {
+  "icon": "icons/my-icon.ico",
   "items": [
     { "label": "Toggle &Theme", "action": "theme.toggle" },
     { "separator": true },
@@ -198,3 +199,25 @@ Quick windows hide by turning fully transparent and click-through rather than mi
   ]
 }
 ```
+
+### Tray icon
+
+hotkit shows its own icon (`assets/hotkit.ico`) unless `tray.icon` names
+another one:
+
+| Value | Meaning |
+| --- | --- |
+| *(omitted)*, `""` or `null` | The bundled hotkit icon |
+| `"icons/my-icon.ico"` | A relative path, looked up next to `config.json` |
+| `"C:/Icons/work.ico"`, `"%OneDrive%/icons/x.ico"`, `"~/icons/x.ico"` | An absolute path; `%VAR%` and `~` are expanded |
+| `"shell32.dll"` | A bare file name not found next to `config.json` is looked up in `System32` |
+| `{ "file": "imageres.dll", "index": 77 }` | Icon number `index` (1-based) in a multi-icon `.dll`, `.exe` or `.icl`; a negative number is a resource ID |
+
+If the file is missing, the object form has no `file`, `index` isn't a
+non-zero whole number, or Windows can't load the icon, hotkit uses its default
+icon and lists the reason under *Show Config Problems* (and in `hotkit.log`).
+`--check` reports the same problems, except an icon that exists but fails to
+load, which is only detected when the app runs.
+
+To regenerate the default icon after changing its design, run
+`python tools/make_icon.py` (requires Pillow).

@@ -18,6 +18,7 @@
 #Include %A_ScriptDir%\..\..\src\Core\ActionRegistry.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Bindings.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Plugins.ahk
+#Include %A_ScriptDir%\..\..\src\Core\Tray.ahk
 #Include %A_ScriptDir%\..\..\src\Ui\ShortcutOsd.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\Apps.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\QuickWindows.ahk
@@ -39,6 +40,7 @@
 #Include %A_ScriptDir%\Paths.Test.ahk
 #Include %A_ScriptDir%\Plugins.Test.ahk
 #Include %A_ScriptDir%\StatusLog.Test.ahk
+#Include %A_ScriptDir%\Tray.Test.ahk
 #Include %A_ScriptDir%\WindowMatcher.Test.ahk
 
 TestRunner.Run()

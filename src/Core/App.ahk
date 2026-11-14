@@ -160,6 +160,9 @@ class App {
         Bindings.LoadConfig(cfg)
         Bindings.Validate()
         App.ValidateTray(cfg.List("tray.items"))
+        iconProblem := Tray.ResolveIcon(cfg).problem
+        if (iconProblem != "")
+            Bindings.problems.Push(iconProblem)
         App.Problems := Bindings.problems
     }
 

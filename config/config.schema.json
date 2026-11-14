@@ -341,6 +341,36 @@
     "tray": {
       "type": "object",
       "properties": {
+        "icon": {
+          "description": "Tray icon. Omit for the bundled hotkit icon. A path to an .ico, .dll or .exe (relative paths resolve next to config.json; bare names like shell32.dll also search System32), or { file, index } to pick an icon from a multi-icon file. An unusable icon falls back to the default and is listed as a config problem.",
+          "oneOf": [
+            {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            {
+              "type": "object",
+              "required": [
+                "file"
+              ],
+              "properties": {
+                "file": {
+                  "type": "string"
+                },
+                "index": {
+                  "type": "integer",
+                  "not": {
+                    "const": 0
+                  },
+                  "description": "1-based icon number in the file; negative for a resource ID."
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
         "items": {
           "$ref": "#/$defs/trayItems"
         }
