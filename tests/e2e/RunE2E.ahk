@@ -81,6 +81,16 @@ class E2E_Tests {
         E2E_Tests.WaitFor("ready")
     }
 
+    static Test_01b_DefaultTrayIcon() {
+        icon := ""
+        for m in E2E_Tests.Marks() {
+            if (SubStr(m, 1, 5) = "icon:")
+                icon := SubStr(m, 6)
+        }
+        Assert.True(icon != "" && SubStr(icon, -StrLen("\assets\hotkit.ico")) = "\assets\hotkit.ico",
+            "tray icon should be the bundled default, got <" icon ">")
+    }
+
     static Test_02_SimpleBinding() {
         E2E_Tests.Press(">^>!F20")
         E2E_Tests.WaitFor("simple")

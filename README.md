@@ -27,6 +27,7 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 | **Display** | DDC/CI and WMI brightness, gamma dimming, Night Light strength, display scale stepping. |
 | **Desktop** | Light/dark theme with wallpaper, media keys, always-on-top with an indicator, last-window switching, window stacking (send back / bring forward without losing focus), lock-key state. |
 | **Plugins** | Drop an `.ahk` file into your config folder to add private actions. |
+| **Tray icon** | Ships with its own icon; point `tray.icon` at any `.ico`, `.dll` or `.exe` to use your own. |
 | **One config location** | `%USERPROFILE%\.config\hotkit\`, live-reloaded on save. |
 
 ## Quick start
@@ -77,10 +78,11 @@ python tools\check.py
 
 ```
 src/         Main.ahk, Core/ (config, actions, bindings, plugins, tray), Modules/, Lib/, Ui/
+assets/      hotkit.ico (default tray icon)
 config/      config.example.json, config.schema.json
 examples/    plugins/ (copyable example plugins)
 tests/       unit/, integration/, e2e/ (AutoHotkey) + lib/TestRunner.ahk
-tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py
+tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py, make_icon.py
 docs/        philosophy, architecture, configuration, actions, plugins, testing
 local/       generated, git-ignored
 ```
