@@ -172,8 +172,16 @@ def lint_config() -> list[str]:
     except ImportError:
         print("note: jsonschema not installed; skipping schema validation (pip install jsonschema)")
         return problems
-    for err in jsonschema.Draft202012Validator(schema).iter_errors(data):
+    validator = jsonschema.Draft202012Validator(schema)
+    for err in validator.iter_errors(data):
         problems.append(f"config/config.example.json: CFG001 {'/'.join(map(str, err.path))}: {err.message}")
+    # Documented tray.icon forms must stay valid (and bad ones invalid).
+    for icon, valid in [
+        (None, True), ("", True), ("icons/my.ico", True), ({"file": "shell32.dll", "index": -3}, True),
+        ({"index": 2}, False), ({"file": "x.ico", "index": 0}, False), ({"file": "x.ico", "extra": 1}, False),
+    ]:
+        if validator.is_valid({"tray": {"icon": icon}}) != valid:
+            problems.append(f"config/config.schema.json: CFG002 tray.icon {icon!r} should be {'valid' if valid else 'invalid'}")
     return problems
 
 

@@ -345,7 +345,10 @@
           "description": "Tray icon. Omit for the bundled hotkit icon. A path to an .ico, .dll or .exe (relative paths resolve next to config.json; bare names like shell32.dll also search System32), or { file, index } to pick an icon from a multi-icon file. An unusable icon falls back to the default and is listed as a config problem.",
           "oneOf": [
             {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             },
             {
               "type": "object",
