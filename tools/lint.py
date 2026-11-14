@@ -14,6 +14,7 @@ Rules (ids shown in output):
   PRV002  no denylisted private terms (.private-terms file or PRIVATE_TERMS env)
   TST001  every tests/unit/*.Test.ahk is included by tests/unit/RunUnit.ahk
   CFG001  config/config.example.json parses and matches config/config.schema.json
+  REL001  App.Version, CHANGELOG.md and version tags agree (tools/release.py check)
 """
 from __future__ import annotations
 
@@ -185,6 +186,12 @@ def lint_config() -> list[str]:
     return problems
 
 
+def lint_release() -> list[str]:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import release
+    return [f"release: REL001 {p}" for p in release.check_repo()]
+
+
 def main(argv: list[str]) -> int:
     terms = private_terms()
     problems: list[str] = []
@@ -193,6 +200,7 @@ def main(argv: list[str]) -> int:
         problems += lint_file(f, terms)
     problems += lint_tests()
     problems += lint_config()
+    problems += lint_release()
     for p in problems:
         print(p)
     print(f"lint: {len(files)} files, {len(problems)} problem(s)" + ("" if terms else " (no private-term list loaded)"))

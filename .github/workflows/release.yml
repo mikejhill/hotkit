@@ -1,0 +1,32 @@
+name: Release
+
+# Publishes the tag and GitHub release for App.Version (src/Core/App.ahk)
+# when it is not released yet. A push that leaves App.Version unchanged is a
+# no-op. See RELEASING.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Publish release if App.Version is new
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python tools/release.py publish
