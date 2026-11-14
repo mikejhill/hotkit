@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-11-14
+
 ### Fixed
 - A binding on a held modifier key (for example CapsLock) now fires only when its Ctrl, Shift, Alt, or Win keys are physically pressed. Keys another program injects while CapsLock is held, such as a dictation tool pasting with Ctrl+V, reach the app instead of firing Caps+Ctrl+V.
 
