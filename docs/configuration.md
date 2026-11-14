@@ -130,6 +130,10 @@ dictation tool's start/stop toggle. Key repeat never starts it twice.
 "bindings": [ { "modifier": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"] } ]
 ```
 
+A binding on a modifier fires only when the Ctrl, Shift, Alt, or Win keys in its
+`keys` are physically pressed, so keystrokes another program injects while the
+modifier key is held (a dictation tool pasting with Ctrl+V, say) reach the app.
+
 The modifier key keeps its normal function unless you disable it (as above for
 Caps Lock). `keyboard.toggleCapsLock` still toggles it on demand.
 

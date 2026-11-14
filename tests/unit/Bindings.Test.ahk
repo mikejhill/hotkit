@@ -346,6 +346,22 @@ class Bindings_Tests {
         Assert.Equal("", Bindings._rearmKey)
     }
 
+    static Test_ModifierChordsNeedPhysicalHotkeyModifiers() {
+        Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock" } }, "bindings": [',
+            '{ "keys": "<^V", "modifier": "caps", "action": "t.a" },',
+            '{ "keys": "V", "modifier": "caps", "action": "t.a" },',
+            '{ "keys": "<^V", "action": "t.a" },',
+            '{ "keys": "F13 & V", "modifier": "caps", "action": "t.a" },',
+            '{ "keys": "#!V", "modifier": "caps", "action": "t.a" } ] }')
+        Assert.Equal("LCtrl", Bindings_Tests.Joined(Bindings.PhysicalMods(Bindings.specs[1])))
+        Assert.Equal(0, Bindings.PhysicalMods(Bindings.specs[2]).Length)
+        Assert.Equal(0, Bindings.PhysicalMods(Bindings.specs[3]).Length, "only bindings on a held modifier")
+        Assert.Equal(0, Bindings.PhysicalMods(Bindings.specs[4]).Length, "custom combinations are left alone")
+        Assert.Equal("Win,Alt", Bindings_Tests.Joined(Bindings.PhysicalMods(Bindings.specs[5])))
+        Assert.False(Bindings._Context(Bindings.specs[1]) == Bindings._Context(Bindings.specs[2]), "different chords get their own context")
+        Assert.True(Bindings.AllPhysicallyDown([]))
+    }
+
     static Test_RowsUseModifierLabels() {
         Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock", "label": "Caps" } },',
             '"bindings": [ { "keys": "<^c", "modifier": "caps", "action": "t.a", "description": "Do it" } ] }')
