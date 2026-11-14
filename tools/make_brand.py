@@ -28,7 +28,11 @@ from PIL import Image, ImageDraw
 # dependencies = ["Pillow>=10"]
 # ///
 
-WIDTH, HEIGHT = 358, 77
+WIDTH, HEIGHT = 362, 77
+CELL_WIDTH = 46
+WORDMARK_LEFT = 87
+# Condense 34px stroke-center spans to 24px; the unchanged 8px stroke adds 8px.
+INK_X_SCALE = 12 / 17
 SAMPLE_STEPS = 32
 SUPERSAMPLING = 4
 Point = tuple[float, float]
@@ -69,6 +73,34 @@ class Shape:
             draw.ellipse(
                 (x - radius, y - radius, x + radius, y + radius), fill=self.color
             )
+
+
+@dataclass(frozen=True, slots=True)
+class Glyph:
+    """A letter's advance cell and its positioned, round-ended ink strokes."""
+
+    letter: str
+    left: float
+    right: float
+    shapes: tuple[Shape, ...]
+
+    @property
+    def advance(self) -> float:
+        """Compute the advance from the actual cell boundaries."""
+        return self.right - self.left
+
+    @property
+    def ink_bounds(self) -> tuple[float, float]:
+        """Return horizontal ink bounds including rounded stroke terminals."""
+        return (
+            min(x - shape.stroke / 2 for shape in self.shapes for x, _ in shape.points),
+            max(x + shape.stroke / 2 for shape in self.shapes for x, _ in shape.points),
+        )
+
+    @property
+    def center_offset(self) -> float:
+        """Measure the ink center relative to the advance cell center."""
+        return (sum(self.ink_bounds) - self.left - self.right) / 2
 
 
 class Brand:
@@ -136,34 +168,96 @@ class Brand:
                     color,
                 )
             )
-        # h, o, t, k, i, t: open counters and softly rounded terminals.
-        strokes = [
-            ((132, 35), (132, 91)),
-            (*cls._curve((132, 70), (132, 48), (166, 48), (166, 70)), (166, 91)),
-            (
-                *cls._curve((199, 55), (174, 55), (174, 92), (199, 92)),
-                *cls._curve((199, 92), (224, 92), (224, 55), (199, 55)),
-            ),
-            ((282, 35), (282, 91)),
-            ((309, 56), (282, 76), (311, 91)),
-            ((332, 58), (332, 91)),
-            ((332, 38), (332, 39)),
-        ]
-        for x in (242, 365):
-            strokes.extend(
-                (
-                    (
-                        (x, 43),
-                        *cls._curve((x, 80), (x, 92), (x + 7, 94), (x + 17, 89)),
-                    ),
-                    ((x - 10, 57), (x + 13, 57)),
-                )
-            )
-        shapes.extend(
-            Shape(tuple((x - 34, y - 25) for x, y in points), ink, 8)
-            for points in strokes
-        )
+        shapes.extend(shape for glyph in cls.wordmark(ink) for shape in glyph.shapes)
         return shapes
+
+    @classmethod
+    def wordmark(cls, ink: str) -> tuple[Glyph, ...]:
+        """Place original stroke drawings in equal cells and verify their metrics."""
+        strokes = {
+            "h": (
+                ((5, 10), (5, 66)),
+                (*cls._curve((5, 45), (5, 23), (39, 23), (39, 45)), (39, 66)),
+            ),
+            "o": (
+                (
+                    *cls._curve((22, 30), (-2 / 3, 30), (-2 / 3, 67), (22, 67)),
+                    *cls._curve((22, 67), (134 / 3, 67), (134 / 3, 30), (22, 30)),
+                ),
+            ),
+            "t": (
+                ((18, 18), *cls._curve((18, 55), (18, 67), (25, 69), (35, 64))),
+                ((5, 32), (39, 32)),
+            ),
+            "k": (
+                ((5, 10), (5, 66)),
+                ((39, 31), (5, 51), (39, 66)),
+            ),
+            "i": (
+                ((5, 33), (22, 33), (22, 66)),
+                ((5, 66), (39, 66)),
+                ((22, 13), (22, 14)),
+            ),
+        }
+        glyphs = tuple(
+            Glyph(
+                letter,
+                WORDMARK_LEFT + index * CELL_WIDTH,
+                WORDMARK_LEFT + (index + 1) * CELL_WIDTH,
+                tuple(
+                    Shape(
+                        tuple(
+                            (
+                                WORDMARK_LEFT
+                                + (index + 0.5) * CELL_WIDTH
+                                + (x - 22) * INK_X_SCALE,
+                                y,
+                            )
+                            for x, y in points
+                        ),
+                        ink,
+                        8,
+                    )
+                    for points in strokes[letter]
+                ),
+            )
+            for index, letter in enumerate("hotkit")
+        )
+        cls.validate_cells(glyphs)
+        return glyphs
+
+    @staticmethod
+    def validate_cells(glyphs: tuple[Glyph, ...]) -> None:
+        """Reject unequal advances, crowded or off-center ink, and cell gaps."""
+        advances = tuple(glyph.advance for glyph in glyphs)
+        assert len(set(advances)) == 1, f"Unequal glyph advances: {advances}"
+        assert advances[0] > 0, f"Invalid glyph advances: {advances}"
+        for previous, current in zip(glyphs, glyphs[1:]):
+            assert previous.right == current.left, "Noncontiguous wordmark cells"
+        for glyph in glyphs:
+            left, right = glyph.ink_bounds
+            assert glyph.left <= left < right <= glyph.right, "Ink outside cell"
+            assert right - left <= 0.76 * glyph.advance, (
+                f"{glyph.letter}: ink width exceeds 76% of advance"
+            )
+            assert abs(glyph.center_offset) < 1e-9, "Ink not centered in cell"
+
+    @classmethod
+    def cell_preview(cls) -> Image.Image:
+        """Outline each advance cell over the README lockup at four times size."""
+        glyphs = cls.wordmark(SLATE)
+        # Include the last sidebearing beyond the tightly cropped production SVG.
+        width = math.ceil(max(WIDTH, glyphs[-1].right + 6))
+        canvas = Image.new("RGB", (width * 4, HEIGHT * 4), LIGHT_BACKGROUND)
+        canvas.paste(
+            cls.raster(SLATE, LIGHT_BACKGROUND, size=(WIDTH * 4, HEIGHT * 4), zoom=4)
+        )
+        draw = ImageDraw.Draw(canvas)
+        for glyph in glyphs:
+            draw.rectangle(
+                (glyph.left * 4, 6 * 4, glyph.right * 4, 71 * 4), outline=SAGE
+            )
+        return canvas
 
     @classmethod
     def svg(cls, ink: str) -> str:
@@ -223,7 +317,8 @@ class Brand:
             (destination / f"logo-{name}.svg").write_text(
                 cls.svg(ink), encoding="utf-8", newline="\n"
             )
-            cls.raster(ink, background).save(previews / f"v2-brand-{name}.png")
+            cls.raster(ink, background).save(previews / f"v4-brand-{name}.png")
+        cls.cell_preview().save(previews / "v4-wordmark-cells.png")
         cls.raster(
             SLATE,
             SOCIAL_BACKGROUND,
@@ -231,8 +326,15 @@ class Brand:
             zoom=2.5,
             secondary_keys=True,
         ).save(destination / "social-preview.png")
+        for glyph in cls.wordmark(SLATE):
+            left, right = glyph.ink_bounds
+            sys.stdout.write(
+                f"{glyph.letter}: advance={glyph.advance:g}px, "
+                f"ink width={right - left:g}px, "
+                f"center offset={glyph.center_offset:g}px\n"
+            )
         sys.stdout.write(
-            "wrote assets/brand/ and .tmp/v2-brand-{light,dark}.png\n"
+            "wrote assets/brand/ and .tmp/v4-{brand-*,wordmark-cells}.png\n"
         )
         return 0
 
