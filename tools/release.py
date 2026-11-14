@@ -199,12 +199,19 @@ def write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
-def check_repo() -> list[str]:
+def check_repo(strict: bool = False) -> list[str]:
+    """Version consistency problems. Outside a Git checkout the tag checks are skipped unless strict."""
     app_text, changelog = read(APP), read(CHANGELOG)
     problems = check_texts(app_text, changelog)
-    if not problems:
-        problems += check_against_tags(app_version(app_text), changelog, tag_changelogs())
-    return problems
+    if problems:
+        return problems
+    try:
+        tags = tag_changelogs()
+    except (ReleaseError, OSError):
+        if strict:
+            raise
+        return problems
+    return problems + check_against_tags(app_version(app_text), changelog, tags)
 
 
 # --- Commands -------------------------------------------------------------
@@ -256,7 +263,7 @@ def cmd_notes(args: argparse.Namespace) -> int:
 
 
 def cmd_publish(args: argparse.Namespace) -> int:
-    problems = check_repo()
+    problems = check_repo(strict=True)
     if problems:
         raise ReleaseError("; ".join(problems))
     version = app_version(read(APP))
