@@ -13,8 +13,8 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.1.0"
-    static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule]
+    static Version := "1.7.0"
+    static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
     static Mode := "run"
@@ -160,6 +160,9 @@ class App {
         Bindings.LoadConfig(cfg)
         Bindings.Validate()
         App.ValidateTray(cfg.List("tray.items"))
+        iconProblem := Tray.ResolveIcon(cfg).problem
+        if (iconProblem != "")
+            Bindings.problems.Push(iconProblem)
         App.Problems := Bindings.problems
     }
 
@@ -186,7 +189,9 @@ class App {
         }
         ShortcutOsd.ConfigPath := App.ConfigPath
         Tray.Build(cfg, menus)
-        App.UpdateIconTip()
+        Tray.Version := App.Version
+        Tray.AddStatus(() => Bindings.activeLayer != "" ? Bindings.layers[Bindings.activeLayer].label : "")
+        Tray.RefreshTip()
         if (cfg.Get("settings.watchConfig", true))
             App.WatchConfig()
         if (App._exitAfter > 0)
@@ -233,7 +238,7 @@ class App {
         }
         App.SaveState()
         Tray.UpdateLayers()
-        App.UpdateIconTip()
+        Tray.RefreshTip()
         if ShortcutOsd.IsOpen()
             ShortcutOsd.Refresh()
         layer := Bindings.layers[name]
@@ -256,13 +261,6 @@ class App {
         name := MapGet(App.LoadState(), "layer", "")
         if (name != "" && !IsObject(name) && Bindings.layers.Has(String(name)))
             Bindings.SetLayer(name)
-    }
-
-    static UpdateIconTip() {
-        tip := "hotkit " App.Version
-        if (Bindings.activeLayer != "")
-            tip .= " · " Bindings.layers[Bindings.activeLayer].label
-        A_IconTip := tip
     }
 
     static LoadState() {
@@ -291,7 +289,12 @@ class App {
     }
 
     ; Like Reload(), but keeps command-line arguments (Reload drops them).
+    ; Modules with a BeforeRestart method can hand state to the new process.
     static Restart() {
+        for m in App.Modules {
+            if HasMethod(m, "BeforeRestart")
+                try m.BeforeRestart()
+        }
         cmd := '"' A_AhkPath '" /restart "' A_ScriptFullPath '"'
         for arg in App._args
             cmd .= ' "' arg '"'

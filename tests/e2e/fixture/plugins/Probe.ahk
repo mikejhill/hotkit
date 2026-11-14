@@ -9,7 +9,7 @@ class ProbePlugin {
     static Init(settings) {
         ProbePlugin.File := MapGet(settings, "file", A_Temp "\hotkit-probe.txt")
         ActionRegistry.Register("probe.mark", (name) => ProbePlugin.Mark(name), { module: "plugin:probe", description: "Record a mark" })
-        App.OnReady(() => (ProbePlugin.Mark("pid:" ProcessExist()), ProbePlugin.Mark("ready")))
+        App.OnReady(() => (ProbePlugin.Mark("pid:" ProcessExist()), ProbePlugin.Mark("icon:" A_IconFile), ProbePlugin.Mark("ready")))
     }
 
     static Mark(name) => FileAppend(name "`n", ProbePlugin.File, "UTF-8-RAW")

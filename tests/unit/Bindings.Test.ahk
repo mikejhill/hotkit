@@ -336,6 +336,23 @@ class Bindings_Tests {
         Assert.Equal(1, Bindings.layerOrder.Length)
     }
 
+    static Test_LegacyLayerWithEmptyKeyIsReportedNotThrown() {
+        problems := Bindings_Tests.Load('{ "layers": { "caps": { "key": "" } }, "bindings": [ { "keys": "F13", "action": "t.a" } ] }')
+        Assert.Contains(problems[1], "has no key")
+        Assert.Equal(1, Bindings.specs.Length)
+    }
+
+    static Test_LayerListsWithCommasGetDistinctContexts() {
+        Bindings_Tests.Load('{ "layers": ["a", "b", "a,b"], "bindings": [',
+            '{ "keys": "F13", "action": "t.a", "layer": "a,b" },',
+            '{ "keys": "F14", "action": "t.a", "layer": ["a", "b"] } ] }')
+        one := Bindings._Context(Bindings.specs[1])
+        two := Bindings._Context(Bindings.specs[2])
+        Assert.False(one == two)
+        Assert.False(one())
+        Assert.True(two())
+    }
+
     static Test_UnknownModifierIsReported() {
         problems := Bindings_Tests.Load('{ "bindings": [ { "keys": "F13", "modifier": "x", "action": "t.a" } ] }')
         Assert.Contains(problems[1], "unknown modifier 'x'")

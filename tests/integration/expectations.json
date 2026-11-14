@@ -12,6 +12,7 @@
       "Conflict: 'F15'",
       "at least one of tap, doubleTap, hold",
       "tray item 'Broken': unknown action 'missing.action'",
+      "tray.icon: file not found: no-such-icon.ico",
       "FAIL"
     ]
   }

@@ -84,6 +84,22 @@ pass `args` as a JSON array in the order listed under **Arguments**
 | `displayScale.set` | percent, [monitor] | Set display scale |
 | `displayScale.show` | [monitor] | Show display scale |
 
+## power
+
+| Action | Arguments | Description |
+| --- | --- | --- |
+| `monitors.off` |  | Turn all monitors off until the next input; works with Keep Screen On |
+| `power.allOff` |  | Disable Keep Awake, Keep Screen On and Keep Unlocked |
+| `power.keepAwake.off` |  | Disable Keep Awake |
+| `power.keepAwake.on` | [minutes] | Enable Keep Awake (the PC doesn't sleep), with an optional time limit |
+| `power.keepAwake.toggle` | [minutes] | Enable or disable Keep Awake (the PC doesn't sleep), with an optional time limit |
+| `power.keepScreenOn.off` |  | Disable Keep Screen On |
+| `power.keepScreenOn.on` | [minutes] | Enable Keep Screen On (the screen stays on and the PC stays awake), with an optional time limit |
+| `power.keepScreenOn.toggle` | [minutes] | Enable or disable Keep Screen On (the screen stays on and the PC stays awake), with an optional time limit |
+| `power.keepUnlocked.off` |  | Disable Keep Unlocked |
+| `power.keepUnlocked.on` | [minutes] | Enable Keep Unlocked (the screen stays on and the screen saver is paused), with an optional time limit |
+| `power.keepUnlocked.toggle` | [minutes] | Enable or disable Keep Unlocked (the screen stays on and the screen saver is paused), with an optional time limit |
+
 ## quickWindows
 
 | Action | Arguments | Description |

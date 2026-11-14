@@ -110,6 +110,8 @@ class Bindings {
             for name, def in raw {
                 if (def is Map && def.Has("key")) {
                     Bindings.DefineModifier(name, def)
+                    if !Bindings.modifiers.Has(name)
+                        continue
                     Bindings.modifiers[name].legacy := true
                     Bindings.problems.Push("Layer '" name "' has a key: held keys are now modifiers. Move it to "
                         '"modifiers" and change "layer": "' name '" to "modifier": "' name '" in its bindings.')
@@ -307,10 +309,11 @@ class Bindings {
         return false
     }
 
+    ; Layer names may contain any character, so each is length-prefixed.
     static ContextKey(spec) {
         layerText := ""
-        for i, name in spec.layers
-            layerText .= (i = 1 ? "" : ",") name
+        for name in spec.layers
+            layerText .= StrLen(name) ":" name
         return spec.modifier "|" layerText "|" spec.group "|" spec.whenActive
     }
 

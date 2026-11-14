@@ -1,4 +1,10 @@
-# hotkit
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/logo-light.svg">
+    <img src="assets/brand/logo-light.svg" alt="hotkit" width="362" height="77">
+  </picture>
+</h1>
 
 **A config-driven hotkey toolkit for Windows, built on AutoHotkey v2.**
 
@@ -26,7 +32,9 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 | **App toggles** | Focus, minimize, or launch an app from a hotkey. |
 | **Display** | DDC/CI and WMI brightness, gamma dimming, Night Light strength, display scale stepping. |
 | **Desktop** | Light/dark theme with wallpaper, media keys, always-on-top with an indicator, last-window switching, window stacking (send back / bring forward without losing focus), lock-key state. |
+| **Stay awake** | Off-by-default toggles to keep the PC awake, keep the screen on, or keep the session unlocked (standard Windows power requests; never overrides an enforced lock), plus monitors off. See [docs/stay-awake.md](docs/stay-awake.md). |
 | **Plugins** | Drop an `.ahk` file into your config folder to add private actions. |
+| **Tray icon** | Ships with its own icon; point `tray.icon` at any `.ico`, `.dll` or `.exe` to use your own. |
 | **One config location** | `%USERPROFILE%\.config\hotkit\`, live-reloaded on save. |
 
 ## Quick start
@@ -66,6 +74,7 @@ To start at sign-in, put a shortcut to `src\Main.ahk` in `shell:startup`.
 
 - [Configuration reference](docs/configuration.md)
 - [Action reference](docs/actions.md) (generated)
+- [Stay awake and monitors off](docs/stay-awake.md) (read the security notes before using Keep Unlocked)
 - [Writing plugins](docs/plugins.md) and [example plugins](examples/plugins/README.md)
 
 Validate a config without starting anything, and see what the running app
@@ -80,10 +89,11 @@ python tools\check.py
 
 ```
 src/         Main.ahk, Core/ (config, actions, bindings, plugins, tray), Modules/, Lib/, Ui/
+assets/      hotkit.ico (default tray icon), brand/ (README marks, social preview)
 config/      config.example.json, config.schema.json
 examples/    plugins/ (copyable example plugins)
 tests/       unit/, integration/, e2e/ (AutoHotkey) + lib/TestRunner.ahk
-tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py
+tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py, make_icon.py, make_brand.py
 docs/        philosophy, architecture, configuration, actions, plugins, testing
 local/       generated, git-ignored
 ```

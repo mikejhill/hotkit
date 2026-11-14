@@ -146,12 +146,14 @@ class DesktopModule {
         isDown := (k) => GetKeyState(k, "P")
         held := DesktopModule.TaskbarHoldKeys(
             DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey), isDown)
-        if (DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown).Length) {
+        win := DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
+        if (win.Length) {
             ; Win is already down. A full-screen app that had focus when it was
             ; pressed (remote desktop) may have kept that press from Windows,
-            ; so press it again for Windows; vkE8 (unassigned) keeps the
-            ; release from opening Start.
-            Send(movedFocus ? "{Blind}{vkE8}{LWin up}{LWin down}" key : "{Blind}" key)
+            ; so press the held Win key again for Windows (its physical release
+            ; then releases it); vkE8 (unassigned) keeps the release from
+            ; opening Start.
+            Send(movedFocus ? "{Blind}{vkE8}{" win[1] " up}{" win[1] " down}" key : "{Blind}" key)
             return
         }
         if (DesktopModule.TaskbarHoldKeys(["Ctrl", "Alt", "Shift"], isDown).Length) {

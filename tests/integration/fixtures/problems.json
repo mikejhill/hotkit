@@ -13,5 +13,8 @@
     { "keys": "F18", "layer": "1", "action": "layer.activate", "args": ["1"] },
     { "keys": "F18", "layer": ["1"], "action": "layer.next" }
   ],
-  "tray": { "items": [ { "label": "Broken", "action": "missing.action" } ] }
+  "tray": {
+    "icon": "no-such-icon.ico",
+    "items": [ { "label": "Broken", "action": "missing.action" } ]
+  }
 }
