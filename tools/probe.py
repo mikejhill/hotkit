@@ -56,10 +56,17 @@ def main(argv: list[str]) -> int:
         parser.error("give either a script or --code")
     text = wrapper(opts.script.resolve() if opts.script else None, opts.code,
                    [p.resolve() for p in opts.include])
-    with tempfile.TemporaryDirectory() as d:
-        path = Path(d) / "probe.ahk"
-        path.write_text(text, encoding="utf-8")
+    # A wrapped script keeps its own directory as A_ScriptDir (its relative
+    # #Includes and resources depend on it), so the wrapper sits beside it.
+    folder = opts.script.resolve().parent if opts.script else Path(tempfile.gettempdir())
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".ahk", prefix=".probe-",
+                                     dir=folder, delete=False) as f:
+        f.write(text)
+        path = Path(f.name)
+    try:
         r = ahk.run(path, *opts.args, timeout=opts.timeout)
+    finally:
+        path.unlink(missing_ok=True)
     if r.out:
         print(r.out)
     if r.timed_out:
