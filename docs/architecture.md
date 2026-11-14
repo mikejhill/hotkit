@@ -5,7 +5,7 @@ src/Main.ahk
   ├─ Core/Paths        config directory resolution
   ├─ Core/Config       JSONC loading, dotted lookups
   ├─ Core/ActionRegistry   id → handler + metadata
-  ├─ Core/Bindings     config bindings → live hotkeys (layers, groups, gestures)
+  ├─ Core/Bindings     config bindings → live hotkeys (modifiers, layers, groups, gestures)
   ├─ Core/Plugins      discovers <config>\plugins\*.ahk, writes local\plugins.generated.ahk
   ├─ Core/Tray         tray menu
   ├─ Core/App          startup, CLI flags, restart, config watch
@@ -42,10 +42,14 @@ errors and shows a toast so a failing action never kills the hotkey thread.
 
 ## Bindings
 
-Each binding becomes a spec with a context key of `layer|group|whenActive`.
-Specs sharing a context share one cached `HotIf` predicate, so AutoHotkey
-evaluates each context once per keypress. Layers test `GetKeyState(key, "P")`.
-Conflicts are detected per context before anything is registered.
+Each binding becomes a spec with a context key of
+`modifier|layers|group|whenActive`. Specs sharing a context share one cached
+`HotIf` predicate, so AutoHotkey evaluates each context once per keypress.
+Modifiers test `GetKeyState(key, "P")`; layers compare against
+`Bindings.activeLayer`. Conflicts are detected before anything is registered.
+Layer bindings are registered before every-layer bindings on the same keys,
+because AutoHotkey runs the earliest-created eligible variant: that is how a
+layer binding overrides an every-layer one.
 
 Binding kinds:
 

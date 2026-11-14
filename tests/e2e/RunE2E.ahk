@@ -110,6 +110,17 @@ class E2E_Tests {
         E2E_Tests.WaitFor("grouped", 2)
     }
 
+    static Test_03b_Layers() {
+        E2E_Tests.Press(">^>!F5")
+        E2E_Tests.WaitFor("layer1")
+        E2E_Tests.Press(">^>!F4")
+        Sleep(500)
+        E2E_Tests.Press(">^>!F5")
+        E2E_Tests.WaitFor("layer2")
+        Assert.Equal(1, E2E_Tests.Count("layer1"), "inactive layer must not fire")
+        ; Stays on layer 2: Test_06 checks the layer survives a restart.
+    }
+
     static Test_04_Gestures() {
         E2E_Tests.Press(">^>!F17")
         E2E_Tests.WaitFor("tap")
@@ -128,7 +139,7 @@ class E2E_Tests {
         E2E_Tests.Press(">^>!F16")
         Assert.True(WinWait(win, , 10), "overlay did not open")
         total := ListViewGetContent("Count", "SysListView321", win)
-        Assert.Equal(14, Integer(total), "one row per binding")
+        Assert.Equal(17, Integer(total), "one row per binding on the active layer or every layer")
         ControlSetText("gesture", "Edit1", win)
         Sleep(300)
         Assert.Equal(1, Integer(ListViewGetContent("Count", "SysListView321", win)), "filter narrows rows")
@@ -384,6 +395,13 @@ class E2E_Tests {
         E2E_Tests.WaitFor("ready", 2)
         E2E_Tests.Press(">^>!F14")
         E2E_Tests.WaitFor("reloaded")
+        E2E_Tests.Press(">^>!F5")
+        E2E_Tests.WaitFor("layer2", 2)
+        Assert.Equal(1, E2E_Tests.Count("layer1"), "the active layer must survive a restart")
+        E2E_Tests.Press(">^>!F3")
+        Sleep(500)
+        E2E_Tests.Press(">^>!F5")
+        E2E_Tests.WaitFor("layer1", 2)
     }
 
     static WriteRaw(text) {

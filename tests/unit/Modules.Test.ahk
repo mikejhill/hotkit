@@ -101,29 +101,29 @@ class Modules_Tests {
         Assert.Equal("0", Modules_Tests.Join(WindowUtil.CycleRestoreAnchors([11, 12, 13], 1)))
     }
 
-    static Test_CycleHoldKeysFromLayerBindingsOnHotkey() {
-        layers := Map()
-        layers.CaseSense := "Off"
-        layers["caps"] := { key: "CapsLock" }
+    static Test_CycleHoldKeysFromModifierBindingsOnHotkey() {
+        modifiers := Map()
+        modifiers.CaseSense := "Off"
+        modifiers["caps"] := { key: "CapsLock" }
         specs := [
-            { keys: "[", action: "window.cycleNext", layer: "caps" },
-            { keys: "]", action: "window.cyclePrevious", layer: "caps" },
-            { keys: "[", action: "window.cycleNext", layer: "" },
-            { keys: "[", action: "window.sendBackward", layer: "caps" },
-            { keys: "[", gestures: 1, layer: "caps" },
-            { keys: "F1", action: "", gestures: { tap: { action: "window.cycleNext" }, doubleTap: "", hold: "" }, layer: "caps" },
-            { keys: "F2", action: "", gestures: { tap: { action: "osd.toggle" }, doubleTap: "", hold: "" }, layer: "caps" }
+            { keys: "[", action: "window.cycleNext", modifier: "caps" },
+            { keys: "]", action: "window.cyclePrevious", modifier: "caps" },
+            { keys: "[", action: "window.cycleNext", modifier: "" },
+            { keys: "[", action: "window.sendBackward", modifier: "caps" },
+            { keys: "[", gestures: 1, modifier: "caps" },
+            { keys: "F1", action: "", gestures: { tap: { action: "window.cycleNext" }, doubleTap: "", hold: "" }, modifier: "caps" },
+            { keys: "F2", action: "", gestures: { tap: { action: "osd.toggle" }, doubleTap: "", hold: "" }, modifier: "caps" }
         ]
-        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "[")))
-        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "]")))
-        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F7")))
-        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F1")), "gesture tap")
-        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, layers, "F2")), "other gesture")
-        layers["nav"] := { key: "Tab" }
-        both := [{ keys: "[", action: "window.cycleNext", layer: "caps" }, { keys: "[", action: "window.cycleNext", layer: "nav" }]
-        onlyNav := (spec) => spec.layer = "nav"
-        Assert.Equal("Tab", Modules_Tests.Join(WindowsModule.CycleHoldKeys(both, layers, "[", onlyNav)), "only the live binding's layer")
-        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(both, layers, "[", (*) => false)))
+        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, modifiers, "[")))
+        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, modifiers, "]")))
+        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, modifiers, "F7")))
+        Assert.Equal("CapsLock", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, modifiers, "F1")), "gesture tap")
+        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(specs, modifiers, "F2")), "other gesture")
+        modifiers["nav"] := { key: "Tab" }
+        both := [{ keys: "[", action: "window.cycleNext", modifier: "caps" }, { keys: "[", action: "window.cycleNext", modifier: "nav" }]
+        onlyNav := (spec) => spec.modifier = "nav"
+        Assert.Equal("Tab", Modules_Tests.Join(WindowsModule.CycleHoldKeys(both, modifiers, "[", onlyNav)), "only the live binding's modifier")
+        Assert.Equal("", Modules_Tests.Join(WindowsModule.CycleHoldKeys(both, modifiers, "[", (*) => false)))
     }
 
     static Join(arr) {
@@ -188,20 +188,21 @@ class Modules_Tests {
         Assert.Equal(0, DesktopModule.TaskbarHoldKeys([], isDown).Length)
     }
 
-    static Test_TaskbarTriggerKeysUseTheBindingsLayer() {
-        layers := Map("caps", { key: "CapsLock" }, "tab", { key: "Tab" })
+    static Test_TaskbarTriggerKeysUseTheBindingsModifier() {
+        modifiers := Map("caps", { key: "CapsLock" }, "tab", { key: "Tab" })
         specs := [
-            { keys: "1", action: "taskbar.activate", layer: "caps" },
-            { keys: "1", action: "app.toggle", layer: "tab" },
-            { keys: "2", action: "taskbar.activate", layer: "tab" },
-            { keys: "F1", action: "taskbar.activate", layer: "" },
-            { keys: "1", kind: "gestures", layer: "tab" },
+            { keys: "1", action: "taskbar.activate", modifier: "caps" },
+            { keys: "1", action: "app.toggle", modifier: "tab" },
+            { keys: "2", action: "taskbar.activate", modifier: "tab" },
+            { keys: "F1", action: "taskbar.activate", modifier: "" },
+            { keys: "1", kind: "gestures", modifier: "tab" },
         ]
-        keys := DesktopModule.TaskbarTriggerKeys(specs, layers, "1")
+        keys := DesktopModule.TaskbarTriggerKeys(specs, modifiers, "1")
         Assert.Equal(1, keys.Length)
         Assert.Equal("CapsLock", keys[1])
-        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, layers, "F1").Length)
-        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, layers, "3").Length)
+        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, modifiers, "F1").Length)
+        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, modifiers, "3").Length)
+        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, modifiers, "1", (*) => false).Length, "only the live binding")
     }
 
     static Test_TaskbarRepeatKey() {
@@ -248,8 +249,8 @@ class Modules_Tests {
 
     static Test_OsdFilter() {
         rows := [
-            { keys: "RCtrl+PgUp", description: "Brighter", action: "brightness.increase", layer: "", group: "", source: "config" },
-            { keys: "CapsLock+N", description: "Notepad", action: "app.toggle", layer: "caps", group: "", source: "config" }
+            { keys: "RCtrl+PgUp", description: "Brighter", action: "brightness.increase", modifier: "", layers: "", onLayer: true, group: "", source: "config" },
+            { keys: "CapsLock+N", description: "Notepad", action: "app.toggle", modifier: "caps", layers: "", onLayer: true, group: "", source: "config" }
         ]
         Assert.Equal(2, ShortcutOsd.FilterRows(rows, "").Length)
         Assert.Equal(1, ShortcutOsd.FilterRows(rows, "bright").Length)
@@ -259,12 +260,30 @@ class Modules_Tests {
 
     static Test_OsdFilterKeepsMatchingRows() {
         rows := [
-            { keys: "F1", description: "Alpha", action: "a.one", layer: "", group: "", source: "config" },
-            { keys: "F2", description: "Beta", action: "b.two", layer: "", group: "work", source: "plugin" }
+            { keys: "F1", description: "Alpha", action: "a.one", modifier: "", layers: "", onLayer: true, group: "", source: "config" },
+            { keys: "F2", description: "Beta", action: "b.two", modifier: "", layers: "Layer 2", onLayer: false, group: "work", source: "plugin" }
         ]
         Assert.Equal("Alpha", ShortcutOsd.FilterRows(rows, "alpha")[1].description)
         Assert.Equal("Beta", ShortcutOsd.FilterRows(rows, "  work  ")[1].description)
         Assert.Equal("Beta", ShortcutOsd.FilterRows(rows, "plugin b.two")[1].description)
+        Assert.Equal("Beta", ShortcutOsd.FilterRows(rows, "layer 2")[1].description, "layer names are searchable")
+    }
+
+    static Test_TrayLayerItemText() {
+        Assert.Equal("&1 Layer 1", Tray.LayerItemText(1, { label: "Layer 1", description: "" }))
+        Assert.Equal("&0 R&&D`tWork stuff", Tray.LayerItemText(10, { label: "R&D", description: "Work stuff" }))
+        Assert.Equal("Eleven", Tray.LayerItemText(11, { label: "Eleven", description: "" }))
+    }
+
+    static Test_OsdFilterHidesOtherLayersUnlessAllLayers() {
+        rows := [
+            { keys: "F1", description: "Alpha", action: "a.one", modifier: "", layers: "", onLayer: true, group: "", source: "config" },
+            { keys: "F2", description: "Beta", action: "b.two", modifier: "", layers: "Layer 2", onLayer: false, group: "", source: "config" }
+        ]
+        Assert.Equal(2, ShortcutOsd.FilterRows(rows, "").Length)
+        shown := ShortcutOsd.FilterRows(rows, "", false)
+        Assert.Equal(1, shown.Length)
+        Assert.Equal("Alpha", shown[1].description)
     }
 
     static Test_CycleTargetRotatesThroughWindows() {

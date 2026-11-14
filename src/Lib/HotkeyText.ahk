@@ -53,11 +53,11 @@ class HotkeyText {
     static BaseKey(hk) => HotkeyText.Parse(hk).key
 
     ; Human-readable form: ">^>!PgUp" -> "RCtrl+RAlt+PgUp".
-    static Format(hk, layerLabel := "") {
+    static Format(hk, modifierLabel := "") {
         p := HotkeyText.Parse(hk)
         parts := []
-        if (layerLabel != "")
-            parts.Push(layerLabel)
+        if (modifierLabel != "")
+            parts.Push(modifierLabel)
         for m in p.mods
             parts.Push(HotkeyText.KeyName(m))
         parts.Push(HotkeyText.KeyName(p.key))

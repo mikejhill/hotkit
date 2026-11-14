@@ -37,6 +37,13 @@ class Paths {
         return Paths.Normalize(appData "\" Paths.AppName "\hotkit.log")
     }
 
+    ; Machine-local runtime state (e.g. the active layer), kept beside the log
+    ; for the same reason.
+    static StateFile() {
+        SplitPath(Paths.LogFile(), , &dir)
+        return dir "\state.json"
+    }
+
     ; Repository root (parent of src\).
     static RepoRoot() => Paths.Normalize(A_LineFile "\..\..\..")
     static ExampleConfig() => Paths.RepoRoot() "\config\config.example.json"

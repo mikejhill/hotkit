@@ -53,7 +53,8 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 | Key | Purpose |
 | --- | --- |
 | `settings` | `watchConfig`, `debug`, `keyboard.capsLock` / `keyboard.numLock` (`On`, `Off`, `AlwaysOn`, `AlwaysOff`) |
-| `layers` | Keys that act as modifiers while held |
+| `modifiers` | Keys that act as modifiers while held (e.g. CapsLock) |
+| `layers` | Switchable sets of bindings; one is active at a time |
 | `groups` | Named sets of bindings that can be switched on and off |
 | `bindings` | The shortcuts |
 | `apps` | Apps used by `app.toggle` and `app.launch` |
@@ -73,7 +74,8 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 | `keys` | AutoHotkey hotkey: `^` Ctrl, `!` Alt, `+` Shift, `#` Win, `<`/`>` left/right, `A & B` combos, `UP` suffix for release |
 | `action`, `args` | Action id and positional arguments ([actions.md](actions.md)) |
 | `description` | Shown in the shortcut overlay; defaults to the action's description |
-| `layer` | Only active while that layer's key is held |
+| `modifier` | Only active while that modifier's key is held |
+| `layer` | Only active on that layer: a name, or a list of names. Omitted: every layer |
 | `group` | Only active while that group is enabled |
 | `whenActive` | WinTitle; only active while a matching window is focused |
 | `waitRelease` | Run once per press; ignore key repeat until release |
@@ -84,28 +86,72 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 An action reference (in `onRelease`, `gestures`, `tray.items`) is either an id
 string or `{ "action": "id", "args": [...] }`.
 
-Two bindings conflict when they share keys, layer, group, and `whenActive`. Both
-are reported and the later one is skipped.
+Two bindings conflict when they share keys, modifier, group and `whenActive`
+and can be live on the same layer. Both are reported and the later one is
+skipped. A binding limited to layers and one on every layer don't conflict: on
+those layers, the layer binding wins.
 
-### Layers
+### Modifiers
 
 ```jsonc
 "settings": { "keyboard": { "capsLock": "AlwaysOff" } },
-"layers": { "caps": { "key": "CapsLock", "label": "CapsLock" } },
-"bindings": [ { "layer": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"] } ]
+"modifiers": { "caps": { "key": "CapsLock", "label": "CapsLock" } },
+"bindings": [ { "modifier": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"] } ]
 ```
 
-The layer key keeps its normal function unless you disable it (as above for
+The modifier key keeps its normal function unless you disable it (as above for
 Caps Lock). `keyboard.toggleCapsLock` still toggles it on demand.
 
-`suspendWhenActive` (a WinTitle or a list of them) pauses the layer while a
+`suspendWhenActive` (a WinTitle or a list of them) pauses the modifier while a
 matching window is active. Use it for windows that scramble keystrokes sent to
 keyboard hooks (anti-keylogging protection in some remote-access sign-in
-windows), where a held layer key would otherwise fire bindings on random keys:
+windows), where a held modifier would otherwise fire bindings on random keys:
 
 ```jsonc
-"layers": { "caps": { "key": "CapsLock", "suspendWhenActive": ["ahk_exe SecureLogin.exe"] } }
+"modifiers": { "caps": { "key": "CapsLock", "suspendWhenActive": ["ahk_exe SecureLogin.exe"] } }
 ```
+
+Before 1.2.0 modifiers were defined under `layers` and bindings named them with
+`layer`. Such a config still works; `--check` and the tray report each one to
+move.
+
+### Layers
+
+A layer is a set of bindings you switch to; exactly one layer is active at a
+time. Bindings with a `layer` only fire on that layer (or any layer in a list);
+bindings without one fire on every layer. The usual setup puts the switch keys
+on every layer, here Caps+1..3:
+
+```jsonc
+"layers": {
+  "1": { "label": "Main", "default": true },
+  "2": { "label": "Games", "description": "Arrow keys on WASD" },
+  "3": {}
+},
+"bindings": [
+  { "modifier": "caps", "keys": "1", "action": "layer.activate", "args": ["1"] },
+  { "modifier": "caps", "keys": "2", "action": "layer.activate", "args": ["2"] },
+  { "modifier": "caps", "keys": "3", "action": "layer.activate", "args": ["3"] },
+  { "layer": "1", "modifier": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"] },
+  { "layer": "2", "keys": "w", "action": "send", "args": ["{Up}"] },
+  { "layer": ["2", "3"], "keys": "F1", "action": "app.toggle", "args": ["notepad"] }
+]
+```
+
+`layers` is either a list of names (`["1", "2", "3"]`, in that order) or an
+object of name to settings, listed in natural order (2 before 10):
+
+| Field | Meaning |
+| --- | --- |
+| `label` | Shown in toasts, the tray menu and the shortcut overlay. Default: `Layer <name>` for numbers, else the name |
+| `description` | Second line of the toast, and shown in the tray menu |
+| `default` | The layer to start on. Default: the first |
+
+Switching shows a toast, checks the layer in tray › *Layer*, and is remembered
+across restarts (in `state.json` beside `hotkit.log`), so saving the config
+keeps you on the same layer. The shortcut overlay lists the active layer's
+bindings plus those on every layer; tick *All layers* to see the rest. Actions:
+`layer.activate`, `layer.next`, `layer.previous`.
 
 ### Groups
 

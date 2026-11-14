@@ -27,7 +27,7 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 | --- | --- |
 | **Shortcuts in JSON** | Every hotkey is a line in `config.json`: keys, action, arguments, description. Validated at load, with conflict detection. |
 | **Shortcut overlay** | Searchable list of every active shortcut (tray › *Show Shortcuts*, or bind `osd.toggle`). |
-| **Layers and gestures** | Hold-a-key layers (e.g. CapsLock as a modifier), tap / double-tap / hold on one key, press-and-release actions, per-app bindings, runtime-toggleable groups. |
+| **Layers, modifiers and gestures** | Switchable layers of bindings (with tray menu, toasts and overlay support), hold-a-key modifiers (e.g. CapsLock), tap / double-tap / hold on one key, press-and-release actions, per-app bindings, runtime-toggleable groups. |
 | **Quick windows** | Summon and dismiss any app as a floating window with one key. Generic; you define the instances. |
 | **App toggles** | Focus, minimize, or launch an app from a hotkey. |
 | **Display** | DDC/CI and WMI brightness, gamma dimming, Night Light strength, display scale stepping. |
@@ -57,12 +57,15 @@ To start at sign-in, put a shortcut to `src\Main.ahk` in `shell:startup`.
 
 ```jsonc
 {
-  "layers": { "caps": { "key": "CapsLock" } },
+  "modifiers": { "caps": { "key": "CapsLock" } },
+  "layers": ["1", "2"],
   "apps": {
     "notepad": { "name": "Notepad", "run": "notepad.exe", "match": "ahk_exe notepad.exe" }
   },
   "bindings": [
-    { "layer": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"] },
+    { "modifier": "caps", "keys": "1", "action": "layer.activate", "args": ["1"] },
+    { "modifier": "caps", "keys": "2", "action": "layer.activate", "args": ["2"] },
+    { "modifier": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"], "layer": "1" },
     { "keys": ">^>!PgUp", "action": "brightness.increase" },
     { "keys": "F23", "gestures": { "tap": "media.playPause", "hold": "media.next" } }
   ]
