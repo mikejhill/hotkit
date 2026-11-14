@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-14
+
 ### Added
 - Press-then-next-key bindings: `onNextKey` runs an action on the next press of any other key and consumes that key, so the focused app never sees it. `onCancel` runs instead when that key is Escape. Modifier keys alone don't end it, and keys still held from the chord count only after they are released.
 - `exclusive` names a set of hold and press-then-next-key bindings of which only one can be active: pressing another while one is active stops the active one instead of starting a second.
