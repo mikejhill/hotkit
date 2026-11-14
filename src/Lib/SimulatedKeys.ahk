@@ -103,8 +103,17 @@ class SimulatedKeys {
     static Decide(injected, recordedVk, hotkeyVk, ageMs, maxAgeMs) {
         if !injected
             return true
-        if (!hotkeyVk || recordedVk != hotkeyVk)
+        if (!hotkeyVk || !SimulatedKeys.SameKey(recordedVk, hotkeyVk))
             return true
         return ageMs > maxAgeMs
+    }
+
+    ; Pure: the hook reports sided modifier codes (LCtrl 0xA2); a hotkey on a
+    ; generic modifier (Ctrl 0x11) matches either side.
+    static SameKey(recordedVk, hotkeyVk) {
+        if (recordedVk = hotkeyVk)
+            return true
+        static generic := Map(0xA0, 0x10, 0xA1, 0x10, 0xA2, 0x11, 0xA3, 0x11, 0xA4, 0x12, 0xA5, 0x12)
+        return generic.Has(recordedVk) && generic[recordedVk] = hotkeyVk
     }
 }

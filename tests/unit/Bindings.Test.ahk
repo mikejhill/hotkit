@@ -368,6 +368,8 @@ class Bindings_Tests {
         Assert.True(SimulatedKeys.Decide(true, 0x41, 0x56, 5, 1000), "a different key's event proves nothing")
         Assert.True(SimulatedKeys.Decide(true, 0x56, 0x56, 1500, 1000), "a stale event proves nothing")
         Assert.True(SimulatedKeys.Decide(true, 0x56, 0, 5, 1000), "unknown hotkey key is allowed")
+        Assert.False(SimulatedKeys.Decide(true, 0xA2, 0x11, 5, 1000), "LCtrl event matches a Ctrl hotkey")
+        Assert.True(SimulatedKeys.Decide(true, 0xA3, 0xA2, 5, 1000), "RCtrl event does not match LCtrl")
     }
 
     static Test_BindingsRefuseSimulatedKeysUnlessAllowed() {
