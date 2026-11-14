@@ -12,7 +12,9 @@ config.
 3. Run `python tools/test.py all` (see [docs/testing.md](docs/testing.md)).
 4. New logic comes with unit tests; new actions need a `description` and
    `params`, and `python tools/gen_docs.py` to refresh `docs/actions.md`.
-5. Never commit personal data: names, usernames, paths under `C:\Users\<you>`,
+5. Add user-visible changes under `## [Unreleased]` in `CHANGELOG.md`.
+   Releases are covered in [RELEASING.md](RELEASING.md).
+6. Never commit personal data: names, usernames, paths under `C:\Users\<you>`,
    employer names, URLs to private resources. Put your own terms in a local
    `.private-terms` file (one per line, git-ignored) and lint will catch them.
 
