@@ -39,6 +39,7 @@ for arg in A_Args {
 #Include %A_ScriptDir%\Modules\Windows.ahk
 #Include %A_ScriptDir%\Modules\Desktop.ahk
 #Include %A_ScriptDir%\Modules\Display.ahk
+#Include %A_ScriptDir%\Modules\Power.ahk
 
 ; User plugins (generated, git-ignored). Missing on first run; App.Main creates
 ; it and reloads.

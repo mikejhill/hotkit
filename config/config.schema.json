@@ -172,6 +172,15 @@
             }
           }
         },
+        "power": {
+          "type": "object",
+          "description": "Stay-awake toggles and monitors.off. On unless { \"enabled\": false }.",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "trayIcons": {
           "type": "object",
           "properties": {

@@ -12,6 +12,33 @@
 ;     ]
 ;   }
 class Tray {
+    static Version := ""
+    static _status := []
+
+    ; Adds a status to the tray tooltip: fn returns a short text, or "" for
+    ; none. Call Tray.RefreshTip() when it changes.
+    static AddStatus(fn) => Tray._status.Push(fn)
+
+    static RefreshTip() {
+        parts := []
+        for fn in Tray._status {
+            try {
+                s := fn.Call()
+                if (s != "")
+                    parts.Push(s)
+            }
+        }
+        A_IconTip := Tray.Tip(Tray.Version, parts)
+    }
+
+    ; Pure: "hotkit 1.2.0", or "hotkit 1.2.0: a, b" with statuses.
+    static Tip(version, parts) {
+        tip := "hotkit " version
+        for s in parts
+            tip .= (A_Index = 1 ? ": " : ", ") s
+        return tip
+    }
+
     static DefaultIcon() => Paths.RepoRoot() "\assets\hotkit.ico"
 
     ; Reads tray.icon. Returns { file, index, custom, problem }: the icon to use,

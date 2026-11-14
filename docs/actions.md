@@ -81,6 +81,22 @@ pass `args` as a JSON array in the order listed under **Arguments**
 | `displayScale.set` | percent, [monitor] | Set display scale |
 | `displayScale.show` | [monitor] | Show display scale |
 
+## power
+
+| Action | Arguments | Description |
+| --- | --- | --- |
+| `monitors.off` |  | Turn all monitors off (any input turns them back on); works while Keep Screen On is active |
+| `power.allOff` |  | Turn every stay-awake toggle off |
+| `power.keepAwake.off` |  | Stop keeping the PC awake (no sleep) |
+| `power.keepAwake.on` |  | Start keeping the PC awake (no sleep) |
+| `power.keepAwake.toggle` |  | Toggle keeping the PC awake (no sleep) |
+| `power.keepScreenOn.off` |  | Stop keeping the screen on (and the PC awake) |
+| `power.keepScreenOn.on` |  | Start keeping the screen on (and the PC awake) |
+| `power.keepScreenOn.toggle` |  | Toggle keeping the screen on (and the PC awake) |
+| `power.keepUnlocked.off` |  | Stop keeping the session unlocked (screen on, screen saver paused) |
+| `power.keepUnlocked.on` |  | Start keeping the session unlocked (screen on, screen saver paused) |
+| `power.keepUnlocked.toggle` |  | Toggle keeping the session unlocked (screen on, screen saver paused) |
+
 ## quickWindows
 
 | Action | Arguments | Description |
