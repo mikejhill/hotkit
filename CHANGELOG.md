@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.10.2] - 2026-11-14
+
 ### Fixed
 - After a hold or press-then-next-key binding ends, a modifier key that is still held (such as CapsLock after letting go of Space) no longer fires its other bindings until it is released. A dictation tool's Ctrl+V paste then reaches the app even when Ctrl is still held too, instead of firing Caps+Ctrl+V.
 
