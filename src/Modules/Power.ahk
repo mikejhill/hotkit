@@ -57,12 +57,20 @@ class PowerModule {
     static _Bind(name, value) => (*) => PowerModule.Set(name, value)
 
     static Start(cfg) {
-        if (!PowerModule.Enabled)
+        if (!PowerModule.Enabled) {
+            ; A reload that disabled the module must not leave toggles to revive later.
+            try FileDelete(PowerModule.HandoffFile())
             return
+        }
         Tray.AddStatus(() => PowerModule.Summary(PowerModule.State))
         PowerModule._RegisterExit()
         handoff := PowerModule.ReadHandoff()
         if (handoff.keepAwake || handoff.keepScreenOn || handoff.keepUnlocked) {
+            if (handoff.monitorsOff) {
+                ; Keep the monitors off until the next input, as before the reload.
+                PowerModule.MonitorsOffSince := A_TickCount
+                SetTimer(PowerModule._watchMonitors, 500)
+            }
             for name in ["keepAwake", "keepScreenOn", "keepUnlocked"]
                 if (handoff.%name%)
                     PowerModule.Set(name, true, true)
@@ -264,17 +272,18 @@ class PowerModule {
         IniWrite(A_Now, f, "power", "written")
         for name in ["keepAwake", "keepScreenOn", "keepUnlocked"]
             IniWrite(PowerModule.State.%name% ? 1 : 0, f, "power", name)
+        IniWrite(PowerModule.MonitorsOffSince ? 1 : 0, f, "power", "monitorsOff")
     }
 
     static ReadHandoff() {
-        out := { keepAwake: false, keepScreenOn: false, keepUnlocked: false }
+        out := { keepAwake: false, keepScreenOn: false, keepUnlocked: false, monitorsOff: false }
         f := PowerModule.HandoffFile()
         if (!FileExist(f))
             return out
         try {
             written := IniRead(f, "power", "written", "")
             if (PowerModule.HandoffFresh(written, A_Now)) {
-                for name in ["keepAwake", "keepScreenOn", "keepUnlocked"]
+                for name in ["keepAwake", "keepScreenOn", "keepUnlocked", "monitorsOff"]
                     out.%name% := IniRead(f, "power", name, 0) = 1
             }
         }
