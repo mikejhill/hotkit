@@ -180,7 +180,22 @@ class Tray {
             DllCall("DrawIconEx", "Ptr", hdc, "Int", 0, "Int", 0, "Ptr", hSrc, "Int", size, "Int", size,
                 "UInt", 0, "Ptr", 0, "UInt", 3) ; DI_NORMAL
             DllCall("GdiFlush")
-            Tray._PaintBadge(bits, size)
+            if (!Tray._HasAlpha(bits, size)) {
+                ; An icon without an alpha channel: take transparency from its
+                ; AND mask (drawn white where transparent, black where opaque).
+                maskBits := Buffer(size * size * 4, 0)
+                DllCall("PatBlt", "Ptr", hdc, "Int", 0, "Int", 0, "Int", size, "Int", size, "UInt", 0x00FF0062) ; WHITENESS
+                DllCall("DrawIconEx", "Ptr", hdc, "Int", 0, "Int", 0, "Ptr", hSrc, "Int", size, "Int", size,
+                    "UInt", 0, "Ptr", 0, "UInt", 1) ; DI_MASK
+                DllCall("GdiFlush")
+                DllCall("RtlMoveMemory", "Ptr", maskBits, "Ptr", bits, "UPtr", size * size * 4)
+                DllCall("DrawIconEx", "Ptr", hdc, "Int", 0, "Int", 0, "Ptr", hSrc, "Int", size, "Int", size,
+                    "UInt", 0, "Ptr", 0, "UInt", 2) ; DI_IMAGE
+                DllCall("GdiFlush")
+                Tray._PaintBadge(bits, size, maskBits)
+            } else {
+                Tray._PaintBadge(bits, size)
+            }
             DllCall("SelectObject", "Ptr", hdc, "Ptr", old), old := 0
             hMask := DllCall("CreateBitmap", "Int", size, "Int", size, "UInt", 1, "UInt", 1, "Ptr", 0, "Ptr")
             info := Buffer(8 + 3 * A_PtrSize, 0) ; ICONINFO
@@ -201,15 +216,18 @@ class Tray {
         }
     }
 
-    ; Converts the drawn icon to straight alpha and paints the badge (BGRA).
-    static _PaintBadge(bits, size) {
-        anyAlpha := false
+    static _HasAlpha(bits, size) {
         loop size * size {
-            if (NumGet(bits, (A_Index - 1) * 4 + 3, "UChar")) {
-                anyAlpha := true
-                break
-            }
+            if (NumGet(bits, (A_Index - 1) * 4 + 3, "UChar"))
+                return true
         }
+        return false
+    }
+
+    ; Converts the drawn icon to straight alpha (icon images are not
+    ; premultiplied; DrawIconEx left them blended onto black) and paints the
+    ; badge (BGRA). maskBits, for icons without alpha, is the drawn AND mask.
+    static _PaintBadge(bits, size, maskBits := "") {
         colors := Map("fill", 0xFFFFB000, "ring", 0xFF3A2A00, "mark", 0xFF3A2A00)
         loop size {
             y := A_Index - 1
@@ -222,15 +240,18 @@ class Tray {
                     continue
                 }
                 px := NumGet(bits, off, "UInt")
-                a := anyAlpha ? px >> 24 : 255
+                if (maskBits) {
+                    transparent := NumGet(maskBits, off, "UInt") & 0xFFFFFF
+                    NumPut("UInt", transparent ? 0 : (px | 0xFF000000), bits, off)
+                    continue
+                }
+                a := px >> 24
                 if (a > 0 && a < 255) {
                     ; DrawIconEx blends onto transparent black (premultiplied).
                     b := Min(255, Round((px & 0xFF) * 255 / a))
                     g := Min(255, Round(((px >> 8) & 0xFF) * 255 / a))
                     rr := Min(255, Round(((px >> 16) & 0xFF) * 255 / a))
                     px := (a << 24) | (rr << 16) | (g << 8) | b
-                } else if (!anyAlpha) {
-                    px := px | 0xFF000000
                 }
                 NumPut("UInt", px, bits, off)
             }
