@@ -3,6 +3,10 @@
 #Warn All, StdOut
 #NoTrayIcon
 
+; Report errors raised before TestRunner.Run (such as in a class's static
+; initializers) on stdout instead of in a dialog.
+OnError((err, *) => (FileAppend("Bail out! " err.Message " (" err.File ":" err.Line ")`n", "*"), ExitApp(2)))
+
 ; Unit test entry point. Usage: AutoHotkey64.exe /ErrorStdOut tests\unit\RunUnit.ahk [--filter=Name]
 ; Every *.Test.ahk in this folder must be included below (enforced by tools/lint.py).
 

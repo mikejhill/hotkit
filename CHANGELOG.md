@@ -6,6 +6,16 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Time limits for Keep Awake, Keep Screen On and Keep Unlocked. Each toggle's tray submenu offers 30 minutes to 8 hours, and the `.on` and `.toggle` actions take an optional number of minutes. The tooltip and toast show the end time, and limits survive config reloads.
+- Tray › Stay Awake › Turn All Off.
+
+### Changed
+- Clearer stay-awake wording in toasts, the tooltip, error messages and action descriptions.
+
+### Fixed
+- Unit tests no longer show an error dialog when a class fails to initialize; the error goes to the test output.
+
 ## [1.5.1] - 2026-11-14
 
 ### Changed

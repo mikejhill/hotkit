@@ -85,17 +85,17 @@ pass `args` as a JSON array in the order listed under **Arguments**
 
 | Action | Arguments | Description |
 | --- | --- | --- |
-| `monitors.off` |  | Turn all monitors off (any input turns them back on); works while Keep Screen On is active |
-| `power.allOff` |  | Turn every stay-awake toggle off |
-| `power.keepAwake.off` |  | Stop keeping the PC awake (no sleep) |
-| `power.keepAwake.on` |  | Start keeping the PC awake (no sleep) |
-| `power.keepAwake.toggle` |  | Toggle keeping the PC awake (no sleep) |
-| `power.keepScreenOn.off` |  | Stop keeping the screen on (and the PC awake) |
-| `power.keepScreenOn.on` |  | Start keeping the screen on (and the PC awake) |
-| `power.keepScreenOn.toggle` |  | Toggle keeping the screen on (and the PC awake) |
-| `power.keepUnlocked.off` |  | Stop keeping the session unlocked (screen on, screen saver paused) |
-| `power.keepUnlocked.on` |  | Start keeping the session unlocked (screen on, screen saver paused) |
-| `power.keepUnlocked.toggle` |  | Toggle keeping the session unlocked (screen on, screen saver paused) |
+| `monitors.off` |  | Turn all monitors off until the next input; works with Keep Screen On |
+| `power.allOff` |  | Disable Keep Awake, Keep Screen On and Keep Unlocked |
+| `power.keepAwake.off` |  | Disable Keep Awake |
+| `power.keepAwake.on` | [minutes] | Enable Keep Awake (the PC doesn't sleep), with an optional time limit |
+| `power.keepAwake.toggle` | [minutes] | Enable or disable Keep Awake (the PC doesn't sleep), with an optional time limit |
+| `power.keepScreenOn.off` |  | Disable Keep Screen On |
+| `power.keepScreenOn.on` | [minutes] | Enable Keep Screen On (the screen stays on and the PC stays awake), with an optional time limit |
+| `power.keepScreenOn.toggle` | [minutes] | Enable or disable Keep Screen On (the screen stays on and the PC stays awake), with an optional time limit |
+| `power.keepUnlocked.off` |  | Disable Keep Unlocked |
+| `power.keepUnlocked.on` | [minutes] | Enable Keep Unlocked (the screen stays on and the screen saver is paused), with an optional time limit |
+| `power.keepUnlocked.toggle` | [minutes] | Enable or disable Keep Unlocked (the screen stays on and the screen saver is paused), with an optional time limit |
 
 ## quickWindows
 
