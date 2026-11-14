@@ -3,7 +3,7 @@
 The `power` module adds three independent toggles and a monitors-off action.
 Every toggle starts **off**, is shown with a check mark under tray ›
 *Actions* › *Stay Awake*, and is named in the tray tooltip while it is on
-(for example `hotkit 1.3.0: keeping unlocked`).
+(for example `hotkit 1.6.0: Keep Unlocked until 2:30 AM`).
 
 | Toggle | What it does | Actions |
 | --- | --- | --- |
@@ -14,6 +14,19 @@ Every toggle starts **off**, is shown with a check mark under tray ›
 `power.allOff` turns all three off. `monitors.off` turns every monitor off;
 any key press or mouse movement turns them back on.
 
+## Time limits
+
+Each toggle can run for a set time and then turn itself off, like the
+PowerToys Awake timer.
+
+- **Tray:** each toggle has a submenu with *Off*, *On (no time limit)*, and
+  *For 30 minutes*, *1 hour*, *2 hours*, *4 hours* or *8 hours*.
+- **Actions:** pass a number of minutes to `.on` or `.toggle`, for example
+  `{ "action": "power.keepUnlocked.on", "args": [90] }`. Without it, the toggle
+  stays on until you turn it off.
+- The tray tooltip and the toast show the end time, and another toast says
+  when the toggle turns off. Choosing again replaces the old limit.
+
 ## Security
 
 > [!WARNING]
@@ -22,14 +35,15 @@ any key press or mouse movement turns them back on.
 > in a place you trust, and turn it off when you're done. hotkit shows a
 > warning toast each time you turn it on.
 
+- Use a time limit when you can, so Keep Unlocked can't be left on by
+  mistake.
 - Turning the monitors off (`monitors.off`) does not lock the PC. Press
   Win+L if you want it locked.
 - hotkit does not get around locks someone else enforces. If Group Policy or
   MDM sets a machine inactivity limit (`InactivityTimeoutSecs`, or the
   DeviceLock `MaxInactivityTimeDeviceLock` policy) or a forced screen saver,
   Keep Unlocked refuses to turn on and says why; Keep Screen On and Keep Awake
-  still work. hotkit never sends simulated key presses or mouse
-  movement.
+  still work. hotkit never sends simulated key presses or mouse movement.
 - Some locks are outside hotkit's reach and stay in effect: Dynamic Lock
   (locks when your phone leaves), smart-card removal, and sign-in after the
   PC wakes from sleep if something else puts it to sleep.
@@ -56,14 +70,15 @@ any key press or mouse movement turns them back on.
 ## Reloads and restarts
 
 A config reload (saving `config.json`, `app.reload`, or tray › *Reload
-Script*) keeps the toggles that were on. Exiting hotkit, or starting it fresh,
-starts with everything off.
+Script*) keeps the toggles that were on, with their time limits. Exiting
+hotkit, or starting it fresh, starts with everything off.
 
 ## Example bindings
 
 ```jsonc
 "bindings": [
   { "keys": "#!u", "action": "power.keepUnlocked.toggle", "description": "Keep unlocked" },
+  { "keys": "#!+u", "action": "power.keepUnlocked.on", "args": [480], "description": "Keep unlocked for 8 hours" },
   { "keys": "#!s", "action": "power.keepScreenOn.toggle", "description": "Keep screen on" },
   { "keys": "#!m", "action": "monitors.off", "description": "Monitors off" }
 ]

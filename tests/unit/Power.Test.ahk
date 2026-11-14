@@ -27,9 +27,62 @@ class Power_Tests {
 
     static Test_SummaryNamesStrongestToggle() {
         Assert.Equal("", PowerModule.Summary(Power_Tests.S()))
-        Assert.Equal("keeping awake", PowerModule.Summary(Power_Tests.S(true)))
-        Assert.Equal("keeping screen on", PowerModule.Summary(Power_Tests.S(true, true)))
-        Assert.Equal("keeping unlocked", PowerModule.Summary(Power_Tests.S(true, true, true)))
+        Assert.Equal("Keep Awake", PowerModule.Summary(Power_Tests.S(true)))
+        Assert.Equal("Keep Screen On", PowerModule.Summary(Power_Tests.S(true, true)))
+        Assert.Equal("Keep Unlocked", PowerModule.Summary(Power_Tests.S(true, true, true)))
+    }
+
+    static Test_SummaryShowsEndTimeOfStrongestToggle() {
+        ends := { keepAwake: "20261114013000", keepScreenOn: "", keepUnlocked: "20261114143000" }
+        Assert.Equal("Keep Unlocked until 2:30 PM", PowerModule.Summary(Power_Tests.S(true, false, true), ends))
+        Assert.Equal("Keep Awake until 1:30 AM", PowerModule.Summary(Power_Tests.S(true), ends))
+        Assert.Equal("Keep Screen On", PowerModule.Summary(Power_Tests.S(true, true), ends), "no limit on the strongest")
+    }
+
+    static Test_EndTimeFromMinutes() {
+        Assert.Equal("", PowerModule.EndTime(0, "20261114010000"))
+        Assert.Equal("", PowerModule.EndTime("", "20261114010000"))
+        Assert.Equal("20261114013000", PowerModule.EndTime(30, "20261114010000"))
+        Assert.Equal("20261114090000", PowerModule.EndTime("480", "20261114010000"))
+        Assert.Equal("20261114010030", PowerModule.EndTime(0.5, "20261114010000"))
+        Assert.Equal("20261114023000", PowerModule.EndTime("20261114023000", "20261114010000"), "end time passes through")
+    }
+
+    static Test_EndTimeRejectsBadMinutes() {
+        Assert.Throws(() => PowerModule.EndTime(-5, "20261114010000"), "positive number of minutes")
+        Assert.Throws(() => PowerModule.EndTime("abc", "20261114010000"), "positive number of minutes")
+    }
+
+    static Test_OnText() {
+        Assert.Equal("On.", PowerModule.OnText(""))
+        Assert.Equal("On until 9:05 AM.", PowerModule.OnText("20261114090500"))
+    }
+
+    static Test_ExpiredListsFinishedToggles() {
+        ends := { keepAwake: "20261114010000", keepScreenOn: "20261114020000", keepUnlocked: "" }
+        Assert.Equal(["keepAwake"], PowerModule.Expired(ends, "20261114010000"))
+        Assert.Equal(["keepAwake", "keepScreenOn"], PowerModule.Expired(ends, "20261114030000"))
+        Assert.Equal([], PowerModule.Expired(ends, "20261114005959"))
+    }
+
+    static Test_HandoffUntil() {
+        Assert.Equal("none", PowerModule.HandoffUntil("", "20261114010000"))
+        Assert.Equal("none", PowerModule.HandoffUntil("junk", "20261114010000"))
+        Assert.Equal("active", PowerModule.HandoffUntil("20261114010001", "20261114010000"))
+        Assert.Equal("expired", PowerModule.HandoffUntil("20261114010000", "20261114010000"))
+    }
+
+    static Test_DurationLabels() {
+        Assert.Equal("For &30 minutes", PowerModule.DurationLabel(30))
+        Assert.Equal("For &1 hour", PowerModule.DurationLabel(60))
+        Assert.Equal("For &8 hours", PowerModule.DurationLabel(480))
+        Assert.Equal("For &90 minutes", PowerModule.DurationLabel(90))
+    }
+
+    static Test_TitlesDropMenuMarkup() {
+        Assert.Equal("Keep Awake", PowerModule.Title("keepAwake"))
+        Assert.Equal("Keep Screen On", PowerModule.Title("keepScreenOn"))
+        Assert.Equal("Keep Unlocked", PowerModule.Title("keepUnlocked"))
     }
 
     static Test_LockPolicyNoneEnforced() {
@@ -74,7 +127,7 @@ class Power_Tests {
 
     static Test_TrayTipListsStatuses() {
         Assert.Equal("hotkit 1.2.0", Tray.Tip("1.2.0", []))
-        Assert.Equal("hotkit 1.2.0: keeping unlocked", Tray.Tip("1.2.0", ["keeping unlocked"]))
+        Assert.Equal("hotkit 1.2.0: Keep Unlocked", Tray.Tip("1.2.0", ["Keep Unlocked"]))
         Assert.Equal("hotkit 1.2.0: a, b", Tray.Tip("1.2.0", ["a", "b"]))
     }
 
