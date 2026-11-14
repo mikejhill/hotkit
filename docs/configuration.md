@@ -264,8 +264,9 @@ If the file is missing, the object form has no `file`, `index` isn't a
 non-zero whole number, or Windows can't load the icon, hotkit uses its default
 icon and lists the reason under *Show Config Problems* (and in `hotkit.log`).
 
-While a stay-awake toggle is on, hotkit draws an amber warning badge on
-whichever icon is in use; see [stay-awake.md](stay-awake.md).
+While a stay-awake toggle is on, hotkit draws a muted coral circle with a
+near-white "!" and a dark outline in the top-right corner of whichever icon
+is in use; see [stay-awake.md](stay-awake.md).
 `--check` reports the same problems, except an icon that exists but fails to
 load, which is only detected when the app runs.
 

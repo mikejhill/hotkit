@@ -113,8 +113,8 @@ class Tray {
 
     ; ---------------- Warning badge                 ------------------------------
 
-    ; While Badged is true the tray icon carries an amber "!" badge in its
-    ; lower-right corner (used while a stay-awake toggle is on). The badge is
+    ; While Badged is true the tray icon carries a muted coral "!" badge in its
+    ; top-right corner (used while a stay-awake toggle is on). The badge is
     ; drawn onto whichever icon is in use, including a custom tray.icon.
     static Badged := false
     static _icon := ""
@@ -144,11 +144,11 @@ class Tray {
     }
 
     ; Pure: what a badge pixel is at (x, y) in a size x size icon: "ring"
-    ; (dark outline), "mark" (dark "!"), "fill" (amber), or "" (the icon shows
-    ; through). The badge is a circle in the lower-right corner.
+    ; (dark outline), "mark" (near-white "!"), "fill" (muted coral), or "" (the
+    ; icon shows through). A top-right circle leaves the bolt's tail visible.
     static BadgePixel(x, y, size) {
-        r := size * 0.3
-        cx := size - r, cy := size - r
+        r := size * 0.28
+        cx := size - r, cy := r
         dx := x + 0.5 - cx, dy := y + 0.5 - cy
         d := Sqrt(dx * dx + dy * dy)
         if (d > r)
@@ -231,7 +231,7 @@ class Tray {
     ; premultiplied; DrawIconEx left them blended onto black) and paints the
     ; badge (BGRA). maskBits, for icons without alpha, is the drawn AND mask.
     static _PaintBadge(bits, size, maskBits := "") {
-        colors := Map("fill", 0xFFFFB000, "ring", 0xFF3A2A00, "mark", 0xFF3A2A00)
+        colors := Map("fill", 0xFFD9735B, "ring", 0xFF30475E, "mark", 0xFFFFF4E8)
         loop size {
             y := A_Index - 1
             loop size {

@@ -4,7 +4,8 @@ The `power` module adds three independent toggles and a monitors-off action.
 Every toggle starts **off**, is shown with a check mark under tray ›
 *Actions* › *Stay Awake*, and is named in the tray tooltip while it is on
 (for example `hotkit 1.7.0: Keep Unlocked until 2:30 AM`). While any toggle is
-on, the tray icon also shows an amber warning badge.
+on, the tray icon also shows a muted coral warning circle with a near-white
+"!" and a dark outline in its top-right corner, including on a custom icon.
 
 | Toggle | What it does | Actions |
 | --- | --- | --- |
