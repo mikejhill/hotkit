@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/brand/logo-light.svg">
-    <img src="assets/brand/logo-light.svg" alt="hotkit" width="362" height="77">
+    <img src="assets/brand/logo-light.svg" alt="hotkit" width="369" height="72">
   </picture>
 </h1>
 
@@ -89,7 +89,7 @@ python tools\check.py
 
 ```
 src/         Main.ahk, Core/ (config, actions, bindings, plugins, tray), Modules/, Lib/, Ui/
-assets/      hotkit.ico (default tray icon), brand/ (README marks, social preview)
+assets/      hotkit.ico (default tray icon), brand/ (README marks, social preview, fonts/)
 config/      config.example.json, config.schema.json
 examples/    plugins/ (copyable example plugins)
 tests/       unit/, integration/, e2e/ (AutoHotkey) + lib/TestRunner.ahk

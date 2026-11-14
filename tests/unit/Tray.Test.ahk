@@ -126,11 +126,32 @@ class Tray_Tests {
             Paths.Override := saved
         }
     }
-    static Test_BadgeSitsInLowerRightCorner() {
-        Assert.Equal("", Tray.BadgePixel(0, 0, 16), "top-left shows the icon")
-        Assert.Equal("", Tray.BadgePixel(15, 0, 16), "top-right shows the icon")
-        Assert.Equal("", Tray.BadgePixel(0, 15, 16), "bottom-left shows the icon")
-        Assert.NotEqual("", Tray.BadgePixel(12, 12, 16))
+    static Test_BadgeSitsInTopRightCorner() {
+        for size in [16, 20, 24, 32, 64] {
+            Assert.Equal("", Tray.BadgePixel(0, 0, size), "top-left at " size "px")
+            Assert.Equal("", Tray.BadgePixel(size - 1, 0, size), "outside circle at " size "px")
+            Assert.NotEqual("", Tray.BadgePixel(Floor(size * 0.75), Floor(size * 0.25), size), "top-right badge at " size "px")
+            loop size {
+                x := A_Index - 1
+                loop size - Ceil(size * 0.56) {
+                    y := Ceil(size * 0.56) + A_Index - 1
+                    Assert.Equal("", Tray.BadgePixel(x, y, size), "lower icon stays visible at " size "px: " x "," y)
+                }
+            }
+        }
+    }
+
+    static Test_BadgeHasSeparateStemAndDot() {
+        ; size, mark column, stem row, gap row, dot row: native pixel samples.
+        for sample in [[16, 11, 3, 5, 6], [20, 14, 4, 6, 7], [24, 17, 5, 8, 9], [32, 23, 6, 11, 12]] {
+            size := sample[1], x := sample[2]
+            Assert.Equal("ring", Tray.BadgePixel(x, 0, size), "top outline at " size "px")
+            Assert.Equal("mark", Tray.BadgePixel(x, sample[3], size), "stem at " size "px")
+            Assert.Equal("fill", Tray.BadgePixel(x, sample[4], size), "gap above dot at " size "px")
+            Assert.Equal("mark", Tray.BadgePixel(x, sample[5], size), "dot at " size "px")
+        }
+        Assert.Equal("ring", Tray.BadgePixel(7, 4, 16), "outline between badge and bolt")
+        Assert.Equal("fill", Tray.BadgePixel(10, 3, 16), "fill beside stem")
     }
 
     static Test_BadgeHasRingFillAndMark() {
@@ -146,14 +167,21 @@ class Tray_Tests {
             }
             for kind, n in seen
                 Assert.True(n > 0, kind " at " size "px")
-            Assert.True(seen["fill"] > seen["mark"], "mostly amber at " size "px")
+            Assert.True(seen["fill"] > seen["mark"], "mostly coral at " size "px")
         }
     }
 
     static Test_BadgedIconFromDefaultIcon() {
         h := Tray.BadgedIcon(Tray.DefaultIcon(), 1, 16)
         Assert.True(h != 0)
-        DllCall("DestroyIcon", "Ptr", h)
+        try {
+            Assert.Equal("0xFF30475E", Tray_Tests.Render(h, 7, 4), "dark outline separates badge from bolt")
+            Assert.Equal("0xFFD9735B", Tray_Tests.Render(h, 10, 3), "muted coral fill")
+            Assert.Equal("0xFFFFF4E8", Tray_Tests.Render(h, 11, 3), "near-white stem")
+            Assert.Equal("0xFFFFF4E8", Tray_Tests.Render(h, 11, 6), "near-white dot")
+        } finally {
+            DllCall("DestroyIcon", "Ptr", h)
+        }
         Assert.Equal(0, Tray.BadgedIcon(Tray_Tests.Dir "\icons\my.ico", 1, 16), "unloadable icon")
     }
     ; Draws an icon onto opaque black and returns pixel (x, y) as 0xAARRGGBB.
