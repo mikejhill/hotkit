@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-14
+
 ### Added
 - Time limits for Keep Awake, Keep Screen On and Keep Unlocked. Each toggle's tray submenu offers 30 minutes to 8 hours, and the `.on` and `.toggle` actions take an optional number of minutes. The tooltip and toast show the end time, and limits survive config reloads.
 - Tray › Stay Awake › Turn All Off.
