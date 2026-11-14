@@ -129,6 +129,8 @@ class Tray {
         root.AddStandard()
         for name in ["&Edit Script", "&Window Spy"]
             try root.Delete(name)
+        ; Reload like app.reload, so arguments and module state (BeforeRestart) carry over.
+        try root.Add("&Reload Script", ActionRegistry.Callback("app.reload"))
     }
 
     ; Adds config items to a menu; returns how many were added.

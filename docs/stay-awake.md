@@ -25,9 +25,10 @@ any key press or mouse movement turns them back on.
 - Turning the monitors off (`monitors.off`) does not lock the PC. Press
   Win+L if you want it locked.
 - hotkit does not get around locks someone else enforces. If Group Policy or
-  MDM sets a machine inactivity limit (`InactivityTimeoutSecs`) or a forced
-  screen saver, Keep Unlocked refuses to turn on and says why; Keep Screen On
-  and Keep Awake still work. hotkit never sends simulated key presses or mouse
+  MDM sets a machine inactivity limit (`InactivityTimeoutSecs`, or the
+  DeviceLock `MaxInactivityTimeDeviceLock` policy) or a forced screen saver,
+  Keep Unlocked refuses to turn on and says why; Keep Screen On and Keep Awake
+  still work. hotkit never sends simulated key presses or mouse
   movement.
 - Some locks are outside hotkit's reach and stay in effect: Dynamic Lock
   (locks when your phone leaves), smart-card removal, and sign-in after the
@@ -54,8 +55,8 @@ any key press or mouse movement turns them back on.
 
 ## Reloads and restarts
 
-A config reload (saving `config.json`, or `app.reload`) keeps the toggles
-that were on. Exiting hotkit, or starting it fresh, starts with everything
+A config reload (saving `config.json`, `app.reload`, or tray › *Reload
+Script*) keeps the toggles that were on. Exiting hotkit, or starting it fresh, starts with everything
 off.
 
 ## Example bindings

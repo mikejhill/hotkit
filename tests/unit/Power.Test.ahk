@@ -48,6 +48,13 @@ class Power_Tests {
         Assert.Contains(PowerModule.LockPolicy({ inactivityTimeoutSecs: "", screenSaveActive: "", screenSaverIsSecure: "1" }), "screen saver")
     }
 
+    static Test_LockPolicyMdmInactivityRefuses() {
+        reason := PowerModule.LockPolicy({ inactivityTimeoutSecs: "", screenSaveActive: "", screenSaverIsSecure: "", mdmMaxInactivityMinutes: 15 })
+        Assert.Contains(reason, "MDM")
+        Assert.Contains(reason, "15 minutes")
+        Assert.Equal("", PowerModule.LockPolicy({ inactivityTimeoutSecs: "", screenSaveActive: "", screenSaverIsSecure: "", mdmMaxInactivityMinutes: 0 }))
+    }
+
     static Test_InputSinceCountsAnyInputAfterOff() {
         Assert.False(PowerModule.InputSince(1000, 5000, 4000), "idle since the monitors went off")
         Assert.False(PowerModule.InputSince(1000, 5000, 4600), "last input came before")

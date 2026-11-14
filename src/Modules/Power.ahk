@@ -156,7 +156,8 @@ class PowerModule {
         return {
             inactivityTimeoutSecs: read("HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System", "InactivityTimeoutSecs"),
             screenSaveActive: read(desk, "ScreenSaveActive"),
-            screenSaverIsSecure: read(desk, "ScreenSaverIsSecure")
+            screenSaverIsSecure: read(desk, "ScreenSaverIsSecure"),
+            mdmMaxInactivityMinutes: read("HKLM\SOFTWARE\Microsoft\PolicyManager\current\device\DeviceLock", "MaxInactivityTimeDeviceLock")
         }
     }
 
@@ -171,6 +172,8 @@ class PowerModule {
         isOn := (v) => v != "" && IsNumber(v) && Number(v) > 0
         if (isOn(p.inactivityTimeoutSecs))
             return "a policy locks this PC after " p.inactivityTimeoutSecs " seconds without input. Keep Screen On still works."
+        if (p.HasOwnProp("mdmMaxInactivityMinutes") && isOn(p.mdmMaxInactivityMinutes))
+            return "a device-management (MDM) policy locks this PC after " p.mdmMaxInactivityMinutes " minutes without input. Keep Screen On still works."
         if (isOn(p.screenSaverIsSecure) || isOn(p.screenSaveActive))
             return "a policy enforces a locking screen saver. Keep Screen On still works."
         return ""
