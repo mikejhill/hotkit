@@ -88,6 +88,11 @@ class TagTests(unittest.TestCase):
         problems = release.check_against_tags("1.7.0", edited, {"1.7.0": CHANGELOG})
         self.assertTrue(any("already released" in p for p in problems))
 
+    def test_older_released_notes_are_frozen_after_a_bump(self):
+        edited = CHANGELOG.replace("- Older.", "- Older.\n- Sneaked in.")
+        problems = release.check_against_tags("1.8.0", edited, {"1.6.0": CHANGELOG, "1.7.0": CHANGELOG})
+        self.assertTrue(any("v1.6.0 is already released" in p for p in problems))
+
     def test_behind_latest_tag_fails(self):
         problems = release.check_against_tags("1.7.0", CHANGELOG, {"1.7.0": CHANGELOG, "1.8.0": None})
         self.assertTrue(any("behind the latest tag v1.8.0" in p for p in problems))

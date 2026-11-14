@@ -150,11 +150,12 @@ def check_against_tags(version: str, changelog: str, tags: dict[str, str | None]
     if newer:
         problems.append(f"App.Version {version} is behind the latest tag v{fmt(newer[0])}; "
                         "update your branch from main")
-    if version in tags and tags[version] is not None:
-        if section(changelog, version) != section(tags[version], version):
-            problems.append(f"v{version} is already released with different notes; release the new "
+    for tagged, tagged_changelog in sorted(tags.items(), key=lambda kv: parse_version(kv[0])):
+        released = section(tagged_changelog, tagged) if tagged_changelog is not None else None
+        if released is not None and section(changelog, tagged) != released:
+            problems.append(f"v{tagged} is already released with different notes; release new "
                             "entries with `python tools/release.py prepare` instead of editing "
-                            f"[{version}]")
+                            f"[{tagged}]")
     return problems
 
 

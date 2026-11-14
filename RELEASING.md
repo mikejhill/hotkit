@@ -15,8 +15,8 @@ registry.
   that commit and publishes the GitHub Release. Every other push is a no-op.
 - Lint rule `REL001` (`python tools/release.py check`) fails when
   `App.Version`, the newest changelog heading and the tags disagree, when a
-  branch is behind the latest tag, or when a released version's notes are
-  edited to add entries.
+  branch is behind the latest tag, or when any released version's notes differ
+  from the notes at its tag. Released notes are frozen.
 
 Nobody tags or creates releases by hand. Version tags are immutable.
 
