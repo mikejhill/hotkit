@@ -95,8 +95,9 @@ class Bindings {
     ; "layers" is a list of names (["1", "2"]) or an object of name -> settings
     ; ({ "1": { "label": "Main", "default": true } }). Objects list in natural
     ; name order (2 before 10). The default layer is the one marked "default",
-    ; else the first. An entry with a "key" is a held-key modifier from before
-    ; modifiers had their own section: it still works, and is reported.
+    ; else the first. An entry with a "key", or a plain key string, is a
+    ; held-key modifier from before modifiers had their own section: it still
+    ; works, and is reported.
     static DefineLayers(raw) {
         entries := []
         if (raw is Array) {
@@ -108,7 +109,8 @@ class Bindings {
             }
         } else if (raw is Map) {
             for name, def in raw {
-                if (def is Map && def.Has("key")) {
+                ; A key as the whole value ("caps": "CapsLock") was shorthand too.
+                if ((def is Map && def.Has("key")) || (!IsObject(def) && def != "")) {
                     Bindings.DefineModifier(name, def)
                     if !Bindings.modifiers.Has(name)
                         continue

@@ -238,7 +238,7 @@ class Bindings_Tests {
         problems := Bindings_Tests.Load('{ "layers": ["1", "", {}] }')
         Assert.Equal(2, problems.Length)
         Bindings.Reset()
-        problems := Bindings_Tests.Load('{ "layers": { "1": 5 } }')
+        problems := Bindings_Tests.Load('{ "layers": { "1": [] } }')
         Assert.Contains(problems[1], "settings must be an object")
         Bindings.Reset()
         problems := Bindings_Tests.Load('{ "layers": "1" }')
@@ -351,6 +351,15 @@ class Bindings_Tests {
         Assert.False(one == two)
         Assert.False(one())
         Assert.True(two())
+    }
+
+    static Test_LegacyShorthandLayerBecomesModifier() {
+        problems := Bindings_Tests.Load('{ "layers": { "caps": "CapsLock" }, "bindings": [ { "keys": "F13", "action": "t.a", "layer": "caps" } ] }')
+        Assert.Equal(1, problems.Length)
+        Assert.Contains(problems[1], "now modifiers")
+        Assert.Equal("CapsLock", Bindings.modifiers["caps"].key)
+        Assert.Equal("caps", Bindings.specs[1].modifier)
+        Assert.Equal(0, Bindings.layerOrder.Length)
     }
 
     static Test_UnknownModifierIsReported() {

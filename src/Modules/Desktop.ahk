@@ -145,7 +145,8 @@ class DesktopModule {
         }
         isDown := (k) => GetKeyState(k, "P")
         held := DesktopModule.TaskbarHoldKeys(
-            DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey), isDown)
+            DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
+                (spec) => (fn := Bindings._Context(spec)) = "" || fn()), isDown)
         win := DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
         if (win.Length) {
             ; Win is already down. A full-screen app that had focus when it was
@@ -214,12 +215,13 @@ class DesktopModule {
     }
 
     ; Pure: the modifier keys of the taskbar.activate bindings registered on
-    ; hotkey; empty for bindings without a modifier.
-    static TaskbarTriggerKeys(specs, modifiers, hotkey) {
+    ; hotkey whose context isActive reports as live (the binding that fired,
+    ; not one on another layer); empty for bindings without a modifier.
+    static TaskbarTriggerKeys(specs, modifiers, hotkey, isActive := (*) => true) {
         keys := []
         for spec in specs {
             if (spec.HasOwnProp("action") && spec.action = "taskbar.activate" && spec.keys = hotkey
-                && spec.modifier != "" && modifiers.Has(spec.modifier))
+                && spec.modifier != "" && modifiers.Has(spec.modifier) && isActive(spec))
                 keys.Push(modifiers[spec.modifier].key)
         }
         return keys

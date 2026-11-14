@@ -202,6 +202,7 @@ class Modules_Tests {
         Assert.Equal("CapsLock", keys[1])
         Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, modifiers, "F1").Length)
         Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, modifiers, "3").Length)
+        Assert.Equal(0, DesktopModule.TaskbarTriggerKeys(specs, modifiers, "1", (*) => false).Length, "only the live binding")
     }
 
     static Test_TaskbarRepeatKey() {
