@@ -44,6 +44,10 @@ class Bindings {
     ; so stopping with a chord key doesn't immediately start again.
     static _rearmKey := ""
     static _latchStates := []
+    static _rearmHook := ""
+    ; key -> watchers for the shared "*key" and "~*key Up" hotkeys
+    static _downWatchers := Bindings._CaseMap()
+    static _upWatchers := Bindings._CaseMap()
     ; Creates the InputHook a latch binding waits on (replaced in tests).
     static LatchHookFactory := (*) => InputHook("L0 I V")
     ; Keys that never end a latch (they pass through to the focused app).
@@ -395,6 +399,11 @@ class Bindings {
                 try state.hook.Stop()
         }
         Bindings._latchStates := []
+        if (Bindings._rearmHook != "")
+            try Bindings._rearmHook.Stop()
+        Bindings._rearmHook := ""
+        Bindings._downWatchers := Bindings._CaseMap()
+        Bindings._upWatchers := Bindings._CaseMap()
     }
 
     static GroupEnabled(name) => Bindings.groups.Has(name) && Bindings.groups[name].enabled
@@ -508,21 +517,17 @@ class Bindings {
         return (*) => Bindings.HoldPress(spec, state)
     }
 
+
     static _RegisterRelease(spec) {
         state := spec.holdState
         base := HotkeyText.BaseKey(spec.keys)
-        downContext := (*) => state.baseDown
-        HotIf(downContext)
         ; Swallow auto-repeat until the key is let go, even after the hold
         ; ended or the modifier key was let go first.
-        Bindings._On("*" base, (*) => 0, downContext)
-        Bindings._On("~*" base " Up", (*) => (state.baseDown := false, Bindings.HoldEnd(spec, state)), downContext)
+        Bindings._WatchDown(base, () => state.baseDown)
+        Bindings._WatchUp(base, () => state.baseDown, () => (state.baseDown := false, Bindings.HoldEnd(spec, state)))
         modifierKey := Bindings.ModifierKey(spec)
-        if (modifierKey != "") {
-            heldContext := (*) => state.active
-            HotIf(heldContext)
-            Bindings._On("~*" modifierKey " Up", (*) => Bindings.HoldEnd(spec, state), heldContext)
-        }
+        if (modifierKey != "")
+            Bindings._WatchUp(modifierKey, () => state.active, () => Bindings.HoldEnd(spec, state))
     }
 
     ; Press runs the action and waits for the next press of another key (see
@@ -538,16 +543,37 @@ class Bindings {
     static _RegisterLatchKeys(spec) {
         state := spec.latchState
         base := HotkeyText.BaseKey(spec.keys)
-        downContext := (*) => state.baseDown
-        HotIf(downContext)
-        Bindings._On("*" base, (*) => 0, downContext)
-        Bindings._On("~*" base " Up", (*) => (state.baseDown := false, Bindings.LatchKeyReleased(state, base)), downContext)
+        Bindings._WatchDown(base, () => state.baseDown)
+        Bindings._WatchUp(base, () => state.baseDown, () => (state.baseDown := false, Bindings.LatchKeyReleased(state, base)))
         modifierKey := Bindings.ModifierKey(spec)
-        if (modifierKey != "" && modifierKey != base) {
-            pendingContext := (*) => state.pending.Has(modifierKey)
-            HotIf(pendingContext)
-            Bindings._On("~*" modifierKey " Up", (*) => Bindings.LatchKeyReleased(state, modifierKey), pendingContext)
+        if (modifierKey != "" && modifierKey != base)
+            Bindings._WatchUp(modifierKey, () => state.pending.Has(modifierKey), () => Bindings.LatchKeyReleased(state, modifierKey))
+    }
+
+    ; One "*key" hotkey per key swallows its presses while any watcher is
+    ; active. Variants of one hotkey compete (only the first eligible runs),
+    ; so bindings sharing a key share one hotkey instead.
+    static _WatchDown(key, active) {
+        if !Bindings._downWatchers.Has(key) {
+            list := []
+            Bindings._downWatchers[key] := list
+            context := (*) => Bindings._AnyActive(list)
+            HotIf(context)
+            Bindings._On("*" key, (*) => 0, context)
         }
+        Bindings._downWatchers[key].Push({ active: active })
+    }
+
+    ; One "~*key Up" hotkey per key runs every active watcher's callback.
+    static _WatchUp(key, active, run) {
+        if !Bindings._upWatchers.Has(key) {
+            list := []
+            Bindings._upWatchers[key] := list
+            context := (*) => Bindings._AnyActive(list)
+            HotIf(context)
+            Bindings._On("~*" key " Up", (*) => Bindings.RunActiveWatchers(list), context)
+        }
+        Bindings._upWatchers[key].Push({ active: active, run: run })
     }
 
     static _On(keys, callback, context) {
@@ -563,6 +589,21 @@ class Bindings {
             ih.KeyOpt(Bindings.KeyOptKeys(key), "-ES")
         ih.OnEnd := (hook) => Bindings.LatchHookEnded(spec, state, hook)
         state.hook := ih
+        ih.Start()
+    }
+
+    ; Keeps suppressing the key that ended a latch (its auto-repeat) until it
+    ; is released, so stopping never types into the focused app.
+    static _SuppressUntilUp(key) {
+        if (Bindings._rearmHook != "")
+            try Bindings._rearmHook.Stop()
+        Bindings._rearmHook := ""
+        if !GetKeyState(key, "P")
+            return
+        ih := Bindings.LatchHookFactory.Call()
+        ih.KeyOpt(Bindings.KeyOptKeys(key), "SN")
+        ih.OnKeyUp := (hook, *) => hook.Stop()
+        Bindings._rearmHook := ih
         ih.Start()
     }
 
@@ -674,7 +715,7 @@ class Bindings {
         if !state.pending.Has(key)
             return
         state.pending.Delete(key)
-        if (state.hook != "" && state.hook.InProgress)
+        if (state.hook != "" && state.hook.InProgress && !Bindings.IsLatchIgnoredKey(key))
             state.hook.KeyOpt(Bindings.KeyOptKeys(key), "+ES")
     }
 
@@ -699,8 +740,10 @@ class Bindings {
             try hook.Stop()
         }
         Bindings._Finish(spec)
-        if (endKey != "")
+        if (endKey != "") {
             Bindings._rearmKey := endKey
+            Bindings._SuppressUntilUp(endKey)
+        }
         ActionRegistry.SafeInvoke(ref.action, ref.args)
     }
 
@@ -711,6 +754,35 @@ class Bindings {
         out := vk ? Format("{{}vk{:X}{}}", vk) : ""
         out .= sc ? Format("{{}sc{:X}{}}", sc) : ""
         return out != "" ? out : "{" key "}"
+    }
+
+    ; Pure: whether a key never ends a latch (a modifier on its own).
+    static IsLatchIgnoredKey(key) {
+        for name in ["Ctrl", "LCtrl", "RCtrl", "Shift", "LShift", "RShift", "Alt", "LAlt", "RAlt", "LWin", "RWin"] {
+            if (key = name)
+                return true
+        }
+        return false
+    }
+
+    ; Runs the callback of every watcher active right now (checked up front,
+    ; since one callback can change another's state).
+    static RunActiveWatchers(list) {
+        due := []
+        for w in list {
+            if w.active.Call()
+                due.Push(w)
+        }
+        for w in due
+            w.run.Call()
+    }
+
+    static _AnyActive(list) {
+        for w in list {
+            if w.active.Call()
+                return true
+        }
+        return false
     }
 
     ; Pure: the reference a latch runs when `endKey` ends it.

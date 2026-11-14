@@ -279,10 +279,35 @@ class Bindings_Tests {
             . '{ "keys": "Space", "modifier": "caps", "action": "t.start", "onRelease": "t.stop" }')
         problems := Bindings.Apply()
         Assert.Equal(0, problems.Length, problems.Length ? problems[1] : "")
-        ; Each: the hotkey, repeat swallow, key up, modifier key up.
-        Assert.Equal(8, Bindings._registered.Length)
+        ; Two hotkeys, plus one shared repeat swallow, Space up and CapsLock up.
+        Assert.Equal(5, Bindings._registered.Length)
         Bindings.UnregisterAll()
         Bindings_Tests.RestoreHookFactory()
+    }
+
+    static Test_ReleasedModifierKeyNeverEndsLatch() {
+        Bindings_Tests.UseRecorder()
+        Bindings_Tests.Load('{ "modifiers": { "ctl": { "key": "LCtrl" } }, "bindings": [',
+            '{ "keys": "Space", "modifier": "ctl", "action": "t.start", "onNextKey": "t.stop" } ] }')
+        spec := Bindings.specs[1], state := Bindings.NewKeyState()
+        Bindings.LatchPress(spec, state)
+        hook := state.hook
+        Bindings.LatchKeyReleased(state, "LCtrl")
+        Assert.False(hook.opts.Has(Bindings.KeyOptKeys("LCtrl")) && hook.opts[Bindings.KeyOptKeys("LCtrl")] = "+ES")
+        Assert.True(Bindings.IsLatchIgnoredKey("rshift"))
+        Assert.False(Bindings.IsLatchIgnoredKey("CapsLock"))
+    }
+
+    static Test_ReleaseRunsEveryActiveWatcher() {
+        calls := []
+        a := { on: true }, b := { on: true }, c := { on: false }
+        list := [
+            { active: () => a.on, run: () => (a.on := false, calls.Push("a")) },
+            { active: () => b.on, run: () => (b.on := false, calls.Push("b")) },
+            { active: () => c.on, run: () => calls.Push("c") }
+        ]
+        Bindings.RunActiveWatchers(list)
+        Assert.Equal("a,b", Bindings_Tests.Joined(calls))
     }
 
     static Test_RowsUseModifierLabels() {
@@ -580,6 +605,7 @@ class FakeLatchHook {
         this.EndReason := ""
         this.EndKey := ""
         this.OnEnd := ""
+        this.OnKeyUp := ""
     }
     KeyOpt(keys, opts) => this.opts[keys] := opts
     Start() => (this.started := true, this.InProgress := true)
