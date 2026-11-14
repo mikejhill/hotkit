@@ -362,7 +362,21 @@ class Bindings {
         layerText := ""
         for name in spec.layers
             layerText .= StrLen(name) ":" name
-        return spec.modifier "|" layerText "|" spec.group "|" spec.whenActive
+        key := spec.modifier "|" layerText "|" spec.group "|" spec.whenActive
+        for mod in Bindings.PhysicalMods(spec)
+            key .= "|" mod
+        return key
+    }
+
+    ; Pure: the hotkey modifiers (Ctrl, Shift, Alt, Win) that must be
+    ; physically down for a binding on a held modifier key. That modifier is
+    ; always a real key press, so a chord on it is too: this keeps keys that
+    ; another program injects while it is held, such as a dictation tool's
+    ; Ctrl+V paste with CapsLock still down, from firing Caps+Ctrl+V.
+    static PhysicalMods(spec) {
+        if (spec.modifier = "" || InStr(spec.keys, " & "))
+            return []
+        return HotkeyText.Parse(spec.keys).mods
     }
 
     ; Registers every spec as a live hotkey. Problems are collected, not thrown.
@@ -484,11 +498,13 @@ class Bindings {
             return Bindings._contexts[id]
         modifier := spec.modifier != "" ? Bindings.modifiers[spec.modifier] : ""
         modifierKey := modifier ? modifier.key : ""
+        physicalMods := Bindings.PhysicalMods(spec)
         layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
         fn := (*) => (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
-            && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)))
+            && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)
+                && Bindings.AllPhysicallyDown(physicalMods)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
@@ -791,6 +807,15 @@ class Bindings {
             return false
         for name, modifier in Bindings.modifiers {
             if (modifier.key = Bindings._rearmKey)
+                return false
+        }
+        return true
+    }
+
+    static AllPhysicallyDown(keys) {
+        for key in keys {
+            down := key = "Win" ? GetKeyState("LWin", "P") || GetKeyState("RWin", "P") : GetKeyState(key, "P")
+            if !down
                 return false
         }
         return true
