@@ -25,7 +25,7 @@ import lint  # noqa: E402
 
 REPO = ahk.REPO
 MAIN = REPO / "src" / "Main.ahk"
-ENTRY_SCRIPTS = [MAIN, REPO / "tests/unit/RunUnit.ahk", REPO / "tests/e2e/RunE2E.ahk"]
+ENTRY_SCRIPTS = [MAIN, REPO / "src/Helpers/ScreenSaverGuard.ahk", REPO / "tests/unit/RunUnit.ahk", REPO / "tests/e2e/RunE2E.ahk"]
 
 
 def stage_lint() -> bool:

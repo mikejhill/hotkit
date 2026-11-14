@@ -6,6 +6,11 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-14
+
+### Fixed
+- Keep Unlocked no longer leaves the screen saver (and its lock) off when hotkit is killed or crashes. Windows keeps the pause for the rest of the sign-in session, so a small guard process now turns the screen saver back on as soon as hotkit's process ends, and the next start repairs it if the guard is gone too. If the guard can't start, Keep Unlocked is refused instead.
+
 ## [1.9.0] - 2026-11-14
 
 ### Changed

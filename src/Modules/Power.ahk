@@ -13,9 +13,10 @@
 ; Every toggle starts off and is forgotten when hotkit exits (a config reload
 ; keeps it). A toggle can be turned on for a number of minutes; it turns
 ; itself off when the time is up. The power requests come from
-; SetThreadExecutionState, the same call PowerToys Awake uses; the screen
-; saver is paused for this session only with SystemParametersInfo and is never
-; written to the registry.
+; SetThreadExecutionState, the same call PowerToys Awake uses, and Windows
+; drops them when hotkit's process ends. The screen saver is paused for this
+; session only with SystemParametersInfo and is never written to the registry;
+; a guard process turns it back on if hotkit is killed or crashes.
 ;
 ; Config: "modules": { "power": { "enabled": false } } removes the actions and
 ; tray menu.
@@ -71,6 +72,7 @@ class PowerModule {
     static _Bind(name, value) => (minutes := 0, *) => PowerModule.Set(name, value, false, minutes)
 
     static Start(cfg) {
+        PowerModule.RecoverScreenSaver()
         if (!PowerModule.Enabled) {
             ; A reload that disabled the module must not leave toggles to revive later.
             PowerModule.ReadHandoff()
@@ -114,6 +116,8 @@ class PowerModule {
         PowerModule.State.%name% := on
         PowerModule.Until.%name% := endAt
         PowerModule.Apply()
+        if (on && !PowerModule.State.%name%)
+            return false ; Apply refused it and said why.
         StatusLog.Info("power: " name (on ? " on" (endAt != "" ? " until " endAt : "") : " off"))
         if (!quiet) {
             status := on ? PowerModule.OnText(endAt) : "Off."
@@ -141,7 +145,14 @@ class PowerModule {
     static Apply() {
         flags := PowerModule.Flags(PowerModule.State, PowerModule.MonitorsOffSince != 0)
         DllCall("SetThreadExecutionState", "UInt", flags, "UInt")
-        PowerModule._ApplyScreenSaver(PowerModule.State.keepUnlocked)
+        if (!PowerModule._ApplyScreenSaver(PowerModule.State.keepUnlocked)) {
+            PowerModule.State.keepUnlocked := false
+            PowerModule.Until.keepUnlocked := ""
+            StatusLog.Warn("power: keep unlocked off: the screen saver could not be paused safely")
+            Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Keep Unlocked is unavailable",
+                "The screen saver could not be paused safely. Keep Screen On still works.")
+            return PowerModule.Apply()
+        }
         PowerModule._UpdateMenu()
         Tray.RefreshTip()
         Tray.SetBadge(PowerModule.Summary(PowerModule.State) != "")
@@ -249,19 +260,124 @@ class PowerModule {
     }
 
     ; Pauses (or restores) the user's own screen saver for this session only:
-    ; no SPIF_UPDATEINIFILE, so the registry setting is untouched.
+    ; no SPIF_UPDATEINIFILE, so the registry setting is untouched. Windows
+    ; keeps the pause after hotkit's process ends, so while it lasts hotkit
+    ; holds a named mutex and runs src\Helpers\ScreenSaverGuard.ahk, which
+    ; turns the screen saver back on when the mutex is released or abandoned
+    ; (hotkit killed or crashed). A marker file lets the next start repair the
+    ; pause if the guard is gone too. Returns false when the pause can't be
+    ; made safe; the screen saver is then left on.
     static _ApplyScreenSaver(pause) {
         if (pause && PowerModule._savedScreenSaver = "") {
+            ; Read the screen saver state under the mutex, so a guard still
+            ; restoring after an earlier crash finishes first.
+            h := PowerModule._TakeMutex()
+            if (!h)
+                return false
             active := 0
             DllCall("SystemParametersInfoW", "UInt", 0x10, "UInt", 0, "Int*", &active, "UInt", 0) ; SPI_GETSCREENSAVEACTIVE
+            if (!active) {
+                PowerModule._ReleaseMutex(h)
+            } else if (!PowerModule._StartGuard(h)) {
+                return false
+            }
             PowerModule._savedScreenSaver := active
             if (active)
                 DllCall("SystemParametersInfoW", "UInt", 0x11, "UInt", 0, "Ptr", 0, "UInt", 0) ; SPI_SETSCREENSAVEACTIVE
         } else if (!pause && PowerModule._savedScreenSaver != "") {
-            if (PowerModule._savedScreenSaver)
+            if (PowerModule._savedScreenSaver) {
                 DllCall("SystemParametersInfoW", "UInt", 0x11, "UInt", 1, "Ptr", 0, "UInt", 0)
+                PowerModule._StopGuard()
+            }
             PowerModule._savedScreenSaver := ""
         }
+        return true
+    }
+
+    static GuardMutex := "Local\hotkit-screen-saver-pause"
+    static GuardScript() => A_LineFile "\..\..\Helpers\ScreenSaverGuard.ahk"
+    static GuardMarker() => A_Temp "\hotkit-screen-saver-paused.txt"
+    static _guardMutex := 0
+
+    ; Opens and takes the pause mutex, or returns 0. A guard from an earlier
+    ; pause may hold it for a moment while it restores the screen saver.
+    static _TakeMutex(timeoutMs := 3000) {
+        h := DllCall("CreateMutexW", "Ptr", 0, "Int", 0, "Str", PowerModule.GuardMutex, "Ptr")
+        if (!h) {
+            StatusLog.Warn("power: screen saver guard: CreateMutex failed (" A_LastError ")")
+            return 0
+        }
+        wait := DllCall("WaitForSingleObject", "Ptr", h, "UInt", timeoutMs, "UInt")
+        if (wait != 0 && wait != 0x80) { ; WAIT_OBJECT_0, WAIT_ABANDONED
+            DllCall("CloseHandle", "Ptr", h)
+            StatusLog.Warn("power: screen saver guard: mutex busy")
+            return 0
+        }
+        return h
+    }
+
+    static _ReleaseMutex(h) {
+        DllCall("ReleaseMutex", "Ptr", h)
+        DllCall("CloseHandle", "Ptr", h)
+    }
+
+    ; With the pause mutex held (h), writes the marker and starts the guard.
+    ; On failure the mutex is released and nothing is left behind.
+    static _StartGuard(h) {
+        ; The guard signals this event once it holds its own mutex handle; until
+        ; then a crash would destroy the mutex and the guard would never wake.
+        ready := PowerModule.GuardReadyEvent(DllCall("GetCurrentProcessId", "UInt"))
+        ev := DllCall("CreateEventW", "Ptr", 0, "Int", 1, "Int", 0, "Str", ready, "Ptr")
+        try {
+            if (!ev)
+                throw Error("CreateEvent failed (" A_LastError ")")
+            FileOpen(PowerModule.GuardMarker(), "w").Write(A_Now)
+            Run('"' A_AhkPath '" "' PowerModule.GuardScript() '" "' PowerModule.GuardMutex '" "'
+                PowerModule.GuardMarker() '" "' ready '"', , "Hide")
+            if (DllCall("WaitForSingleObject", "Ptr", ev, "UInt", 5000, "UInt") != 0)
+                throw Error("it did not report ready within 5 seconds")
+        } catch as e {
+            StatusLog.Warn("power: screen saver guard did not start: " e.Message)
+            try FileDelete(PowerModule.GuardMarker())
+            PowerModule._ReleaseMutex(h)
+            if (ev)
+                DllCall("CloseHandle", "Ptr", ev)
+            return false
+        }
+        DllCall("CloseHandle", "Ptr", ev)
+        PowerModule._guardMutex := h
+        return true
+    }
+
+    static GuardReadyEvent(pid) => "Local\hotkit-screen-saver-guard-ready-" pid "-" A_TickCount
+
+    ; Called after the screen saver is back on: the guard wakes, finds nothing
+    ; to do beyond confirming it, and exits.
+    static _StopGuard() {
+        try FileDelete(PowerModule.GuardMarker())
+        if (!PowerModule._guardMutex)
+            return
+        PowerModule._ReleaseMutex(PowerModule._guardMutex)
+        PowerModule._guardMutex := 0
+    }
+
+    ; At startup: a marker with no live pause behind it means an earlier hotkit
+    ; ended while pausing the screen saver and its guard didn't run. Turn the
+    ; screen saver back on.
+    static RecoverScreenSaver() {
+        marker := PowerModule.GuardMarker()
+        if (!FileExist(marker))
+            return
+        ; Busy means another hotkit still holds its pause, or a guard is
+        ; restoring right now; either way it isn't ours to repair.
+        if !(h := PowerModule._TakeMutex())
+            return
+        if (FileExist(marker)) {
+            DllCall("SystemParametersInfoW", "UInt", 0x11, "UInt", 1, "Ptr", 0, "UInt", 0)
+            try FileDelete(marker)
+            StatusLog.Warn("power: turned the screen saver back on after an earlier hotkit ended while pausing it")
+        }
+        PowerModule._ReleaseMutex(h)
     }
 
     ; ---------------- Monitors off                  ------------------------------
@@ -364,10 +480,13 @@ class PowerModule {
         if (PowerModule._exitRegistered)
             return
         PowerModule._exitRegistered := true
-        OnExit((*) => PowerModule._OnExit())
+        ; A non-zero return from an OnExit callback cancels the exit.
+        OnExit((*) => (PowerModule._OnExit(), 0))
     }
 
-    static _OnExit() => PowerModule._ApplyScreenSaver(false)
+    static _OnExit() {
+        PowerModule._ApplyScreenSaver(false)
+    }
 
     ; Called by App.Restart just before a reload.
     static BeforeRestart() {

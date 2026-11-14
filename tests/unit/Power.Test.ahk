@@ -131,6 +131,87 @@ class Power_Tests {
         Assert.Equal("hotkit 1.2.0: a, b", Tray.Tip("1.2.0", ["a", "b"]))
     }
 
+    ; ScreenSaverGuard runs in dry-run mode here: it writes to a file instead
+    ; of touching the screen saver.
+    static _Guard(mutex, marker, out, ready := "") {
+        EnvSet("HOTKIT_GUARD_DRY_RUN", out)
+        Run('"' A_AhkPath '" "' PowerModule.GuardScript() '" "' mutex '" "' marker '" "' ready '"', , "Hide", &pid)
+        EnvSet("HOTKIT_GUARD_DRY_RUN")
+        return pid
+    }
+
+    static _GuardFiles(tag) {
+        base := A_Temp "\hotkit-guard-test-" tag "-" A_TickCount
+        try FileDelete(base "*")
+        FileAppend("x", base ".marker")
+        return { mutex: "Local\hotkit-guard-test-" tag "-" A_TickCount, marker: base ".marker", out: base ".out" }
+    }
+
+    static _ReadOut(f) => FileExist(f) ? FileRead(f) : ""
+
+    static Test_GuardRestoresWhenThePauseEnds() {
+        f := Power_Tests._GuardFiles("release")
+        h := DllCall("CreateMutexW", "Ptr", 0, "Int", 1, "Str", f.mutex, "Ptr")
+        ready := PowerModule.GuardReadyEvent(DllCall("GetCurrentProcessId", "UInt"))
+        ev := DllCall("CreateEventW", "Ptr", 0, "Int", 1, "Int", 0, "Str", ready, "Ptr")
+        pid := Power_Tests._Guard(f.mutex, f.marker, f.out, ready)
+        Assert.Equal(0, DllCall("WaitForSingleObject", "Ptr", ev, "UInt", 5000, "UInt"), "guard reports ready")
+        DllCall("CloseHandle", "Ptr", ev)
+        Sleep(300)
+        Assert.Equal("", Power_Tests._ReadOut(f.out), "waits while the pause lasts")
+        DllCall("ReleaseMutex", "Ptr", h)
+        DllCall("CloseHandle", "Ptr", h)
+        Assert.True(ProcessWaitClose(pid, 5) = 0, "guard exits")
+        Assert.Equal("restored`n", Power_Tests._ReadOut(f.out))
+        Assert.False(FileExist(f.marker), "marker removed")
+        try FileDelete(f.out)
+    }
+
+    static Test_GuardRestoresWhenTheOwnerIsKilled() {
+        f := Power_Tests._GuardFiles("kill")
+        owner := A_Temp "\hotkit-guard-test-owner-" A_TickCount ".ahk"
+        FileOpen(owner, "w").Write('#Requires AutoHotkey v2.0`n#NoTrayIcon`nDllCall("CreateMutexW", "Ptr", 0, "Int", 1, "Str", A_Args[1], "Ptr")`nSleep(30000)`n')
+        Run('"' A_AhkPath '" "' owner '" "' f.mutex '"', , "Hide", &ownerPid)
+        try {
+            deadline := A_TickCount + 5000
+            while (A_TickCount < deadline) {
+                h := DllCall("OpenMutexW", "UInt", 0x00100000, "Int", 0, "Str", f.mutex, "Ptr")
+                if (h)
+                    break
+                Sleep(50)
+            }
+            Assert.True(h, "owner created the mutex")
+            DllCall("CloseHandle", "Ptr", h)
+            ready := PowerModule.GuardReadyEvent(DllCall("GetCurrentProcessId", "UInt"))
+            ev := DllCall("CreateEventW", "Ptr", 0, "Int", 1, "Int", 0, "Str", ready, "Ptr")
+            pid := Power_Tests._Guard(f.mutex, f.marker, f.out, ready)
+            Assert.Equal(0, DllCall("WaitForSingleObject", "Ptr", ev, "UInt", 10000, "UInt"), "guard reports ready")
+            DllCall("CloseHandle", "Ptr", ev)
+            Assert.Equal("", Power_Tests._ReadOut(f.out), "waits while the owner lives")
+            ProcessClose(ownerPid)
+            Assert.True(ProcessWaitClose(pid, 5) = 0, "guard exits")
+            Assert.Equal("restored`n", Power_Tests._ReadOut(f.out))
+            Assert.False(FileExist(f.marker), "marker removed")
+        } finally {
+            try ProcessClose(ownerPid)
+            try FileDelete(owner)
+            try FileDelete(f.out)
+        }
+    }
+
+    static Test_GuardExitsWhenThePauseIsAlreadyOver() {
+        f := Power_Tests._GuardFiles("gone")
+        pid := Power_Tests._Guard(f.mutex, f.marker, f.out)
+        Assert.True(ProcessWaitClose(pid, 5) = 0, "guard exits")
+        Assert.Equal("", Power_Tests._ReadOut(f.out), "nothing to restore")
+        try FileDelete(f.marker)
+    }
+
+    static Test_ExitCallbackDoesNotCancelExit() {
+        ; OnExit treats a non-zero return as "cancel the exit".
+        Assert.Equal("", PowerModule._OnExit())
+    }
+
     static Test_UnknownToggleThrows() {
         Assert.Throws(() => PowerModule.Set("keepWarm", true), "Unknown power toggle")
     }
