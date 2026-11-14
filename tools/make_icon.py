@@ -34,14 +34,36 @@ SOCIAL_BACKGROUND = "#E8EEEB"
 SOCIAL_KEYS = "#DCE5DF"
 PIXEL_SIZE_LIMIT = 32
 DESIGN_SIZE = 16
-CORNER_RADIUS = 1
+RADIUS_RATIO = 0.2
+
+
+class CornerGeometry:
+    """Keep rectangle radii proportional, allowing only pixel rounding error."""
+
+    @staticmethod
+    def radius(width: float, height: float, quantum: float = 0) -> float:
+        """Return 20% of the shorter side, optionally snapped to a pixel grid."""
+        shorter = min(width, height)
+        assert shorter > 0 and quantum >= 0, "Invalid rectangle or pixel grid"
+        radius = RADIUS_RATIO * shorter
+        if quantum:
+            radius = round(radius / quantum) * quantum
+        assert (
+            abs(radius / shorter - RADIUS_RATIO) <= quantum / (2 * shorter) + 1e-12
+        ), "Corner radius ratio exceeds pixel rounding tolerance"
+        return radius
+
+
 # Exclusive bounds, radius, and fill; branding uses this same centered grid.
-KEY_LAYERS = (
-    ((1, 1, 15, 15), CORNER_RADIUS, SLATE),
-    ((2.5, 2.5, 7.5, 7.5), CORNER_RADIUS, SAGE),
-    ((8.5, 2.5, 13.5, 7.5), CORNER_RADIUS, SAGE),
-    ((2.5, 8.5, 7.5, 13.5), CORNER_RADIUS, SAGE),
-    ((8.5, 8.5, 13.5, 13.5), CORNER_RADIUS, BLUE),
+KEY_LAYERS = tuple(
+    (bounds, CornerGeometry.radius(bounds[2] - bounds[0], bounds[3] - bounds[1]), color)
+    for bounds, color in (
+        ((1, 1, 15, 15), SLATE),
+        ((2.5, 2.5, 7.5, 7.5), SAGE),
+        ((8.5, 2.5, 13.5, 7.5), SAGE),
+        ((2.5, 8.5, 7.5, 13.5), SAGE),
+        ((8.5, 8.5, 13.5, 13.5), BLUE),
+    )
 )
 
 
@@ -56,26 +78,21 @@ class TrayIcon:
         scale = 1 if size <= PIXEL_SIZE_LIMIT else 4
         canvas = Image.new("RGBA", (size * scale, size * scale))
         draw = ImageDraw.Draw(canvas)
-        for bounds, radius, color in KEY_LAYERS:
-            cls._layer(draw, size, scale, bounds, radius, color)
+        for bounds, _, color in KEY_LAYERS:
+            cls._layer(draw, size, scale, bounds, color)
         if scale == 1:
             return canvas
         # BOX preserves the snapped silhouette bounds without filter halos.
         return canvas.resize((size, size), Image.Resampling.BOX)
 
     @staticmethod
-    def _layer(
-        draw: ImageDraw.ImageDraw,
+    def layer_geometry(
         size: int,
-        scale: int,
         bounds: tuple[float, float, float, float],
-        radius: int,
-        color: str,
-    ) -> None:
-        """Draw a snapped rounded rectangle from the shared 16-unit geometry."""
-        # Snap before supersampling; bounds are exclusive on the right/bottom.
+    ) -> tuple[int, int, int, int, float]:
+        """Return exclusive pixel bounds and a radius based on their shorter side."""
         left, top, right, bottom = (
-            round(value * size / DESIGN_SIZE) * scale for value in bounds
+            round(value * size / DESIGN_SIZE) for value in bounds
         )
         if size == 16:
             # Hand-hinted 5x5 keys: [2,7) and [8,13), separated by one pixel.
@@ -83,10 +100,26 @@ class TrayIcon:
             left, top, right, bottom = (int(value) for value in bounds)
         if bounds == KEY_LAYERS[0][0]:
             # Round outer padding down symmetrically: 24px must not shrink to 20px.
-            padding = (size // DESIGN_SIZE) * scale
+            padding = size // DESIGN_SIZE
             left = top = padding
-            right = bottom = size * scale - padding
-        snapped_radius = max(1, round(size * radius / DESIGN_SIZE)) * scale
+            right = bottom = size - padding
+        quantum = 1 if size <= PIXEL_SIZE_LIMIT else 0.25
+        radius = CornerGeometry.radius(right - left, bottom - top, quantum)
+        return left, top, right, bottom, radius
+
+    @classmethod
+    def _layer(
+        cls,
+        draw: ImageDraw.ImageDraw,
+        size: int,
+        scale: int,
+        bounds: tuple[float, float, float, float],
+        color: str,
+    ) -> None:
+        """Draw proportional corners on the native or supersampled pixel grid."""
+        left, top, right, bottom, snapped_radius = (
+            value * scale for value in cls.layer_geometry(size, bounds)
+        )
         draw.rounded_rectangle(
             (left, top, right - 1, bottom - 1), radius=snapped_radius, fill=color
         )
@@ -164,6 +197,12 @@ class TrayIcon:
         sys.stdout.write(
             f"wrote {OUT.relative_to(ROOT)} ({', '.join(map(str, SIZES))})\n"
         )
+        for size in (16, 256):
+            radii = [cls.layer_geometry(size, bounds)[4] for bounds, _, _ in KEY_LAYERS]
+            sys.stdout.write(
+                f"{size}px: radius ratio={RADIUS_RATIO:g}, "
+                f"outer={radii[0]:g}px, keys={radii[1]:g}px\n"
+            )
         return 0
 
 

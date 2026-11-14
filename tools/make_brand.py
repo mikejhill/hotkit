@@ -12,6 +12,7 @@ import sys
 from dataclasses import dataclass
 
 from make_icon import (
+    CornerGeometry,
     DARK_BACKGROUND,
     KEY_LAYERS,
     LIGHT_BACKGROUND,
@@ -31,8 +32,10 @@ from PIL import Image, ImageDraw
 WIDTH, HEIGHT = 362, 77
 CELL_WIDTH = 46
 WORDMARK_LEFT = 87
-# Condense 34px stroke-center spans to 24px; the unchanged 8px stroke adds 8px.
-INK_X_SCALE = 12 / 17
+ASCENDER_TOP, BASELINE = 9, 69
+X_HEIGHT = 35
+STROKE_WIDTH = 8
+INK_WIDTH = 34
 SAMPLE_STEPS = 32
 SUPERSAMPLING = 4
 Point = tuple[float, float]
@@ -40,44 +43,27 @@ Point = tuple[float, float]
 
 @dataclass(frozen=True, slots=True)
 class Shape:
-    """A filled outline or round-ended stroke shared by SVG and Pillow."""
+    """A filled outline shared by SVG and Pillow."""
 
     points: tuple[Point, ...]
     color: str
-    stroke: float = 0
 
     def svg(self) -> str:
         """Serialize geometry as a self-contained SVG path."""
         points = " L ".join(f"{x:.3f},{y:.3f}" for x, y in self.points)
-        if self.stroke:
-            return (
-                f'  <path d="M {points}" fill="none" stroke="{self.color}" '
-                f'stroke-width="{self.stroke}" stroke-linecap="round" '
-                'stroke-linejoin="round"/>'
-            )
         return f'  <path d="M {points} Z" fill="{self.color}"/>'
 
     def paint(self, draw: ImageDraw.ImageDraw, scale: float, offset: Point) -> None:
-        """Draw the same path at preview resolution with rounded stroke ends."""
+        """Draw the same filled outline at preview resolution."""
         points = [
             ((x + offset[0]) * scale, (y + offset[1]) * scale) for x, y in self.points
         ]
-        if not self.stroke:
-            draw.polygon(points, fill=self.color)
-            return
-        draw.line(
-            points, fill=self.color, width=round(self.stroke * scale), joint="curve"
-        )
-        radius = self.stroke * scale / 2
-        for x, y in points:
-            draw.ellipse(
-                (x - radius, y - radius, x + radius, y + radius), fill=self.color
-            )
+        draw.polygon(points, fill=self.color)
 
 
 @dataclass(frozen=True, slots=True)
 class Glyph:
-    """A letter's advance cell and its positioned, round-ended ink strokes."""
+    """A letter's advance cell and its positioned, square-ended ink outlines."""
 
     letter: str
     left: float
@@ -91,10 +77,10 @@ class Glyph:
 
     @property
     def ink_bounds(self) -> tuple[float, float]:
-        """Return horizontal ink bounds including rounded stroke terminals."""
+        """Return exact horizontal bounds of the filled ink outlines."""
         return (
-            min(x - shape.stroke / 2 for shape in self.shapes for x, _ in shape.points),
-            max(x + shape.stroke / 2 for shape in self.shapes for x, _ in shape.points),
+            min(x for shape in self.shapes for x, _ in shape.points),
+            max(x for shape in self.shapes for x, _ in shape.points),
         )
 
     @property
@@ -107,28 +93,31 @@ class Brand:
     """Four-key tile with a tightly cropped geometric hotkit wordmark."""
 
     @staticmethod
-    def _curve(a: Point, b: Point, c: Point, d: Point) -> tuple[Point, ...]:
-        """Sample a cubic curve once for both vector and raster output."""
-        return tuple(
-            (
-                (1 - t) ** 3 * a[0]
-                + 3 * (1 - t) ** 2 * t * b[0]
-                + 3 * (1 - t) * t**2 * c[0]
-                + t**3 * d[0],
-                (1 - t) ** 3 * a[1]
-                + 3 * (1 - t) ** 2 * t * b[1]
-                + 3 * (1 - t) * t**2 * c[1]
-                + t**3 * d[1],
-            )
-            for t in (step / SAMPLE_STEPS for step in range(SAMPLE_STEPS + 1))
+    def _stroke(a: Point, b: Point) -> tuple[Point, ...]:
+        """Expand a straight stroke to an exact-width polygon with butt ends."""
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = math.hypot(dx, dy)
+        assert length > 0, "Empty stroke"
+        ox, oy = -dy * STROKE_WIDTH / (2 * length), dx * STROKE_WIDTH / (2 * length)
+        return (
+            (a[0] + ox, a[1] + oy),
+            (b[0] + ox, b[1] + oy),
+            (b[0] - ox, b[1] - oy),
+            (a[0] - ox, a[1] - oy),
         )
 
     @staticmethod
-    def _box(
-        bounds: tuple[float, float, float, float], radius: float, color: str
-    ) -> Shape:
+    def _rectangle(
+        left: float, top: float, right: float, bottom: float
+    ) -> tuple[Point, ...]:
+        """Return a square-cornered stroke outline."""
+        return ((left, top), (right, top), (right, bottom), (left, bottom))
+
+    @staticmethod
+    def _box(bounds: tuple[float, float, float, float], color: str) -> Shape:
         """Build a rounded key outline from quarter-circle samples."""
         left, top, right, bottom = bounds
+        radius = CornerGeometry.radius(right - left, bottom - top)
         corners = (
             (right - radius, top + radius, -90),
             (right - radius, bottom - radius, 0),
@@ -155,7 +144,7 @@ class Brand:
         shapes = []
         # Remove the tray's safety padding: artwork starts at (6, 6), 65px tall.
         unit = 65 / 14
-        for (left, top, right, bottom), radius, color in KEY_LAYERS:
+        for (left, top, right, bottom), _, color in KEY_LAYERS:
             shapes.append(
                 cls._box(
                     (
@@ -164,7 +153,6 @@ class Brand:
                         6 + (right - 1) * unit,
                         6 + (bottom - 1) * unit,
                     ),
-                    radius * unit,
                     color,
                 )
             )
@@ -173,31 +161,74 @@ class Brand:
 
     @classmethod
     def wordmark(cls, ink: str) -> tuple[Glyph, ...]:
-        """Place original stroke drawings in equal cells and verify their metrics."""
+        """Place original terminal outlines in equal cells and verify their metrics."""
+        top = BASELINE - X_HEIGHT
+        foot = BASELINE - STROKE_WIDTH
+        stem = (INK_WIDTH - STROKE_WIDTH) / 2
+        rect = cls._rectangle
         strokes = {
             "h": (
-                ((5, 10), (5, 66)),
-                (*cls._curve((5, 45), (5, 23), (39, 23), (39, 45)), (39, 66)),
+                rect(0, ASCENDER_TOP, STROKE_WIDTH, BASELINE),
+                (
+                    (0, top),
+                    (32, top),
+                    (34, top + 2),
+                    (34, BASELINE),
+                    (26, BASELINE),
+                    (26, top + STROKE_WIDTH),
+                    (0, top + STROKE_WIDTH),
+                ),
             ),
             "o": (
                 (
-                    *cls._curve((22, 30), (-2 / 3, 30), (-2 / 3, 67), (22, 67)),
-                    *cls._curve((22, 67), (134 / 3, 67), (134 / 3, 30), (22, 30)),
+                    (2, top),
+                    (32, top),
+                    (34, top + 2),
+                    (34, top + STROKE_WIDTH),
+                    (0, top + STROKE_WIDTH),
+                    (0, top + 2),
+                ),
+                rect(0, top + STROKE_WIDTH, STROKE_WIDTH, foot),
+                rect(26, top + STROKE_WIDTH, INK_WIDTH, foot),
+                (
+                    (0, foot),
+                    (34, foot),
+                    (34, BASELINE - 2),
+                    (32, BASELINE),
+                    (2, BASELINE),
+                    (0, BASELINE - 2),
                 ),
             ),
             "t": (
-                ((18, 18), *cls._curve((18, 55), (18, 67), (25, 69), (35, 64))),
-                ((5, 32), (39, 32)),
+                rect(stem, 18, stem + STROKE_WIDTH, foot),
+                rect(0, top, INK_WIDTH, top + STROKE_WIDTH),
+                (
+                    (stem, foot),
+                    (INK_WIDTH, foot),
+                    (INK_WIDTH, BASELINE),
+                    (stem + 2, BASELINE),
+                    (stem, BASELINE - 2),
+                ),
             ),
             "k": (
-                ((5, 10), (5, 66)),
-                ((39, 31), (5, 51), (39, 66)),
+                rect(0, ASCENDER_TOP, STROKE_WIDTH, BASELINE),
+                cls._stroke((5, 53), (31, 37)),
+                cls._stroke((5, 53), (31, 65)),
             ),
             "i": (
-                ((5, 33), (22, 33), (22, 66)),
-                ((5, 66), (39, 66)),
-                ((22, 13), (22, 14)),
+                rect(0, top, stem + STROKE_WIDTH, top + STROKE_WIDTH),
+                rect(stem, top, stem + STROKE_WIDTH, foot),
+                rect(0, foot, INK_WIDTH, BASELINE),
+                rect(stem, 17, stem + STROKE_WIDTH, 17 + STROKE_WIDTH),
             ),
+        }
+        centers = {
+            letter: (
+                min(x for points in outlines for x, _ in points)
+                + max(x for points in outlines for x, _ in points)
+            )
+            / 2
+            for letter, outlines in strokes.items()
         }
         glyphs = tuple(
             Glyph(
@@ -210,13 +241,13 @@ class Brand:
                             (
                                 WORDMARK_LEFT
                                 + (index + 0.5) * CELL_WIDTH
-                                + (x - 22) * INK_X_SCALE,
+                                + x
+                                - centers[letter],
                                 y,
                             )
                             for x, y in points
                         ),
                         ink,
-                        8,
                     )
                     for points in strokes[letter]
                 ),
@@ -224,6 +255,7 @@ class Brand:
             for index, letter in enumerate("hotkit")
         )
         cls.validate_cells(glyphs)
+        assert 0.55 <= X_HEIGHT / (BASELINE - ASCENDER_TOP) <= 0.60
         return glyphs
 
     @staticmethod
@@ -255,7 +287,8 @@ class Brand:
         draw = ImageDraw.Draw(canvas)
         for glyph in glyphs:
             draw.rectangle(
-                (glyph.left * 4, 6 * 4, glyph.right * 4, 71 * 4), outline=SAGE
+                (glyph.left * 4, ASCENDER_TOP * 4, glyph.right * 4, BASELINE * 4),
+                outline=SAGE,
             )
         return canvas
 
@@ -298,7 +331,7 @@ class Brand:
             # A low-contrast keyboard rhythm anchors the social card's lower band.
             for index in range(13):
                 left = 218 + index * 66
-                cls._box((left, 510, left + 52, 554), 9, SOCIAL_KEYS).paint(
+                cls._box((left, 510, left + 52, 554), SOCIAL_KEYS).paint(
                     draw, SUPERSAMPLING, (0, 0)
                 )
         return canvas.resize(size, Image.Resampling.LANCZOS)
@@ -317,8 +350,8 @@ class Brand:
             (destination / f"logo-{name}.svg").write_text(
                 cls.svg(ink), encoding="utf-8", newline="\n"
             )
-            cls.raster(ink, background).save(previews / f"v4-brand-{name}.png")
-        cls.cell_preview().save(previews / "v4-wordmark-cells.png")
+            cls.raster(ink, background).save(previews / f"v6-brand-{name}.png")
+        cls.cell_preview().save(previews / "v6-wordmark-cells.png")
         cls.raster(
             SLATE,
             SOCIAL_BACKGROUND,
@@ -334,7 +367,11 @@ class Brand:
                 f"center offset={glyph.center_offset:g}px\n"
             )
         sys.stdout.write(
-            "wrote assets/brand/ and .tmp/v4-{brand-*,wordmark-cells}.png\n"
+            f"cell={CELL_WIDTH}x{BASELINE - ASCENDER_TOP}px, "
+            f"x-height={X_HEIGHT}px, stroke={STROKE_WIDTH}px\n"
+        )
+        sys.stdout.write(
+            "wrote assets/brand/ and .tmp/v6-{brand-*,wordmark-cells}.png\n"
         )
         return 0
 
