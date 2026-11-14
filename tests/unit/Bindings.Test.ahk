@@ -128,10 +128,7 @@ class Bindings_Tests {
         Bindings.LatchHookFactory := (*) => FakeLatchHook()
     }
 
-    static RestoreHookFactory() {
-        Bindings.LatchHookFactory := (*) => InputHook("L0 I V")
-        Bindings.PhysicalKeyDown := (key) => GetKeyState(key, "P")
-    }
+    static RestoreHookFactory() => Bindings.LatchHookFactory := (*) => InputHook("L0 I V")
 
     static Joined(list) {
         out := ""
@@ -365,29 +362,36 @@ class Bindings_Tests {
         Assert.True(Bindings.AllPhysicallyDown([]))
     }
 
-    static Test_EndingHoldQuietsHeldModifier() {
-        Bindings_Tests.LoadKeyBindings(
-            '{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onRelease": "t.stop" },'
-            . '{ "keys": "^V", "modifier": "caps", "action": "t.start2" }')
-        hold := Bindings.specs[1], other := Bindings.specs[2]
-        Assert.False(Bindings.Quietable(hold), "hold/latch bindings keep working")
-        Assert.True(Bindings.Quietable(other))
-        Assert.False(Bindings._Context(hold) == Bindings._Context(other))
-        Bindings.PhysicalKeyDown := (key) => key = "CapsLock"
-        state := Bindings.NewKeyState()
-        Bindings.HoldPress(hold, state)
-        Assert.False(Bindings._quiet.Has("CapsLock"), "quiet only after it ends")
-        Bindings.HoldEnd(hold, state)              ; Space let go, CapsLock still held
-        Assert.True(Bindings._quiet.Has("CapsLock"))
+    static Test_SimulatedKeysDecide() {
+        Assert.True(SimulatedKeys.Decide(false, 0x56, 0x56, 0, 1000), "typed keys fire")
+        Assert.False(SimulatedKeys.Decide(true, 0x56, 0x56, 5, 1000), "a fresh injected event for the key is blocked")
+        Assert.True(SimulatedKeys.Decide(true, 0x41, 0x56, 5, 1000), "a different key's event proves nothing")
+        Assert.True(SimulatedKeys.Decide(true, 0x56, 0x56, 1500, 1000), "a stale event proves nothing")
+        Assert.True(SimulatedKeys.Decide(true, 0x56, 0, 5, 1000), "unknown hotkey key is allowed")
     }
 
-    static Test_EndingLatchWithModifierUpLeavesItActive() {
-        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onNextKey": "t.stop" }')
-        Bindings.PhysicalKeyDown := (key) => false
-        state := Bindings.NewKeyState()
-        Bindings.LatchPress(Bindings.specs[1], state)
-        Bindings.LatchEnd(Bindings.specs[1], state, Bindings.specs[1].onNextKey)
-        Assert.Equal(0, Bindings._quiet.Count)
+    static Test_BindingsRefuseSimulatedKeysUnlessAllowed() {
+        Bindings_Tests.Load('{ "bindings": [',
+            '{ "keys": "^V", "action": "t.a" },',
+            '{ "keys": "F13", "action": "t.a", "allowSimulated": true } ] }')
+        Assert.Equal("", Bindings._Context(Bindings.specs[1]), "off: global bindings stay context-free")
+        Bindings._contexts := Bindings._CaseMap()
+        Bindings.ignoreSimulated := true
+        Assert.True(Bindings.ChecksSimulated(Bindings.specs[1]))
+        Assert.False(Bindings.ChecksSimulated(Bindings.specs[2]))
+        strict := Bindings._Context(Bindings.specs[1])
+        Assert.Equal("", Bindings._Context(Bindings.specs[2]), "allowSimulated keeps a global binding context-free")
+        saved := SimulatedKeys.last
+        try {
+            SimulatedKeys.enabled := true
+            SimulatedKeys.last := { vk: GetKeyVK("V"), injected: true, up: false, time: A_TickCount & 0xFFFFFFFF }
+            Assert.False(strict.Call("^V"), "an injected V doesn't fire ^V")
+            SimulatedKeys.last := { vk: GetKeyVK("V"), injected: false, up: false, time: A_TickCount & 0xFFFFFFFF }
+            Assert.True(strict.Call("^V"))
+        } finally {
+            SimulatedKeys.enabled := false
+            SimulatedKeys.last := saved
+        }
     }
 
     static Test_RowsUseModifierLabels() {

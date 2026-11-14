@@ -179,7 +179,16 @@ class App {
             }
         }
         App.RestoreLayer()
+        Bindings.ignoreSimulated := !!cfg.Get("settings.ignoreSimulatedKeys", true)
         Bindings.Apply()
+        ; After Apply: AutoHotkey's keyboard hook must exist before ours.
+        if (Bindings.ignoreSimulated) {
+            try {
+                SimulatedKeys.Enable()
+            } catch as e {
+                Bindings.problems.Push("Couldn't watch for simulated keys, so programs can trigger shortcuts: " e.Message)
+            }
+        }
         menus := []
         for m in App.Modules {
             if HasMethod(m, "TrayMenus") {
