@@ -182,8 +182,11 @@ class Power_Tests {
             }
             Assert.True(h, "owner created the mutex")
             DllCall("CloseHandle", "Ptr", h)
-            pid := Power_Tests._Guard(f.mutex, f.marker, f.out)
-            Sleep(500)
+            ready := PowerModule.GuardReadyEvent(DllCall("GetCurrentProcessId", "UInt"))
+            ev := DllCall("CreateEventW", "Ptr", 0, "Int", 1, "Int", 0, "Str", ready, "Ptr")
+            pid := Power_Tests._Guard(f.mutex, f.marker, f.out, ready)
+            Assert.Equal(0, DllCall("WaitForSingleObject", "Ptr", ev, "UInt", 10000, "UInt"), "guard reports ready")
+            DllCall("CloseHandle", "Ptr", ev)
             Assert.Equal("", Power_Tests._ReadOut(f.out), "waits while the owner lives")
             ProcessClose(ownerPid)
             Assert.True(ProcessWaitClose(pid, 5) = 0, "guard exits")
