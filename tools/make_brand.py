@@ -11,7 +11,16 @@ import math
 import sys
 from dataclasses import dataclass
 
-from make_icon import BLUE, LIP, ROOT, SAGE, SLATE
+from make_icon import (
+    DARK_BACKGROUND,
+    KEY_LAYERS,
+    LIGHT_BACKGROUND,
+    ROOT,
+    SAGE,
+    SLATE,
+    SOCIAL_BACKGROUND,
+    SOCIAL_KEYS,
+)
 from PIL import Image, ImageDraw
 
 # /// script
@@ -19,7 +28,7 @@ from PIL import Image, ImageDraw
 # dependencies = ["Pillow>=10"]
 # ///
 
-WIDTH, HEIGHT = 420, 128
+WIDTH, HEIGHT = 358, 77
 SAMPLE_STEPS = 32
 SUPERSAMPLING = 4
 Point = tuple[float, float]
@@ -44,7 +53,7 @@ class Shape:
             )
         return f'  <path d="M {points} Z" fill="{self.color}"/>'
 
-    def paint(self, draw: ImageDraw.ImageDraw, scale: int, offset: Point) -> None:
+    def paint(self, draw: ImageDraw.ImageDraw, scale: float, offset: Point) -> None:
         """Draw the same path at preview resolution with rounded stroke ends."""
         points = [
             ((x + offset[0]) * scale, (y + offset[1]) * scale) for x, y in self.points
@@ -63,7 +72,7 @@ class Shape:
 
 
 class Brand:
-    """Quiet two-key mark with a geometric, lowercase hotkit wordmark."""
+    """Four-key tile with a tightly cropped geometric hotkit wordmark."""
 
     @staticmethod
     def _curve(a: Point, b: Point, c: Point, d: Point) -> tuple[Point, ...]:
@@ -112,13 +121,19 @@ class Brand:
     def shapes(cls, ink: str) -> list[Shape]:
         """Compose the tray motif and six hand-drawn letters without a font."""
         shapes = []
-        # Match the tray's 16-unit design: 10-by-6 keys, staggered by 4 and 8.
-        for x, y, face in ((6, 22, SAGE), (30, 70, BLUE)):
-            shapes.extend(
-                (
-                    cls._box((x, y, x + 60, y + 36), 9, SLATE),
-                    cls._box((x + 6, y + 6, x + 54, y + 30), 3, LIP),
-                    cls._box((x + 6, y + 6, x + 54, y + 24), 3, face),
+        # Remove the tray's safety padding: artwork starts at (6, 6), 65px tall.
+        unit = 65 / 14
+        for (left, top, right, bottom), radius, color in KEY_LAYERS:
+            shapes.append(
+                cls._box(
+                    (
+                        6 + (left - 1) * unit,
+                        6 + (top - 1) * unit,
+                        6 + (right - 1) * unit,
+                        6 + (bottom - 1) * unit,
+                    ),
+                    radius * unit,
+                    color,
                 )
             )
         # h, o, t, k, i, t: open counters and softly rounded terminals.
@@ -144,7 +159,10 @@ class Brand:
                     ((x - 10, 57), (x + 13, 57)),
                 )
             )
-        shapes.extend(Shape(points, ink, 7) for points in strokes)
+        shapes.extend(
+            Shape(tuple((x - 34, y - 25) for x, y in points), ink, 8)
+            for points in strokes
+        )
         return shapes
 
     @classmethod
@@ -156,7 +174,7 @@ class Brand:
                 f'width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" '
                 'role="img" aria-labelledby="title desc">',
                 '  <title id="title">hotkit</title>',
-                '  <desc id="desc">Two staggered blank keys in sage and dusty blue, '
+                '  <desc id="desc">A slate tile with three sage keys and one blue hotkey, '
                 "beside a lowercase hotkit wordmark.</desc>",
                 *(shape.svg() for shape in cls.shapes(ink)),
                 "</svg>\n",
@@ -170,7 +188,8 @@ class Brand:
         background: str,
         *,
         size: tuple[int, int] = (WIDTH, HEIGHT),
-        zoom: int = 1,
+        zoom: float = 1,
+        secondary_keys: bool = False,
     ) -> Image.Image:
         """Center the mark on a background using the SVG's exact geometry."""
         scale = SUPERSAMPLING * zoom
@@ -181,6 +200,13 @@ class Brand:
         offset = ((size[0] / zoom - WIDTH) / 2, (size[1] / zoom - HEIGHT) / 2)
         for shape in cls.shapes(ink):
             shape.paint(draw, scale, offset)
+        if secondary_keys:
+            # A low-contrast keyboard rhythm anchors the social card's lower band.
+            for index in range(13):
+                left = 218 + index * 66
+                cls._box((left, 510, left + 52, 554), 9, SOCIAL_KEYS).paint(
+                    draw, SUPERSAMPLING, (0, 0)
+                )
         return canvas.resize(size, Image.Resampling.LANCZOS)
 
     @classmethod
@@ -191,18 +217,22 @@ class Brand:
         destination.mkdir(parents=True, exist_ok=True)
         previews.mkdir(parents=True, exist_ok=True)
         for name, ink, background in (
-            ("light", SLATE, "#FFFFFF"),
-            ("dark", SAGE, "#0D1117"),
+            ("light", SLATE, LIGHT_BACKGROUND),
+            ("dark", SAGE, DARK_BACKGROUND),
         ):
             (destination / f"logo-{name}.svg").write_text(
                 cls.svg(ink), encoding="utf-8", newline="\n"
             )
-            cls.raster(ink, background).save(previews / f"brand-preview-{name}.png")
-        cls.raster(SLATE, "#FFFFFF", size=(1280, 640), zoom=2).save(
-            destination / "social-preview.png"
-        )
+            cls.raster(ink, background).save(previews / f"v2-brand-{name}.png")
+        cls.raster(
+            SLATE,
+            SOCIAL_BACKGROUND,
+            size=(1280, 640),
+            zoom=2.5,
+            secondary_keys=True,
+        ).save(destination / "social-preview.png")
         sys.stdout.write(
-            "wrote assets/brand/ and .tmp/brand-preview-{light,dark}.png\n"
+            "wrote assets/brand/ and .tmp/v2-brand-{light,dark}.png\n"
         )
         return 0
 
