@@ -25,6 +25,7 @@
 #Include %A_ScriptDir%\..\..\src\Modules\Windows.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\Desktop.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\Display.ahk
+#Include %A_ScriptDir%\..\..\src\Modules\Power.ahk
 #Include %A_ScriptDir%\..\..\examples\plugins\BreakReminder\BreakSchedule.ahk
 #Include %A_ScriptDir%\..\..\examples\plugins\QuickNote\NoteFormat.ahk
 #Include %A_ScriptDir%\..\..\examples\plugins\Stopwatch\StopwatchClock.ahk
@@ -39,6 +40,7 @@
 #Include %A_ScriptDir%\Modules.Test.ahk
 #Include %A_ScriptDir%\Paths.Test.ahk
 #Include %A_ScriptDir%\Plugins.Test.ahk
+#Include %A_ScriptDir%\Power.Test.ahk
 #Include %A_ScriptDir%\StatusLog.Test.ahk
 #Include %A_ScriptDir%\Tray.Test.ahk
 #Include %A_ScriptDir%\WindowMatcher.Test.ahk

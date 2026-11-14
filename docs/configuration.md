@@ -183,6 +183,7 @@ Quick windows hide by turning fully transparent and click-through rather than mi
 | `displayScale` | `setDpiPath` (path to a [SetDPI](https://github.com/imniko/SetDPI) build), `presets`, `debounceMs` |
 | `alwaysOnTop` | `indicatorColor` (hex, `""` for none) |
 | `theme` | `wallpaper: { light, dark }` (`"bing"`, a path, or `""`), `bing: { cacheDir, maxAgeDays }` |
+| `power` | `enabled` (on by default): stay-awake toggles and `monitors.off`; see [stay-awake.md](stay-awake.md) |
 | `trayIcons` | `enabled`, `intervalSeconds`: keep all notification-area icons visible |
 | `taskSwitcher` | `ignore: [{ exe, title, emptyTitle }]` windows skipped by `window.activateLast` |
 | `windowRules` | `pollMs`, `rules: [{ match, alwaysOnTop }]` enforced on matching windows |

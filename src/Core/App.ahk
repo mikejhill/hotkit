@@ -14,7 +14,7 @@
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
     static Version := "1.3.0"
-    static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule]
+    static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
     static Mode := "run"
@@ -188,7 +188,8 @@ class App {
         }
         ShortcutOsd.ConfigPath := App.ConfigPath
         Tray.Build(cfg, menus)
-        A_IconTip := "hotkit " App.Version
+        Tray.Version := App.Version
+        Tray.RefreshTip()
         if (cfg.Get("settings.watchConfig", true))
             App.WatchConfig()
         if (App._exitAfter > 0)
@@ -221,7 +222,12 @@ class App {
     }
 
     ; Like Reload(), but keeps command-line arguments (Reload drops them).
+    ; Modules with a BeforeRestart method can hand state to the new process.
     static Restart() {
+        for m in App.Modules {
+            if HasMethod(m, "BeforeRestart")
+                try m.BeforeRestart()
+        }
         cmd := '"' A_AhkPath '" /restart "' A_ScriptFullPath '"'
         for arg in App._args
             cmd .= ' "' arg '"'
