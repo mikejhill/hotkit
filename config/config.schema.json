@@ -546,7 +546,21 @@
           "additionalProperties": false
         },
         "onRelease": {
-          "$ref": "#/$defs/actionRef"
+          "$ref": "#/$defs/actionRef",
+          "description": "Run when the key, or the binding's modifier key, is released (press-and-hold)."
+        },
+        "onNextKey": {
+          "$ref": "#/$defs/actionRef",
+          "description": "Run on the next press of any other key, which is consumed (press, then latch until the next key)."
+        },
+        "onCancel": {
+          "$ref": "#/$defs/actionRef",
+          "description": "With onNextKey: run instead when the next key is Escape."
+        },
+        "exclusive": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shared by hold and latch bindings: while one is active, pressing another stops it instead of starting."
         },
         "waitRelease": {
           "type": "boolean"
@@ -615,11 +629,32 @@
                 "required": [
                   "onRelease"
                 ]
+              },
+              {
+                "required": [
+                  "onNextKey"
+                ]
+              },
+              {
+                "required": [
+                  "onCancel"
+                ]
               }
             ]
           }
         }
       ],
+      "not": {
+        "required": [
+          "onRelease",
+          "onNextKey"
+        ]
+      },
+      "dependentRequired": {
+        "onCancel": [
+          "onNextKey"
+        ]
+      },
       "additionalProperties": false
     },
     "trayItems": {

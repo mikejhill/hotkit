@@ -10,7 +10,13 @@
 ;   keys         AutoHotkey hotkey notation, e.g. ">^>!PgUp", "LShift & Volume_Up"
 ;   action/args  action id and positional arguments            (simple binding)
 ;   gestures     {tap, doubleTap, hold, holdMs, doubleTapMs}   (multi-gesture key)
-;   onRelease    action reference run when the key is released (press-and-hold)
+;   onRelease    action reference run when the key (or the binding's modifier
+;                key) is released (press-and-hold)
+;   onNextKey    action reference run on the next press of any other key, which
+;                is consumed (press, then latch until the next key)
+;   onCancel     with onNextKey: run instead when that next key is Escape
+;   exclusive    name shared by hold/latch bindings: while one is active,
+;                pressing another stops it instead of starting
 ;   waitRelease  wait for the key to be released after the action runs
 ;   modifier     name of a held key from "modifiers" (active while it is held)
 ;   layer        layer name, or list of names, from "layers" (active only while
@@ -32,6 +38,20 @@ class Bindings {
     static groups := Bindings._CaseMap()
     static _contexts := Bindings._CaseMap()
     static _registered := []
+    ; exclusive name -> callback that stops the active hold/latch binding
+    static _sessions := Bindings._CaseMap()
+    ; Key that ended a latch: hold/latch starts are ignored until it is released,
+    ; so stopping with a chord key doesn't immediately start again.
+    static _rearmKey := ""
+    static _latchStates := []
+    static _rearmHook := ""
+    ; key -> watchers for the shared "*key" and "~*key Up" hotkeys
+    static _downWatchers := Bindings._CaseMap()
+    static _upWatchers := Bindings._CaseMap()
+    ; Creates the InputHook a latch binding waits on (replaced in tests).
+    static LatchHookFactory := (*) => InputHook("L0 I V")
+    ; Keys that never end a latch (they pass through to the focused app).
+    static LatchIgnoredKeys := "{LCtrl}{RCtrl}{LShift}{RShift}{LAlt}{RAlt}{LWin}{RWin}"
 
     static _CaseMap() {
         m := Map()
@@ -49,6 +69,8 @@ class Bindings {
         Bindings.activeLayer := ""
         Bindings.groups := Bindings._CaseMap()
         Bindings._contexts := Bindings._CaseMap()
+        Bindings._sessions := Bindings._CaseMap()
+        Bindings._rearmKey := ""
     }
 
     ; Loads modifiers, layers, groups, and bindings from a Config. Returns
@@ -224,25 +246,45 @@ class Bindings {
             group: MapGet(raw, "group", ""),
             whenActive: MapGet(raw, "whenActive", ""),
             waitRelease: !!MapGet(raw, "waitRelease", false),
+            exclusive: Bindings._Name(MapGet(raw, "exclusive", "")),
             kind: "action",
             action: "",
             args: [],
             gestures: "",
             onRelease: "",
+            onNextKey: "",
+            onCancel: "",
         }
         try {
             if (raw.Has("gestures")) {
+                for name in ["onRelease", "onNextKey", "onCancel"] {
+                    if raw.Has(name)
+                        throw ValueError("'" name "' can't be combined with 'gestures'.")
+                }
                 spec.kind := "gestures"
                 spec.gestures := Bindings._ParseGestures(raw["gestures"])
             } else {
                 ref := ActionRegistry.ParseRef(raw)
                 spec.action := ref.action
                 spec.args := ref.args
+                if (raw.Has("onRelease") && raw.Has("onNextKey"))
+                    throw ValueError("use either 'onRelease' or 'onNextKey', not both.")
+                if (raw.Has("onCancel") && !raw.Has("onNextKey"))
+                    throw ValueError("'onCancel' needs 'onNextKey'.")
                 if (raw.Has("onRelease")) {
                     spec.kind := "hold"
                     spec.onRelease := ActionRegistry.ParseRef(raw["onRelease"])
+                } else if (raw.Has("onNextKey")) {
+                    spec.kind := "latch"
+                    spec.onNextKey := ActionRegistry.ParseRef(raw["onNextKey"])
+                    if raw.Has("onCancel")
+                        spec.onCancel := ActionRegistry.ParseRef(raw["onCancel"])
                 }
             }
+            if (spec.exclusive != "" && spec.kind != "hold" && spec.kind != "latch")
+                throw ValueError("'exclusive' needs 'onRelease' or 'onNextKey'.")
+            if (spec.kind = "latch" && HotkeyText.Parse(keys).up)
+                throw ValueError("'onNextKey' needs a key-down hotkey, not UP.")
         } catch as e {
             Bindings.problems.Push(source " (" keys "): " e.Message)
             return ""
@@ -351,6 +393,17 @@ class Bindings {
         }
         try HotIf()
         Bindings._registered := []
+        ; Stop waiting latches without running their actions.
+        for state in Bindings._latchStates {
+            if (state.hook != "")
+                try state.hook.Stop()
+        }
+        Bindings._latchStates := []
+        if (Bindings._rearmHook != "")
+            try Bindings._rearmHook.Stop()
+        Bindings._rearmHook := ""
+        Bindings._downWatchers := Bindings._CaseMap()
+        Bindings._upWatchers := Bindings._CaseMap()
     }
 
     static GroupEnabled(name) => Bindings.groups.Has(name) && Bindings.groups[name].enabled
@@ -410,6 +463,8 @@ class Bindings {
             Bindings._registered.Push({ keys: spec.keys, context: context })
             if (spec.kind = "hold")
                 Bindings._RegisterRelease(spec)
+            else if (spec.kind = "latch")
+                Bindings._RegisterLatchKeys(spec)
         } finally {
             HotIf()
         }
@@ -419,7 +474,11 @@ class Bindings {
     ; combination, or "" for global bindings.
     static _Context(spec) {
         id := Bindings.ContextKey(spec)
-        if (id = "|||")
+        ; While a latch waits for its next key, every other binding stands
+        ; aside so that key reaches the latch's InputHook (hook hotkeys see
+        ; keys first, so an eligible hotkey would swallow it).
+        gated := Bindings._HasLatch()
+        if (id = "|||" && !gated)
             return ""
         if (Bindings._contexts.Has(id))
             return Bindings._contexts[id]
@@ -428,7 +487,8 @@ class Bindings {
         layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
-        fn := (*) => (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)))
+        fn := (*) => (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
+            && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
@@ -442,6 +502,8 @@ class Bindings {
                 return Bindings._GestureHandler(spec)
             case "hold":
                 return Bindings._HoldHandler(spec)
+            case "latch":
+                return Bindings._LatchHandler(spec)
         }
         action := spec.action
         args := spec.args
@@ -452,33 +514,115 @@ class Bindings {
         return (*) => ActionRegistry.SafeInvoke(action, args)
     }
 
-    ; Press runs the action once; repeats are swallowed; release runs onRelease.
+    ; Press runs the action once; repeats are swallowed. Releasing the key or
+    ; the binding's modifier key, whichever comes first, runs onRelease.
     static _HoldHandler(spec) {
-        state := { held: false }
+        state := Bindings.NewKeyState()
         spec.holdState := state
-        action := spec.action
-        args := spec.args
-        return (*) => Bindings._HoldPress(state, action, args)
+        return (*) => Bindings.HoldPress(spec, state)
     }
 
-    static _HoldPress(state, action, args) {
-        if (state.held)
-            return
-        state.held := true
-        ActionRegistry.SafeInvoke(action, args)
-    }
 
     static _RegisterRelease(spec) {
         state := spec.holdState
         base := HotkeyText.BaseKey(spec.keys)
-        release := spec.onRelease
-        heldContext := (*) => state.held
-        HotIf(heldContext)
-        ; Swallow auto-repeat while held, even if the layer key was let go first.
-        Hotkey("*" base, (*) => 0, "On")
-        Hotkey("~*" base " Up", (*) => (state.held := false, ActionRegistry.SafeInvoke(release.action, release.args)), "On")
-        Bindings._registered.Push({ keys: "*" base, context: heldContext })
-        Bindings._registered.Push({ keys: "~*" base " Up", context: heldContext })
+        ; Swallow auto-repeat until the key is let go, even after the hold
+        ; ended or the modifier key was let go first.
+        Bindings._WatchDown(base, () => state.baseDown)
+        Bindings._WatchUp(base, () => state.baseDown, () => (state.baseDown := false, Bindings.HoldEnd(spec, state)))
+        modifierKey := Bindings.ModifierKey(spec)
+        if (modifierKey != "")
+            Bindings._WatchUp(modifierKey, () => state.active, () => Bindings.HoldEnd(spec, state))
+    }
+
+    ; Press runs the action and waits for the next press of another key (see
+    ; LatchHookFactory), which is consumed and runs onNextKey (or onCancel for
+    ; Escape). Keys still held from the chord don't count until released.
+    static _LatchHandler(spec) {
+        state := Bindings.NewKeyState()
+        spec.latchState := state
+        Bindings._latchStates.Push(state)
+        return (*) => Bindings.LatchPress(spec, state)
+    }
+
+    static _RegisterLatchKeys(spec) {
+        state := spec.latchState
+        base := HotkeyText.BaseKey(spec.keys)
+        Bindings._WatchDown(base, () => state.baseDown)
+        Bindings._WatchUp(base, () => state.baseDown, () => (state.baseDown := false, Bindings.LatchKeyReleased(state, base)))
+        for key in Bindings.ChordKeys(spec) {
+            if (key = base)
+                continue
+            k := key
+            Bindings._WatchUp(k, ((k, *) => state.pending.Has(k)).Bind(k), ((k, *) => Bindings.LatchKeyReleased(state, k)).Bind(k))
+        }
+    }
+
+    ; One "*key" hotkey per key swallows its presses while any watcher is
+    ; active. Variants of one hotkey compete (only the first eligible runs),
+    ; so bindings sharing a key share one hotkey instead.
+    static _WatchDown(key, active) {
+        if !Bindings._downWatchers.Has(key) {
+            list := []
+            Bindings._downWatchers[key] := list
+            context := (*) => Bindings._AnyActive(list)
+            HotIf(context)
+            Bindings._On("*" key, (*) => 0, context)
+        }
+        Bindings._downWatchers[key].Push({ active: active })
+    }
+
+    ; One "~*key Up" hotkey per key runs every active watcher's callback.
+    static _WatchUp(key, active, run) {
+        if !Bindings._upWatchers.Has(key) {
+            list := []
+            Bindings._upWatchers[key] := list
+            context := (*) => Bindings._AnyActive(list)
+            HotIf(context)
+            Bindings._On("~*" key " Up", (*) => Bindings.RunActiveWatchers(list), context)
+        }
+        Bindings._upWatchers[key].Push({ active: active, run: run })
+    }
+
+    static _On(keys, callback, context) {
+        Hotkey(keys, callback, "On")
+        Bindings._registered.Push({ keys: keys, context: context })
+    }
+
+    static _StartLatchHook(spec, state) {
+        ih := Bindings.LatchHookFactory.Call()
+        ih.KeyOpt("{All}", "ES")
+        ih.KeyOpt(Bindings.LatchIgnoredKeys, "-ES")
+        for key in state.pending
+            ih.KeyOpt(Bindings.KeyOptKeys(key), "-ES")
+        ih.OnEnd := (hook) => Bindings.LatchHookEnded(spec, state, hook)
+        state.hook := ih
+        ih.Start()
+    }
+
+    ; Keeps suppressing the key that ended a latch (its auto-repeat) until it
+    ; is released, so stopping never types into the focused app.
+    static _SuppressUntilUp(key) {
+        if (Bindings._rearmHook != "")
+            try Bindings._rearmHook.Stop()
+        Bindings._rearmHook := ""
+        if !GetKeyState(key, "P")
+            return
+        ih := Bindings.LatchHookFactory.Call()
+        ih.KeyOpt(Bindings.KeyOptKeys(key), "SN")
+        ih.OnKeyUp := (hook, *) => hook.Stop()
+        Bindings._rearmHook := ih
+        ih.Start()
+    }
+
+    ; True when a key that ended a latch is still physically down.
+    static _RearmPending() {
+        if (Bindings._rearmKey = "")
+            return false
+        if GetKeyState(Bindings._rearmKey, "P")
+            return true
+        Bindings._rearmKey := ""
+        return false
     }
 
     ; Tap / double-tap / hold on one key. Hold is detected with KeyWait.
@@ -521,6 +665,214 @@ class Bindings {
     }
 
     ; mutate: on
+
+    ; ---------------- Hold and latch state      ------------------------------
+    ; Driven by the hotkeys above; callable directly from tests.
+
+    static NewKeyState() => { active: false, baseDown: false, pending: Bindings._CaseMap(), hook: "" }
+
+    ; The key of the binding's modifier, or "".
+    static ModifierKey(spec) {
+        if (spec.modifier = "" || !Bindings.modifiers.Has(spec.modifier))
+            return ""
+        return Bindings.modifiers[spec.modifier].key
+    }
+
+    static HoldPress(spec, state) {
+        if (state.baseDown)
+            return
+        state.baseDown := true
+        if Bindings._Preempted(spec)
+            return
+        state.active := true
+        Bindings._Begin(spec, () => Bindings.HoldEnd(spec, state))
+        ActionRegistry.SafeInvoke(spec.action, spec.args)
+    }
+
+    static HoldEnd(spec, state) {
+        if (!state.active)
+            return
+        state.active := false
+        Bindings._Finish(spec)
+        ActionRegistry.SafeInvoke(spec.onRelease.action, spec.onRelease.args)
+    }
+
+    static LatchPress(spec, state) {
+        if (state.baseDown)
+            return
+        state.baseDown := true
+        if (state.active) {
+            Bindings.LatchEnd(spec, state, spec.onNextKey)
+            return
+        }
+        if Bindings._Preempted(spec)
+            return
+        state.active := true
+        state.pending := Bindings._CaseMap()
+        for key in Bindings.ChordKeys(spec)
+            state.pending[key] := true
+        Bindings._Begin(spec, () => Bindings.LatchEnd(spec, state, spec.onNextKey))
+        Bindings._StartLatchHook(spec, state)
+        ActionRegistry.SafeInvoke(spec.action, spec.args)
+    }
+
+    ; A key held since the chord was let go: its next press ends the latch.
+    static LatchKeyReleased(state, key) {
+        if !state.pending.Has(key)
+            return
+        state.pending.Delete(key)
+        if (state.hook != "" && state.hook.InProgress && !Bindings.IsLatchIgnoredKey(key))
+            state.hook.KeyOpt(Bindings.KeyOptKeys(key), "+ES")
+    }
+
+    static LatchHookEnded(spec, state, hook) {
+        if (hook != state.hook)
+            return
+        state.hook := ""
+        if (hook.EndReason != "EndKey")
+            return
+        Bindings.LatchEnd(spec, state, Bindings.LatchStopRef(spec, hook.EndKey), hook.EndKey)
+    }
+
+    ; Ends an active latch with `ref`. `endKey` is the key that ended it, if any.
+    static LatchEnd(spec, state, ref, endKey := "") {
+        if (!state.active)
+            return
+        state.active := false
+        state.pending := Bindings._CaseMap()
+        if (state.hook != "") {
+            hook := state.hook
+            state.hook := ""
+            try hook.Stop()
+        }
+        Bindings._Finish(spec)
+        if (endKey != "") {
+            Bindings._rearmKey := endKey
+            Bindings._SuppressUntilUp(endKey)
+        }
+        ActionRegistry.SafeInvoke(ref.action, ref.args)
+    }
+
+    ; A key for InputHook.KeyOpt by both virtual key and scan code: "{All}"
+    ; sets both tables, and an option cleared in one is still set in the other.
+    static KeyOptKeys(key) {
+        vk := GetKeyVK(key), sc := GetKeySC(key)
+        out := vk ? Format("{{}vk{:X}{}}", vk) : ""
+        out .= sc ? Format("{{}sc{:X}{}}", sc) : ""
+        return out != "" ? out : "{" key "}"
+    }
+
+    ; Pure: the keys held to press a binding that a latch must not treat as its
+    ; next key until released: the key, the modifier key, and the prefix of a
+    ; custom combination ("a & Space"). Ctrl/Shift/Alt/Win are ignored anyway.
+    static ChordKeys(spec) {
+        parsed := HotkeyText.Parse(spec.keys)
+        keys := [parsed.key]
+        modifierKey := Bindings.ModifierKey(spec)
+        if (modifierKey != "")
+            keys.Push(modifierKey)
+        if InStr(spec.keys, " & ")
+            keys.Push(parsed.mods[1])
+        out := []
+        for key in keys {
+            if !Bindings._Includes(out, key)
+                out.Push(key)
+        }
+        return out
+    }
+
+    ; True while the key that ended a latch is held, unless it is a modifier
+    ; (its repeats never fire bindings): other bindings stay off so the
+    ; key's auto-repeat can't fire one.
+    static RearmGate() {
+        if !Bindings._RearmPending()
+            return false
+        if Bindings.IsLatchIgnoredKey(Bindings._rearmKey)
+            return false
+        for name, modifier in Bindings.modifiers {
+            if (modifier.key = Bindings._rearmKey)
+                return false
+        }
+        return true
+    }
+
+    ; True while a latch binding waits for its next key.
+    static LatchWaiting() {
+        for state in Bindings._latchStates {
+            if (state.active && state.hook != "")
+                return true
+        }
+        return false
+    }
+
+    static _HasLatch() {
+        for spec in Bindings.specs {
+            if (spec.kind = "latch")
+                return true
+        }
+        return false
+    }
+
+    ; Pure: whether a key never ends a latch (a modifier on its own).
+    static IsLatchIgnoredKey(key) {
+        for name in ["Ctrl", "LCtrl", "RCtrl", "Shift", "LShift", "RShift", "Alt", "LAlt", "RAlt", "LWin", "RWin"] {
+            if (key = name)
+                return true
+        }
+        return false
+    }
+
+    ; Runs the callback of every watcher active right now (checked up front,
+    ; since one callback can change another's state).
+    static RunActiveWatchers(list) {
+        due := []
+        for w in list {
+            if w.active.Call()
+                due.Push(w)
+        }
+        for w in due
+            w.run.Call()
+    }
+
+    static _AnyActive(list) {
+        for w in list {
+            if w.active.Call()
+                return true
+        }
+        return false
+    }
+
+    ; Pure: the reference a latch runs when `endKey` ends it.
+    static LatchStopRef(spec, endKey) {
+        if (spec.onCancel != "" && (endKey = "Escape" || endKey = "Esc"))
+            return spec.onCancel
+        return spec.onNextKey
+    }
+
+    ; True when a hold/latch press must not start: a key that ended a latch is
+    ; still down, or another binding with the same `exclusive` name is active
+    ; (that one is stopped instead).
+    static _Preempted(spec) {
+        if Bindings._RearmPending()
+            return true
+        if (spec.exclusive != "" && Bindings._sessions.Has(spec.exclusive)) {
+            Bindings._sessions[spec.exclusive].stop.Call()
+            return true
+        }
+        return false
+    }
+
+    static _Begin(spec, stop) {
+        if (spec.exclusive != "")
+            Bindings._sessions[spec.exclusive] := { spec: spec, stop: stop }
+    }
+
+    static _Finish(spec) {
+        if (spec.exclusive != "" && Bindings._sessions.Has(spec.exclusive)
+            && Bindings._sessions[spec.exclusive].spec = spec)
+            Bindings._sessions.Delete(spec.exclusive)
+    }
+
     static _ParseGestures(raw) {
         if !(raw is Map)
             throw ValueError("'gestures' must be an object.")
@@ -557,8 +909,10 @@ class Bindings {
             return refs
         }
         refs.Push({ action: spec.action, args: spec.args })
-        if (spec.kind = "hold")
-            refs.Push(spec.onRelease)
+        for ref in [spec.onRelease, spec.onNextKey, spec.onCancel] {
+            if (ref != "")
+                refs.Push(ref)
+        }
         return refs
     }
 
