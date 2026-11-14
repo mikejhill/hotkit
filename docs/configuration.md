@@ -79,7 +79,10 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 | `group` | Only active while that group is enabled |
 | `whenActive` | WinTitle; only active while a matching window is focused |
 | `waitRelease` | Run once per press; ignore key repeat until release |
-| `onRelease` | Action to run when the key is released (press-and-hold) |
+| `onRelease` | Action to run when the key, or the binding's modifier key, is released (press-and-hold) |
+| `onNextKey` | Action to run on the next press of any other key, which is consumed (see below) |
+| `onCancel` | With `onNextKey`: action to run instead when that key is Escape |
+| `exclusive` | Name shared by hold and `onNextKey` bindings; only one of them is active at a time |
 | `gestures` | `{ "tap", "doubleTap", "hold", "holdMs": 500, "doubleTapMs": 250 }` instead of `action` |
 | `enabled` | `false` skips the binding |
 
@@ -90,6 +93,34 @@ Two bindings conflict when they share keys, modifier, group and `whenActive`
 and can be live on the same layer. Both are reported and the later one is
 skipped. A binding limited to layers and one on every layer don't conflict: on
 those layers, the layer binding wins.
+
+### Hold and press-then-next-key
+
+Both run one action to start something and another to stop it, such as a
+dictation tool's start/stop toggle. Key repeat never starts it twice.
+
+```jsonc
+"bindings": [
+  // Hold: stops when Space or CapsLock is released, whichever comes first.
+  { "modifier": "caps", "keys": "Space", "action": "run", "args": ["dictate.exe --toggle", "Hide"],
+    "onRelease": { "action": "run", "args": ["dictate.exe --toggle", "Hide"] }, "exclusive": "dictation" },
+  // Press: stops on the next press of any other key, which the focused app never sees.
+  { "modifier": "caps", "keys": "^Space", "action": "run", "args": ["dictate.exe --toggle", "Hide"],
+    "onNextKey": { "action": "run", "args": ["dictate.exe --toggle", "Hide"] },
+    "onCancel": { "action": "run", "args": ["dictate.exe --cancel", "Hide"] }, "exclusive": "dictation" }
+]
+```
+
+- A hold binding (`onRelease`) ends when its key or its modifier key is
+  released. Other modifiers in the chord, such as Shift in `+Space`, can be let
+  go without ending it.
+- A press-then-next-key binding (`onNextKey`) ends on the next key press. That
+  key is consumed; Escape runs `onCancel` instead, when set. Ctrl, Shift, Alt
+  and Win alone don't end it, and keys still held from the chord count only
+  after they are released. Holding the key that ended it doesn't start a new
+  one, so pressing the same chord again just stops.
+- Bindings with the same `exclusive` name are never active together: pressing
+  one while another is active stops that one and starts nothing.
 
 ### Modifiers
 

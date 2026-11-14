@@ -57,7 +57,9 @@ Binding kinds:
 | --- | --- |
 | action | Hotkey runs `SafeInvoke` |
 | action + `waitRelease` | Runs, then `KeyWait` |
-| action + `onRelease` | Press runs once, repeats are swallowed, a `~key Up` hotkey under the same context runs the release action |
+| action + `onRelease` | Press runs once; a `*key` hotkey swallows repeats until the key is up; `~*key Up` or `~*<modifier key> Up`, whichever fires first, runs the release action |
+| action + `onNextKey` | Press runs once and starts an `InputHook` with every key as a suppressed end key, except Ctrl/Shift/Alt/Win and the chord keys still held (re-armed by their `~*key Up` hotkeys). The end key runs `onNextKey`, or `onCancel` for Escape, and blocks hold/latch starts until it is released |
+| `exclusive` | One stop callback per name in `Bindings._sessions`; a hold/latch press while one is set runs it instead of starting |
 | gestures | `KeyWait` with `holdMs` decides hold; a timer of `doubleTapMs` separates tap from double-tap |
 
 ## Libraries

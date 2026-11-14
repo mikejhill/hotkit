@@ -8,7 +8,10 @@ class Bindings_Tests {
         ActionRegistry.Register("t.b", (x := "") => 0)
     }
 
-    static Teardown() => Bindings.Reset()
+    static Teardown() {
+        Bindings.Reset()
+        Bindings_Tests.RestoreHookFactory()
+    }
 
     ; Joins JSON fragments (AHK string literals cannot span lines).
     static Load(parts*) {
@@ -109,6 +112,179 @@ class Bindings_Tests {
         Assert.Equal("t.b", Bindings.specs[1].onRelease.action)
     }
 
+    ; ---- Hold and latch bindings ----
+
+    static calls := []
+
+    ; Registers recording actions t.start / t.stop / t.cancel and a fake latch
+    ; hook factory, so no real keyboard hook is installed.
+    static UseRecorder() {
+        Bindings_Tests.calls := []
+        calls := Bindings_Tests.calls
+        for name in ["start", "stop", "cancel", "start2", "stop2"] {
+            n := name
+            ActionRegistry.Register("t." n, ((n, *) => calls.Push(n)).Bind(n))
+        }
+        Bindings.LatchHookFactory := (*) => FakeLatchHook()
+    }
+
+    static RestoreHookFactory() => Bindings.LatchHookFactory := (*) => InputHook("L0 I V")
+
+    static Joined(list) {
+        out := ""
+        for i, x in list
+            out .= (i = 1 ? "" : ",") x
+        return out
+    }
+
+    static LoadKeyBindings(bindingsJson) {
+        Bindings_Tests.UseRecorder()
+        problems := Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock" } }, "bindings": [', bindingsJson, '] }')
+        Assert.Equal(0, problems.Length, problems.Length ? problems[1] : "")
+    }
+
+    static Test_LatchBindingParses() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onNextKey": "t.stop", "onCancel": "t.cancel", "exclusive": "rec" }')
+        spec := Bindings.specs[1]
+        Assert.Equal("latch", spec.kind)
+        Assert.Equal("t.stop", spec.onNextKey.action)
+        Assert.Equal("t.cancel", spec.onCancel.action)
+        Assert.Equal("rec", spec.exclusive)
+        Assert.Equal(3, Bindings._Refs(spec).Length)
+    }
+
+    static Test_LatchAndHoldFieldProblems() {
+        Bindings_Tests.UseRecorder()
+        problems := Bindings_Tests.Load('{ "bindings": [',
+            '{ "keys": "F1", "action": "t.start", "onRelease": "t.stop", "onNextKey": "t.stop" },',
+            '{ "keys": "F2", "action": "t.start", "onCancel": "t.cancel" },',
+            '{ "keys": "F3", "action": "t.start", "exclusive": "rec" },',
+            '{ "keys": "F4", "gestures": { "tap": "t.start" }, "onNextKey": "t.stop" },',
+            '{ "keys": "F5 UP", "action": "t.start", "onNextKey": "t.stop" },',
+            '{ "keys": "F6", "action": "t.start", "onNextKey": "nope" } ] }')
+        Assert.Equal(6, problems.Length)
+        Assert.Contains(problems[1], "not both")
+        Assert.Contains(problems[2], "'onCancel' needs 'onNextKey'")
+        Assert.Contains(problems[3], "'exclusive' needs")
+        Assert.Contains(problems[4], "can't be combined with 'gestures'")
+        Assert.Contains(problems[5], "key-down")
+        Assert.Contains(problems[6], "unknown action 'nope'")
+    }
+
+    static Test_HoldIgnoresRepeatAndStopsOnce() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "Space", "modifier": "caps", "action": "t.start", "onRelease": "t.stop" }')
+        spec := Bindings.specs[1], state := Bindings.NewKeyState()
+        Bindings.HoldPress(spec, state)
+        Bindings.HoldPress(spec, state)          ; auto-repeat
+        Bindings.HoldEnd(spec, state)            ; modifier released first
+        state.baseDown := false                  ; then the key
+        Bindings.HoldEnd(spec, state)
+        Assert.Equal("start,stop", Bindings_Tests.Joined(Bindings_Tests.calls))
+    }
+
+    static Test_HoldModifierKeyIsTheBindingModifier() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "+Space", "modifier": "caps", "action": "t.start", "onRelease": "t.stop" }')
+        Assert.Equal("CapsLock", Bindings.ModifierKey(Bindings.specs[1]))
+    }
+
+    static Test_LatchStopsOnNextKeyAndConsumesIt() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onNextKey": "t.stop", "onCancel": "t.cancel" }')
+        spec := Bindings.specs[1], state := Bindings.NewKeyState()
+        Bindings.LatchPress(spec, state)
+        hook := state.hook
+        Assert.True(hook.started)
+        Assert.Equal("ES", hook.opts["{All}"])
+        Assert.Equal("-ES", hook.opts[Bindings.LatchIgnoredKeys], "modifiers never end a latch")
+        Assert.Equal("-ES", hook.opts[Bindings.KeyOptKeys("Space")], "the chord key doesn't end it while held")
+        Assert.Equal("-ES", hook.opts[Bindings.KeyOptKeys("CapsLock")], "nor does the held modifier key")
+        Bindings.LatchPress(spec, state)          ; auto-repeat
+        Assert.Equal("start", Bindings_Tests.Joined(Bindings_Tests.calls))
+        state.baseDown := false
+        Bindings.LatchKeyReleased(state, "Space")
+        Assert.Equal("+ES", hook.opts[Bindings.KeyOptKeys("Space")], "a released chord key ends it on its next press")
+        hook.Finish("EndKey", "Enter")
+        Bindings.LatchHookEnded(spec, state, hook)
+        Assert.Equal("start,stop", Bindings_Tests.Joined(Bindings_Tests.calls))
+        Assert.False(state.active)
+        Assert.Equal("Enter", Bindings._rearmKey)
+    }
+
+    static Test_LatchEscapeCancels() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "action": "t.start", "onNextKey": "t.stop", "onCancel": "t.cancel" }')
+        spec := Bindings.specs[1], state := Bindings.NewKeyState()
+        Bindings.LatchPress(spec, state)
+        hook := state.hook
+        hook.Finish("EndKey", "Escape")
+        Bindings.LatchHookEnded(spec, state, hook)
+        Assert.Equal("start,cancel", Bindings_Tests.Joined(Bindings_Tests.calls))
+    }
+
+    static Test_LatchEscapeWithoutOnCancelStops() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "action": "t.start", "onNextKey": "t.stop" }')
+        Assert.Equal("t.stop", Bindings.LatchStopRef(Bindings.specs[1], "Escape").action)
+    }
+
+    static Test_StoppedLatchHookRunsNothing() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "action": "t.start", "onNextKey": "t.stop" }')
+        spec := Bindings.specs[1], state := Bindings.NewKeyState()
+        Bindings.LatchPress(spec, state)
+        hook := state.hook
+        hook.Finish("Stopped", "")
+        Bindings.LatchHookEnded(spec, state, hook)
+        Assert.Equal("start", Bindings_Tests.Joined(Bindings_Tests.calls))
+        Assert.True(state.active, "still recording; only a key ends it")
+    }
+
+    static Test_LatchChordAgainStops() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "action": "t.start", "onNextKey": "t.stop" }')
+        spec := Bindings.specs[1], state := Bindings.NewKeyState()
+        Bindings.LatchPress(spec, state)
+        hook := state.hook
+        state.baseDown := false
+        Bindings.LatchPress(spec, state)
+        Assert.Equal("start,stop", Bindings_Tests.Joined(Bindings_Tests.calls))
+        Assert.True(hook.stopped, "the waiting hook is stopped")
+    }
+
+    static Test_ExclusiveStopsActiveInsteadOfStarting() {
+        Bindings_Tests.LoadKeyBindings(
+            '{ "keys": "Space", "action": "t.start", "onRelease": "t.stop", "exclusive": "rec" },'
+            . '{ "keys": "^Space", "action": "t.start2", "onNextKey": "t.stop2", "exclusive": "rec" }')
+        hold := Bindings.specs[1], latch := Bindings.specs[2]
+        holdState := Bindings.NewKeyState(), latchState := Bindings.NewKeyState()
+        Bindings.LatchPress(latch, latchState)
+        Bindings.HoldPress(hold, holdState)       ; stops the latch, starts nothing
+        Assert.Equal("start2,stop2", Bindings_Tests.Joined(Bindings_Tests.calls))
+        Assert.False(holdState.active)
+        holdState.baseDown := false
+        Bindings.HoldPress(hold, holdState)       ; nothing active now: starts
+        Bindings.HoldEnd(hold, holdState)
+        Assert.Equal("start2,stop2,start,stop", Bindings_Tests.Joined(Bindings_Tests.calls))
+        Assert.Equal(0, Bindings._sessions.Count)
+    }
+
+    static Test_RearmKeyBlocksStartsUntilReleased() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "Space", "action": "t.start", "onRelease": "t.stop" }')
+        spec := Bindings.specs[1], state := Bindings.NewKeyState()
+        ; F24 is not physically held, so the rearm key clears and the press starts.
+        Bindings._rearmKey := "F24"
+        Bindings.HoldPress(spec, state)
+        Assert.Equal("start", Bindings_Tests.Joined(Bindings_Tests.calls))
+        Assert.Equal("", Bindings._rearmKey)
+    }
+
+    static Test_ApplyRegistersLatchKeys() {
+        Bindings_Tests.LoadKeyBindings(
+            '{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onNextKey": "t.stop" },'
+            . '{ "keys": "Space", "modifier": "caps", "action": "t.start", "onRelease": "t.stop" }')
+        problems := Bindings.Apply()
+        Assert.Equal(0, problems.Length, problems.Length ? problems[1] : "")
+        ; Each: the hotkey, repeat swallow, key up, modifier key up.
+        Assert.Equal(8, Bindings._registered.Length)
+        Bindings.UnregisterAll()
+        Bindings_Tests.RestoreHookFactory()
+    }
+
     static Test_RowsUseModifierLabels() {
         Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock", "label": "Caps" } },',
             '"bindings": [ { "keys": "<^c", "modifier": "caps", "action": "t.a", "description": "Do it" } ] }')
@@ -127,8 +303,9 @@ class Bindings_Tests {
             '{ "keys": "F22", "action": "t.a", "waitRelease": true } ] }')
         problems := Bindings.Apply()
         Assert.Equal(0, problems.Length, "apply problems: " (problems.Length ? problems[1] : ""))
-        ; 5 bindings + 2 extra hotkeys for the hold binding's release tracking.
-        Assert.Equal(7, Bindings._registered.Length)
+        ; 5 bindings + 3 extra hotkeys for the hold binding's release tracking
+        ; (repeat swallow, key up, modifier key up).
+        Assert.Equal(8, Bindings._registered.Length)
         Bindings.UnregisterAll()
         Assert.Equal(0, Bindings._registered.Length)
     }
@@ -393,4 +570,21 @@ class Bindings_Tests {
         return out
     }
 }
+; Stands in for an InputHook in latch tests.
+class FakeLatchHook {
+    __New() {
+        this.opts := Map()
+        this.started := false
+        this.stopped := false
+        this.InProgress := false
+        this.EndReason := ""
+        this.EndKey := ""
+        this.OnEnd := ""
+    }
+    KeyOpt(keys, opts) => this.opts[keys] := opts
+    Start() => (this.started := true, this.InProgress := true)
+    Stop() => (this.stopped := true, this.InProgress := false)
+    Finish(reason, key) => (this.EndReason := reason, this.EndKey := key, this.InProgress := false)
+}
+
 TestRunner.Add(Bindings_Tests)
