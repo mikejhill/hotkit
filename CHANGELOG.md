@@ -6,6 +6,10 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- New tray icon: a steel-blue keycap with a soft-amber lightning bolt, replacing the four-key tile. The README and social wordmarks use JetBrains Mono Medium, bundled under the SIL Open Font License.
+- The stay-awake warning badge is now a muted coral circle with a near-white "!" and a dark outline in the top-right corner, so it stands out on the new icon.
+
 ## [1.8.0] - 2026-11-14
 
 ### Added
@@ -16,8 +20,6 @@ All notable changes are listed here. The format follows
 - Test and tool runs now close any dialog a script opens and report its text (`dialog: ...`, exit code 125) instead of leaving it on screen.
 
 ### Changed
-- New tray icon: a steel-blue keycap with a soft-amber lightning bolt, replacing the four-key tile. The README and social wordmarks use JetBrains Mono Medium, bundled under the SIL Open Font License.
-- The stay-awake warning badge is now a muted coral circle with a near-white "!" and a dark outline in the top-right corner, so it stands out on the new icon.
 - Held-key layers are now called modifiers: define them under `modifiers` and name them in a binding with `modifier`. The old `layers` / `layer` form (a layer with a `key`) still works and is reported as a config problem to migrate.
 
 ## [1.7.0] - 2026-11-14
