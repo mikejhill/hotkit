@@ -306,19 +306,33 @@ class PowerModule {
             StatusLog.Warn("power: screen saver guard: mutex busy")
             return false
         }
+        ; The guard signals this event once it holds its own mutex handle; until
+        ; then a crash would destroy the mutex and the guard would never wake.
+        ready := PowerModule.GuardReadyEvent(DllCall("GetCurrentProcessId", "UInt"))
+        ev := DllCall("CreateEventW", "Ptr", 0, "Int", 1, "Int", 0, "Str", ready, "Ptr")
         try {
+            if (!ev)
+                throw Error("CreateEvent failed (" A_LastError ")")
             FileOpen(PowerModule.GuardMarker(), "w").Write(A_Now)
-            Run('"' A_AhkPath '" "' PowerModule.GuardScript() '" "' PowerModule.GuardMutex '" "' PowerModule.GuardMarker() '"', , "Hide")
+            Run('"' A_AhkPath '" "' PowerModule.GuardScript() '" "' PowerModule.GuardMutex '" "'
+                PowerModule.GuardMarker() '" "' ready '"', , "Hide")
+            if (DllCall("WaitForSingleObject", "Ptr", ev, "UInt", 5000, "UInt") != 0)
+                throw Error("it did not report ready within 5 seconds")
         } catch as e {
             StatusLog.Warn("power: screen saver guard did not start: " e.Message)
             try FileDelete(PowerModule.GuardMarker())
             DllCall("ReleaseMutex", "Ptr", h)
             DllCall("CloseHandle", "Ptr", h)
+            if (ev)
+                DllCall("CloseHandle", "Ptr", ev)
             return false
         }
+        DllCall("CloseHandle", "Ptr", ev)
         PowerModule._guardMutex := h
         return true
     }
+
+    static GuardReadyEvent(pid) => "Local\hotkit-screen-saver-guard-ready-" pid "-" A_TickCount
 
     ; Called after the screen saver is back on: the guard wakes, finds nothing
     ; to do beyond confirming it, and exits.
@@ -453,10 +467,13 @@ class PowerModule {
         if (PowerModule._exitRegistered)
             return
         PowerModule._exitRegistered := true
-        OnExit((*) => PowerModule._OnExit())
+        ; A non-zero return from an OnExit callback cancels the exit.
+        OnExit((*) => (PowerModule._OnExit(), 0))
     }
 
-    static _OnExit() => PowerModule._ApplyScreenSaver(false)
+    static _OnExit() {
+        PowerModule._ApplyScreenSaver(false)
+    }
 
     ; Called by App.Restart just before a reload.
     static BeforeRestart() {

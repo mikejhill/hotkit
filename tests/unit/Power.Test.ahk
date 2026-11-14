@@ -133,9 +133,9 @@ class Power_Tests {
 
     ; ScreenSaverGuard runs in dry-run mode here: it writes to a file instead
     ; of touching the screen saver.
-    static _Guard(mutex, marker, out) {
+    static _Guard(mutex, marker, out, ready := "") {
         EnvSet("HOTKIT_GUARD_DRY_RUN", out)
-        Run('"' A_AhkPath '" "' PowerModule.GuardScript() '" "' mutex '" "' marker '"', , "Hide", &pid)
+        Run('"' A_AhkPath '" "' PowerModule.GuardScript() '" "' mutex '" "' marker '" "' ready '"', , "Hide", &pid)
         EnvSet("HOTKIT_GUARD_DRY_RUN")
         return pid
     }
@@ -152,8 +152,12 @@ class Power_Tests {
     static Test_GuardRestoresWhenThePauseEnds() {
         f := Power_Tests._GuardFiles("release")
         h := DllCall("CreateMutexW", "Ptr", 0, "Int", 1, "Str", f.mutex, "Ptr")
-        pid := Power_Tests._Guard(f.mutex, f.marker, f.out)
-        Sleep(500)
+        ready := PowerModule.GuardReadyEvent(DllCall("GetCurrentProcessId", "UInt"))
+        ev := DllCall("CreateEventW", "Ptr", 0, "Int", 1, "Int", 0, "Str", ready, "Ptr")
+        pid := Power_Tests._Guard(f.mutex, f.marker, f.out, ready)
+        Assert.Equal(0, DllCall("WaitForSingleObject", "Ptr", ev, "UInt", 5000, "UInt"), "guard reports ready")
+        DllCall("CloseHandle", "Ptr", ev)
+        Sleep(300)
         Assert.Equal("", Power_Tests._ReadOut(f.out), "waits while the pause lasts")
         DllCall("ReleaseMutex", "Ptr", h)
         DllCall("CloseHandle", "Ptr", h)
@@ -198,6 +202,11 @@ class Power_Tests {
         Assert.True(ProcessWaitClose(pid, 5) = 0, "guard exits")
         Assert.Equal("", Power_Tests._ReadOut(f.out), "nothing to restore")
         try FileDelete(f.marker)
+    }
+
+    static Test_ExitCallbackDoesNotCancelExit() {
+        ; OnExit treats a non-zero return as "cancel the exit".
+        Assert.Equal("", PowerModule._OnExit())
     }
 
     static Test_UnknownToggleThrows() {
