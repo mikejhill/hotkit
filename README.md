@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/brand/logo-light.svg">
-    <img src="assets/brand/logo-light.svg" alt="hotkit" width="420" height="128">
+    <img src="assets/brand/logo-light.svg" alt="hotkit" width="358" height="77">
   </picture>
 </h1>
 

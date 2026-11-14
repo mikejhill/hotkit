@@ -1,4 +1,4 @@
-"""Generate hotkit's quiet, staggered two-key tray icon using Pillow shapes.
+"""Generate hotkit's quiet four-key hotkey tile using Pillow shapes.
 
 Run ``python tools/make_icon.py [--preview .tmp/icon-preview.png]``.
 Each ICO frame is drawn independently: native pixel geometry through 32px,
@@ -27,14 +27,25 @@ SIZES = (16, 20, 24, 32, 40, 48, 64, 256)
 SLATE = "#52616A"
 SAGE = "#B5C5BC"
 BLUE = "#A6BAC5"
-LIP = "#82969A"
 BACKGROUNDS = ("#F3F3F3", "#202020")
+LIGHT_BACKGROUND = "#FFFFFF"
+DARK_BACKGROUND = "#0D1117"
+SOCIAL_BACKGROUND = "#E8EEEB"
+SOCIAL_KEYS = "#DCE5DF"
 PIXEL_SIZE_LIMIT = 32
 DESIGN_SIZE = 16
+# Exclusive bounds, radius, and fill; branding uses this same centered grid.
+KEY_LAYERS = (
+    ((1, 1, 15, 15), 3, SLATE),
+    ((2.5, 2.5, 7.5, 7.5), 1, SAGE),
+    ((8.5, 2.5, 13.5, 7.5), 1, SAGE),
+    ((2.5, 8.5, 7.5, 13.5), 1, SAGE),
+    ((8.5, 8.5, 13.5, 13.5), 1, BLUE),
+)
 
 
 class TrayIcon:
-    """Two offset keys representing a chord of small, composable actions."""
+    """Four composable keys in one tile, with exactly one highlighted hotkey."""
 
     @classmethod
     def render(cls, size: int) -> Image.Image:
@@ -44,41 +55,39 @@ class TrayIcon:
         scale = 1 if size <= PIXEL_SIZE_LIMIT else 4
         canvas = Image.new("RGBA", (size * scale, size * scale))
         draw = ImageDraw.Draw(canvas)
-        cls._key(draw, size, scale, (1, 1, 11, 7), SAGE)
-        cls._key(draw, size, scale, (5, 9, 15, 15), BLUE)
+        for bounds, radius, color in KEY_LAYERS:
+            cls._layer(draw, size, scale, bounds, radius, color)
         if scale == 1:
             return canvas
-        return canvas.resize((size, size), Image.Resampling.LANCZOS)
+        # BOX preserves the snapped silhouette bounds without filter halos.
+        return canvas.resize((size, size), Image.Resampling.BOX)
 
     @staticmethod
-    def _key(
+    def _layer(
         draw: ImageDraw.ImageDraw,
         size: int,
         scale: int,
-        bounds: tuple[int, int, int, int],
-        face: str,
+        bounds: tuple[float, float, float, float],
+        radius: int,
+        color: str,
     ) -> None:
-        """Draw a flat key face, a shallow lower lip, and a contrasting outline."""
+        """Draw a snapped rounded rectangle from the shared 16-unit geometry."""
         # Snap before supersampling; bounds are exclusive on the right/bottom.
         left, top, right, bottom = (
             round(value * size / DESIGN_SIZE) * scale for value in bounds
         )
-        edge = max(1, size // DESIGN_SIZE) * scale
-        corner = 1 if size <= PIXEL_SIZE_LIMIT else 1.5
-        radius = max(1, round(size * corner / DESIGN_SIZE)) * scale
-        inner_radius = max(0, radius - edge)
+        if size == 16:
+            # Hand-hinted 5x5 keys: [2,7) and [8,13), separated by one pixel.
+            # The spare lower/right pixel gives the case a shallow visual depth.
+            left, top, right, bottom = (int(value) for value in bounds)
+        if bounds == KEY_LAYERS[0][0]:
+            # Round outer padding down symmetrically: 24px must not shrink to 20px.
+            padding = (size // DESIGN_SIZE) * scale
+            left = top = padding
+            right = bottom = size * scale - padding
+        snapped_radius = max(1, round(size * radius / DESIGN_SIZE)) * scale
         draw.rounded_rectangle(
-            (left, top, right - 1, bottom - 1), radius=radius, fill=SLATE
-        )
-        draw.rounded_rectangle(
-            (left + edge, top + edge, right - edge - 1, bottom - edge - 1),
-            radius=inner_radius,
-            fill=LIP,
-        )
-        draw.rounded_rectangle(
-            (left + edge, top + edge, right - edge - 1, bottom - 2 * edge - 1),
-            radius=inner_radius,
-            fill=face,
+            (left, top, right - 1, bottom - 1), radius=snapped_radius, fill=color
         )
 
     @staticmethod
