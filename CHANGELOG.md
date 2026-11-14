@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-14
+
 ### Changed
 - New tray icon: a compact tile of four keys with one accent key, replacing the two staggered keys, which left the icon looking half empty. The README logo and social preview are redrawn to match, with a tighter crop.
 
