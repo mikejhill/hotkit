@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-14
+
 ### Added
 - Layers: switchable sets of bindings, one active at a time. Define them under `layers` and give a binding `"layer": "<name>"` (or a list) to limit it to those layers; bindings without one work on every layer, and a layer binding overrides an every-layer binding on the same keys. Switching (`layer.activate`, `layer.next`, `layer.previous`, or tray › *Layer*) shows a toast and is remembered across restarts. The shortcut overlay shows the active layer's shortcuts, with a Layer column and an *All layers* option.
 - `taskbar.activate` passes a held Win key through, so it can be bound to Win+<n> itself (e.g. `"*#1"` with the CapsLock modifier) and keep Windows' behavior of stepping through windows while Win is held.
