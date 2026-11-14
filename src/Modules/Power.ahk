@@ -215,15 +215,17 @@ class PowerModule {
     static _CheckMonitorsWake() {
         if (!PowerModule.MonitorsOffSince)
             return SetTimer(PowerModule._watchMonitors, 0)
-        if (PowerModule.InputSince(PowerModule.MonitorsOffSince, A_TickCount, A_TimeIdlePhysical)) {
+        if (PowerModule.InputSince(PowerModule.MonitorsOffSince, A_TickCount, A_TimeIdle)) {
             PowerModule.MonitorsOffSince := 0
             SetTimer(PowerModule._watchMonitors, 0)
             PowerModule.Apply()
         }
     }
 
-    ; Pure: whether physical input happened after the monitors went off. The
-    ; hotkey's own key-up comes before that (MonitorsOff waits first).
+    ; Pure: whether input happened after the monitors went off. The caller uses
+    ; A_TimeIdle (GetLastInputInfo: keyboard and mouse, with or without hooks;
+    ; any input that wakes the monitors counts). The hotkey's own key-up comes
+    ; before that (MonitorsOff waits first).
     static InputSince(offAt, now, idleMs) => idleMs < now - offAt
 
     ; ---------------- Tray                          ------------------------------

@@ -56,8 +56,8 @@ any key press or mouse movement turns them back on.
 ## Reloads and restarts
 
 A config reload (saving `config.json`, `app.reload`, or tray › *Reload
-Script*) keeps the toggles that were on. Exiting hotkit, or starting it fresh, starts with everything
-off.
+Script*) keeps the toggles that were on. Exiting hotkit, or starting it fresh,
+starts with everything off.
 
 ## Example bindings
 
