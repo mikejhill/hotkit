@@ -6,6 +6,10 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `tools/probe.py` runs throwaway AutoHotkey code headlessly, with warnings and errors in its output.
+- Test and tool runs now close any dialog a script opens and report its text (`dialog: ...`, exit code 125) instead of leaving it on screen.
+
 ## [1.7.0] - 2026-11-14
 
 ### Added
