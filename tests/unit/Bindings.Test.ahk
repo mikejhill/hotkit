@@ -327,6 +327,25 @@ class Bindings_Tests {
         Assert.True(context.Call())
     }
 
+    static Test_ChordKeysIncludeModifierAndComboPrefix() {
+        Bindings_Tests.LoadKeyBindings(
+            '{ "keys": "^+Space", "modifier": "caps", "action": "t.start", "onNextKey": "t.stop" },'
+            . '{ "keys": "F13 & Space", "action": "t.start2", "onNextKey": "t.stop2" }')
+        Assert.Equal("Space,CapsLock", Bindings_Tests.Joined(Bindings.ChordKeys(Bindings.specs[1])))
+        Assert.Equal("Space,F13", Bindings_Tests.Joined(Bindings.ChordKeys(Bindings.specs[2])))
+        state := Bindings.NewKeyState()
+        Bindings.LatchPress(Bindings.specs[2], state)
+        Assert.Equal("-ES", state.hook.opts[Bindings.KeyOptKeys("F13")], "a held combo prefix doesn't end it")
+        Bindings.LatchEnd(Bindings.specs[2], state, Bindings.specs[2].onNextKey)
+    }
+
+    static Test_RearmGateOnlyWhileEndKeyHeld() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onNextKey": "t.stop" }')
+        Bindings._rearmKey := "F24"            ; not physically held
+        Assert.False(Bindings.RearmGate())
+        Assert.Equal("", Bindings._rearmKey)
+    }
+
     static Test_RowsUseModifierLabels() {
         Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock", "label": "Caps" } },',
             '"bindings": [ { "keys": "<^c", "modifier": "caps", "action": "t.a", "description": "Do it" } ] }')

@@ -487,7 +487,7 @@ class Bindings {
         layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
-        fn := (*) => (!gated || !Bindings.LatchWaiting())
+        fn := (*) => (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
             && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
@@ -550,9 +550,12 @@ class Bindings {
         base := HotkeyText.BaseKey(spec.keys)
         Bindings._WatchDown(base, () => state.baseDown)
         Bindings._WatchUp(base, () => state.baseDown, () => (state.baseDown := false, Bindings.LatchKeyReleased(state, base)))
-        modifierKey := Bindings.ModifierKey(spec)
-        if (modifierKey != "" && modifierKey != base)
-            Bindings._WatchUp(modifierKey, () => state.pending.Has(modifierKey), () => Bindings.LatchKeyReleased(state, modifierKey))
+        for key in Bindings.ChordKeys(spec) {
+            if (key = base)
+                continue
+            k := key
+            Bindings._WatchUp(k, ((k, *) => state.pending.Has(k)).Bind(k), ((k, *) => Bindings.LatchKeyReleased(state, k)).Bind(k))
+        }
     }
 
     ; One "*key" hotkey per key swallows its presses while any watcher is
@@ -706,10 +709,8 @@ class Bindings {
             return
         state.active := true
         state.pending := Bindings._CaseMap()
-        state.pending[HotkeyText.BaseKey(spec.keys)] := true
-        modifierKey := Bindings.ModifierKey(spec)
-        if (modifierKey != "")
-            state.pending[modifierKey] := true
+        for key in Bindings.ChordKeys(spec)
+            state.pending[key] := true
         Bindings._Begin(spec, () => Bindings.LatchEnd(spec, state, spec.onNextKey))
         Bindings._StartLatchHook(spec, state)
         ActionRegistry.SafeInvoke(spec.action, spec.args)
@@ -759,6 +760,40 @@ class Bindings {
         out := vk ? Format("{{}vk{:X}{}}", vk) : ""
         out .= sc ? Format("{{}sc{:X}{}}", sc) : ""
         return out != "" ? out : "{" key "}"
+    }
+
+    ; Pure: the keys held to press a binding that a latch must not treat as its
+    ; next key until released: the key, the modifier key, and the prefix of a
+    ; custom combination ("a & Space"). Ctrl/Shift/Alt/Win are ignored anyway.
+    static ChordKeys(spec) {
+        parsed := HotkeyText.Parse(spec.keys)
+        keys := [parsed.key]
+        modifierKey := Bindings.ModifierKey(spec)
+        if (modifierKey != "")
+            keys.Push(modifierKey)
+        if InStr(spec.keys, " & ")
+            keys.Push(parsed.mods[1])
+        out := []
+        for key in keys {
+            if !Bindings._Includes(out, key)
+                out.Push(key)
+        }
+        return out
+    }
+
+    ; True while the key that ended a latch is held, unless it is a modifier
+    ; (its repeats never fire bindings): other bindings stay off so the
+    ; key's auto-repeat can't fire one.
+    static RearmGate() {
+        if !Bindings._RearmPending()
+            return false
+        if Bindings.IsLatchIgnoredKey(Bindings._rearmKey)
+            return false
+        for name, modifier in Bindings.modifiers {
+            if (modifier.key = Bindings._rearmKey)
+                return false
+        }
+        return true
     }
 
     ; True while a latch binding waits for its next key.
