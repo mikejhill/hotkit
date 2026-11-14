@@ -11,3 +11,6 @@ __pycache__/
 *.pyc
 .venv/
 *.log
+
+# Local agent previews and scratch files
+/.tmp/

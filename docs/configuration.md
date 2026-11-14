@@ -221,3 +221,11 @@ load, which is only detected when the app runs.
 
 To regenerate the default icon after changing its design, run
 `python tools/make_icon.py` (requires Pillow).
+
+To regenerate the README marks and social preview, run
+`python tools/make_brand.py` (also requires Pillow). It shares the palette in
+`tools/make_icon.py` and writes `assets/brand/` plus light/dark header previews
+under `.tmp/`, without rewriting the icon. The wordmark is drawn from shapes;
+no fonts or external images are needed. Upload `assets/brand/social-preview.png`
+manually in the GitHub repository's **Settings > General > Social preview**
+to use it for shared repository links.

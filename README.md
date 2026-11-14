@@ -1,4 +1,10 @@
-# hotkit
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/logo-light.svg">
+    <img src="assets/brand/logo-light.svg" alt="hotkit" width="420" height="128">
+  </picture>
+</h1>
 
 **A config-driven hotkey toolkit for Windows, built on AutoHotkey v2.**
 
@@ -78,11 +84,11 @@ python tools\check.py
 
 ```
 src/         Main.ahk, Core/ (config, actions, bindings, plugins, tray), Modules/, Lib/, Ui/
-assets/      hotkit.ico (default tray icon)
+assets/      hotkit.ico (default tray icon), brand/ (README marks, social preview)
 config/      config.example.json, config.schema.json
 examples/    plugins/ (copyable example plugins)
 tests/       unit/, integration/, e2e/ (AutoHotkey) + lib/TestRunner.ahk
-tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py, make_icon.py
+tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py, make_icon.py, make_brand.py
 docs/        philosophy, architecture, configuration, actions, plugins, testing
 local/       generated, git-ignored
 ```
