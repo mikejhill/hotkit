@@ -269,10 +269,18 @@ class PowerModule {
     ; made safe; the screen saver is then left on.
     static _ApplyScreenSaver(pause) {
         if (pause && PowerModule._savedScreenSaver = "") {
+            ; Read the screen saver state under the mutex, so a guard still
+            ; restoring after an earlier crash finishes first.
+            h := PowerModule._TakeMutex()
+            if (!h)
+                return false
             active := 0
             DllCall("SystemParametersInfoW", "UInt", 0x10, "UInt", 0, "Int*", &active, "UInt", 0) ; SPI_GETSCREENSAVEACTIVE
-            if (active && !PowerModule._StartGuard())
+            if (!active) {
+                PowerModule._ReleaseMutex(h)
+            } else if (!PowerModule._StartGuard(h)) {
                 return false
+            }
             PowerModule._savedScreenSaver := active
             if (active)
                 DllCall("SystemParametersInfoW", "UInt", 0x11, "UInt", 0, "Ptr", 0, "UInt", 0) ; SPI_SETSCREENSAVEACTIVE
@@ -291,21 +299,31 @@ class PowerModule {
     static GuardMarker() => A_Temp "\hotkit-screen-saver-paused.txt"
     static _guardMutex := 0
 
-    ; Takes the pause mutex, writes the marker and starts the guard. On any
-    ; failure nothing is left behind.
-    static _StartGuard() {
+    ; Opens and takes the pause mutex, or returns 0. A guard from an earlier
+    ; pause may hold it for a moment while it restores the screen saver.
+    static _TakeMutex(timeoutMs := 3000) {
         h := DllCall("CreateMutexW", "Ptr", 0, "Int", 0, "Str", PowerModule.GuardMutex, "Ptr")
         if (!h) {
             StatusLog.Warn("power: screen saver guard: CreateMutex failed (" A_LastError ")")
-            return false
+            return 0
         }
-        ; A guard from an earlier pause may hold it for a moment while it restores.
-        wait := DllCall("WaitForSingleObject", "Ptr", h, "UInt", 3000, "UInt")
-        if (wait != 0 && wait != 0x80) {
+        wait := DllCall("WaitForSingleObject", "Ptr", h, "UInt", timeoutMs, "UInt")
+        if (wait != 0 && wait != 0x80) { ; WAIT_OBJECT_0, WAIT_ABANDONED
             DllCall("CloseHandle", "Ptr", h)
             StatusLog.Warn("power: screen saver guard: mutex busy")
-            return false
+            return 0
         }
+        return h
+    }
+
+    static _ReleaseMutex(h) {
+        DllCall("ReleaseMutex", "Ptr", h)
+        DllCall("CloseHandle", "Ptr", h)
+    }
+
+    ; With the pause mutex held (h), writes the marker and starts the guard.
+    ; On failure the mutex is released and nothing is left behind.
+    static _StartGuard(h) {
         ; The guard signals this event once it holds its own mutex handle; until
         ; then a crash would destroy the mutex and the guard would never wake.
         ready := PowerModule.GuardReadyEvent(DllCall("GetCurrentProcessId", "UInt"))
@@ -321,8 +339,7 @@ class PowerModule {
         } catch as e {
             StatusLog.Warn("power: screen saver guard did not start: " e.Message)
             try FileDelete(PowerModule.GuardMarker())
-            DllCall("ReleaseMutex", "Ptr", h)
-            DllCall("CloseHandle", "Ptr", h)
+            PowerModule._ReleaseMutex(h)
             if (ev)
                 DllCall("CloseHandle", "Ptr", ev)
             return false
@@ -340,8 +357,7 @@ class PowerModule {
         try FileDelete(PowerModule.GuardMarker())
         if (!PowerModule._guardMutex)
             return
-        DllCall("ReleaseMutex", "Ptr", PowerModule._guardMutex)
-        DllCall("CloseHandle", "Ptr", PowerModule._guardMutex)
+        PowerModule._ReleaseMutex(PowerModule._guardMutex)
         PowerModule._guardMutex := 0
     }
 
@@ -352,19 +368,16 @@ class PowerModule {
         marker := PowerModule.GuardMarker()
         if (!FileExist(marker))
             return
-        h := DllCall("CreateMutexW", "Ptr", 0, "Int", 0, "Str", PowerModule.GuardMutex, "Ptr")
-        if (!h)
+        ; Busy means another hotkit still holds its pause, or a guard is
+        ; restoring right now; either way it isn't ours to repair.
+        if !(h := PowerModule._TakeMutex())
             return
-        wait := DllCall("WaitForSingleObject", "Ptr", h, "UInt", 0, "UInt")
-        if (wait = 0 || wait = 0x80) {
-            if (FileExist(marker)) {
-                DllCall("SystemParametersInfoW", "UInt", 0x11, "UInt", 1, "Ptr", 0, "UInt", 0)
-                try FileDelete(marker)
-                StatusLog.Warn("power: turned the screen saver back on after an earlier hotkit ended while pausing it")
-            }
-            DllCall("ReleaseMutex", "Ptr", h)
+        if (FileExist(marker)) {
+            DllCall("SystemParametersInfoW", "UInt", 0x11, "UInt", 1, "Ptr", 0, "UInt", 0)
+            try FileDelete(marker)
+            StatusLog.Warn("power: turned the screen saver back on after an earlier hotkit ended while pausing it")
         }
-        DllCall("CloseHandle", "Ptr", h)
+        PowerModule._ReleaseMutex(h)
     }
 
     ; ---------------- Monitors off                  ------------------------------
