@@ -1,16 +1,19 @@
 name: Release
 
 # Publishes the tag and GitHub release for App.Version (src/Core/App.ahk)
-# when it is not released yet. A push that leaves App.Version unchanged is a
-# no-op. See RELEASING.md.
+# once CI has passed on a main commit whose version is not released yet. A
+# commit that leaves App.Version unchanged is a no-op. See RELEASING.md.
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release
@@ -18,16 +21,32 @@ concurrency:
 
 jobs:
   publish:
-    # Manual runs may only publish main, never an unmerged branch.
-    if: github.ref == 'refs/heads/main'
+    # Only main commits whose CI passed; manual runs may only target main.
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - name: Require passing CI (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          conclusion=$(gh run list --workflow ci.yml --commit "$sha" --event push --limit 1 --json conclusion --jq '.[0].conclusion // ""')
+          if [ "$conclusion" != "success" ]; then
+            echo "CI has not passed for $sha (conclusion: ${conclusion:-none}); not publishing."
+            exit 1
+          fi
       - name: Publish release if App.Version is new
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

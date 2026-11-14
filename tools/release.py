@@ -9,7 +9,7 @@
       Print a version's changelog entries (default: App.Version).
   python tools/release.py publish [--dry-run]
       Tag and create the GitHub release for App.Version if it does not exist yet.
-      Run by .github/workflows/release.yml on every push to main.
+      Run by .github/workflows/release.yml after CI passes on main.
 
 App.Version in src/Core/App.ahk is the version's single source of truth.
 """
@@ -263,7 +263,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
     tag = f"v{version}"
     tag_exists = bool(git("ls-remote", "--tags", "origin", f"refs/tags/{tag}").strip())
     release_exists = subprocess.run(["gh", "release", "view", tag], cwd=REPO, capture_output=True).returncode == 0
-    sha = os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD").strip()
+    sha = git("rev-parse", "HEAD").strip()
     command = publish_command(tag, sha, tag_exists, release_exists)
     if command is None:
         print(f"{tag} is already released; nothing to publish.")

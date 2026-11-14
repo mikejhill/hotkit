@@ -10,9 +10,10 @@ registry.
   version. The app shows it in the tray and in toasts.
 - `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Every user-visible change adds a line under `## [Unreleased]` in the same PR.
-- When a push to `main` changes `App.Version` to a version that has no tag,
+- When CI passes on a `main` commit whose `App.Version` has no release yet,
   the [Release workflow](.github/workflows/release.yml) creates the tag on
-  that commit and publishes the GitHub Release. Every other push is a no-op.
+  that commit and publishes the GitHub Release. Every other commit is a no-op,
+  and nothing is published while CI is failing.
 - Lint rule `REL001` (`python tools/release.py check`) fails when
   `App.Version`, the newest changelog heading and the tags disagree, when a
   branch is behind the latest tag, or when any released version's notes differ
@@ -52,7 +53,7 @@ release without asking.
 3. Commit the two files as `chore: release vX.Y.Z`, either as the last commit
    of the feature PR or in a PR of its own, and merge it through the normal PR
    flow (CI and review).
-4. The Release workflow publishes `vX.Y.Z` within a minute of the merge.
+4. The Release workflow publishes `vX.Y.Z` once CI passes on the merge commit.
    Check it with `gh release view vX.Y.Z`.
 
 ## Concurrent releases
