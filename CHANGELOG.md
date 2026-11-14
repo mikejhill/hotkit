@@ -6,6 +6,10 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The tray icon's outer tile now uses the same corner radius as its four keys.
+- The README logo's "hotkit" wordmark is now truly monospaced: every letter has the same advance width, with coding-font forms for narrow letters.
+
 ## [1.4.0] - 2026-11-14
 
 ### Added

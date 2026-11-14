@@ -34,13 +34,14 @@ SOCIAL_BACKGROUND = "#E8EEEB"
 SOCIAL_KEYS = "#DCE5DF"
 PIXEL_SIZE_LIMIT = 32
 DESIGN_SIZE = 16
+CORNER_RADIUS = 1
 # Exclusive bounds, radius, and fill; branding uses this same centered grid.
 KEY_LAYERS = (
-    ((1, 1, 15, 15), 3, SLATE),
-    ((2.5, 2.5, 7.5, 7.5), 1, SAGE),
-    ((8.5, 2.5, 13.5, 7.5), 1, SAGE),
-    ((2.5, 8.5, 7.5, 13.5), 1, SAGE),
-    ((8.5, 8.5, 13.5, 13.5), 1, BLUE),
+    ((1, 1, 15, 15), CORNER_RADIUS, SLATE),
+    ((2.5, 2.5, 7.5, 7.5), CORNER_RADIUS, SAGE),
+    ((8.5, 2.5, 13.5, 7.5), CORNER_RADIUS, SAGE),
+    ((2.5, 8.5, 7.5, 13.5), CORNER_RADIUS, SAGE),
+    ((8.5, 8.5, 13.5, 13.5), CORNER_RADIUS, BLUE),
 )
 
 
@@ -88,6 +89,11 @@ class TrayIcon:
         snapped_radius = max(1, round(size * radius / DESIGN_SIZE)) * scale
         draw.rounded_rectangle(
             (left, top, right - 1, bottom - 1), radius=snapped_radius, fill=color
+        )
+        # Pillow 12 can omit a one-pixel center strip; fill only the flat interior.
+        draw.rectangle(
+            (left + snapped_radius, top, right - 1 - snapped_radius, bottom - 1),
+            fill=color,
         )
 
     @staticmethod
