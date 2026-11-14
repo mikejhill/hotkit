@@ -13,7 +13,7 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.10.2"
+    static Version := "1.11.0"
     static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
@@ -179,7 +179,16 @@ class App {
             }
         }
         App.RestoreLayer()
+        Bindings.ignoreSimulated := !!cfg.Get("settings.ignoreSimulatedKeys", true)
         Bindings.Apply()
+        ; After Apply: AutoHotkey's keyboard hook must exist before ours.
+        if (Bindings.ignoreSimulated) {
+            try {
+                SimulatedKeys.Enable()
+            } catch as e {
+                Bindings.problems.Push("Couldn't watch for simulated keys, so programs can trigger shortcuts: " e.Message)
+            }
+        }
         menus := []
         for m in App.Modules {
             if HasMethod(m, "TrayMenus") {

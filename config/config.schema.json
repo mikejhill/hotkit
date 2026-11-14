@@ -14,6 +14,10 @@
           "type": "boolean",
           "description": "Restart when the config file or plugin folder changes."
         },
+        "ignoreSimulatedKeys": {
+          "type": "boolean",
+          "description": "Shortcuts ignore keystrokes that programs simulate (default true); set allowSimulated on bindings fed by such programs."
+        },
         "debug": {
           "type": "boolean"
         },
@@ -564,6 +568,10 @@
         },
         "waitRelease": {
           "type": "boolean"
+        },
+        "allowSimulated": {
+          "type": "boolean",
+          "description": "Also fire when a program simulates the keys (mouse utilities, remote machines)."
         },
         "modifier": {
           "type": "string",

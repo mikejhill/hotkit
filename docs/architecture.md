@@ -62,6 +62,8 @@ Binding kinds:
 | `exclusive` | One stop callback per name in `Bindings._sessions`; a hold/latch press while one is set runs it instead of starting |
 | gestures | `KeyWait` with `holdMs` decides hold; a timer of `doubleTapMs` separates tap from double-tap |
 
+Simulated keys: `SimulatedKeys` installs a `WH_KEYBOARD_LL` hook after `Bindings.Apply()`. Windows calls the newest hook first, so it records each event's `LLKHF_INJECTED` flag before AutoHotkey's hook evaluates `#HotIf`. Binding contexts (unless `allowSimulated`) call `SimulatedKeys.Allows(hotkeyName)`, which blocks only a fresh injected event for the hotkey's own key and otherwise fails open. A 30-second timer re-installs the hook.
+
 ## Libraries
 
 `src/Lib` holds standalone classes (window utilities, DDC/CI, WMI brightness,

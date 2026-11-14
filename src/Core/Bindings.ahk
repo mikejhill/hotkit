@@ -2,6 +2,7 @@
 
 #Include %A_LineFile%\..\ActionRegistry.ahk
 #Include %A_LineFile%\..\..\Lib\HotkeyText.ahk
+#Include %A_LineFile%\..\..\Lib\SimulatedKeys.ahk
 #Include %A_LineFile%\..\Config.ahk
 
 ; Turns binding definitions (from config or plugins) into live hotkeys.
@@ -18,6 +19,7 @@
 ;   exclusive    name shared by hold/latch bindings: while one is active,
 ;                pressing another stops it instead of starting
 ;   waitRelease  wait for the key to be released after the action runs
+;   allowSimulated  also fire on keys injected by programs (see SimulatedKeys)
 ;   modifier     name of a held key from "modifiers" (active while it is held)
 ;   layer        layer name, or list of names, from "layers" (active only while
 ;                one of them is the active layer; omitted = every layer)
@@ -44,10 +46,9 @@ class Bindings {
     ; so stopping with a chord key doesn't immediately start again.
     static _rearmKey := ""
     static _latchStates := []
-    ; Modifier keys held when a hold/latch binding ended: their other bindings
-    ; stay off until the key is released (see QuietHeldModifiers).
-    static _quiet := Bindings._CaseMap()
-    static PhysicalKeyDown := (key) => GetKeyState(key, "P")
+    ; Whether bindings ignore simulated (program-injected) keys; set from
+    ; settings.ignoreSimulatedKeys before Apply().
+    static ignoreSimulated := false
     static _rearmHook := ""
     ; key -> watchers for the shared "*key" and "~*key Up" hotkeys
     static _downWatchers := Bindings._CaseMap()
@@ -74,8 +75,8 @@ class Bindings {
         Bindings.groups := Bindings._CaseMap()
         Bindings._contexts := Bindings._CaseMap()
         Bindings._sessions := Bindings._CaseMap()
-        Bindings._quiet := Bindings._CaseMap()
         Bindings._rearmKey := ""
+        Bindings.ignoreSimulated := false
     }
 
     ; Loads modifiers, layers, groups, and bindings from a Config. Returns
@@ -251,6 +252,7 @@ class Bindings {
             group: MapGet(raw, "group", ""),
             whenActive: MapGet(raw, "whenActive", ""),
             waitRelease: !!MapGet(raw, "waitRelease", false),
+            allowSimulated: !!MapGet(raw, "allowSimulated", false),
             exclusive: Bindings._Name(MapGet(raw, "exclusive", "")),
             kind: "action",
             action: "",
@@ -370,26 +372,13 @@ class Bindings {
         key := spec.modifier "|" layerText "|" spec.group "|" spec.whenActive
         for mod in Bindings.PhysicalMods(spec)
             key .= "|" mod
-        if Bindings.Quietable(spec)
-            key .= "|quiet"
+        if Bindings.ChecksSimulated(spec)
+            key .= "|real"
         return key
     }
 
-    ; Pure: bindings on a held modifier, other than hold/latch ones, pause
-    ; while that modifier is quiet.
-    static Quietable(spec) => spec.modifier != "" && spec.kind != "hold" && spec.kind != "latch"
-
-    ; After a hold or latch binding ends, any modifier key still held (CapsLock
-    ; after letting go of Space, say) stops firing its other bindings until it
-    ; is released. A dictation tool pastes with an injected Ctrl+V after it
-    ; stops; with CapsLock (and maybe Ctrl) still down, that V would otherwise
-    ; fire Caps+V or Caps+Ctrl+V instead of pasting.
-    static QuietHeldModifiers() {
-        for name, modifier in Bindings.modifiers {
-            if Bindings.PhysicalKeyDown.Call(modifier.key)
-                Bindings._quiet[modifier.key] := true
-        }
-    }
+    ; Pure: whether a binding refuses keys that programs inject.
+    static ChecksSimulated(spec) => Bindings.ignoreSimulated && !spec.allowSimulated
 
     ; Pure: the hotkey modifiers (Ctrl, Shift, Alt, Win) that must be
     ; physically down for a binding on a held modifier key. That modifier is
@@ -417,13 +406,6 @@ class Bindings {
                     Bindings.problems.Push(spec.source " (" spec.keys "): " e.Message)
                 }
             }
-        }
-        try {
-            Bindings._RegisterQuietRelease()
-        } catch as e {
-            Bindings.problems.Push("modifier release: " e.Message)
-        } finally {
-            HotIf()
         }
         return Bindings.problems
     }
@@ -522,6 +504,7 @@ class Bindings {
         ; aside so that key reaches the latch's InputHook (hook hotkeys see
         ; keys first, so an eligible hotkey would swallow it).
         gated := Bindings._HasLatch()
+        checkSimulated := Bindings.ChecksSimulated(spec)
         if (id = "|||" && !gated)
             return ""
         if (Bindings._contexts.Has(id))
@@ -529,13 +512,13 @@ class Bindings {
         modifier := spec.modifier != "" ? Bindings.modifiers[spec.modifier] : ""
         modifierKey := modifier ? modifier.key : ""
         physicalMods := Bindings.PhysicalMods(spec)
-        quietable := Bindings.Quietable(spec)
         layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
-        fn := (*) => (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
+        fn := (hotkeyName := "", *) => (!checkSimulated || SimulatedKeys.Allows(hotkeyName))
+            && (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
             && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)
-                && Bindings.AllPhysicallyDown(physicalMods) && !(quietable && Bindings._quiet.Has(modifierKey))))
+                && Bindings.AllPhysicallyDown(physicalMods)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
@@ -629,21 +612,6 @@ class Bindings {
             Bindings._On("~*" key " Up", (*) => Bindings.RunActiveWatchers(list), context)
         }
         Bindings._upWatchers[key].Push({ active: active, run: run })
-    }
-
-    ; Releasing a quiet modifier key turns its bindings back on.
-    static _RegisterQuietRelease() {
-        hasSession := false
-        for spec in Bindings.specs {
-            if (spec.kind = "hold" || spec.kind = "latch")
-                hasSession := true
-        }
-        if !hasSession
-            return
-        for name, modifier in Bindings.modifiers {
-            k := modifier.key
-            Bindings._WatchUp(k, ((k, *) => Bindings._quiet.Has(k)).Bind(k), ((k, *) => Bindings._quiet.Has(k) && Bindings._quiet.Delete(k)).Bind(k))
-        }
     }
 
     static _On(keys, callback, context) {
@@ -756,7 +724,6 @@ class Bindings {
             return
         state.active := false
         Bindings._Finish(spec)
-        Bindings.QuietHeldModifiers()
         ActionRegistry.SafeInvoke(spec.onRelease.action, spec.onRelease.args)
     }
 
@@ -809,7 +776,6 @@ class Bindings {
             try hook.Stop()
         }
         Bindings._Finish(spec)
-        Bindings.QuietHeldModifiers()
         if (endKey != "") {
             Bindings._rearmKey := endKey
             Bindings._SuppressUntilUp(endKey)

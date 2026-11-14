@@ -6,6 +6,14 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-14
+
+### Added
+- Shortcuts no longer fire on keystrokes that other programs simulate, such as a dictation tool's paste, a remote-access client's injected keys, or another script. hotkit installs its own low-level keyboard hook that tells simulated keys from typed ones; the keys still reach the focused app. Set `"allowSimulated": true` on bindings that a program is meant to trigger (mouse button utilities, keys sent from remote machines), or `settings.ignoreSimulatedKeys` to `false` to turn it off.
+
+### Changed
+- The 1.10.2 pause of CapsLock shortcuts after dictation stops is gone; simulated keys are now ignored instead, which covers that case and any other program.
+
 ## [1.10.2] - 2026-11-14
 
 ### Fixed

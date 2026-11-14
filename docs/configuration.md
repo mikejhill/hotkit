@@ -52,7 +52,7 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 
 | Key | Purpose |
 | --- | --- |
-| `settings` | `watchConfig`, `debug`, `keyboard.capsLock` / `keyboard.numLock` (`On`, `Off`, `AlwaysOn`, `AlwaysOff`) |
+| `settings` | `watchConfig`, `debug`, `ignoreSimulatedKeys` (default `true`, see [Simulated keys](#simulated-keys)), `keyboard.capsLock` / `keyboard.numLock` (`On`, `Off`, `AlwaysOn`, `AlwaysOff`) |
 | `modifiers` | Keys that act as modifiers while held (e.g. CapsLock) |
 | `layers` | Switchable sets of bindings; one is active at a time |
 | `groups` | Named sets of bindings that can be switched on and off |
@@ -79,6 +79,7 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 | `group` | Only active while that group is enabled |
 | `whenActive` | WinTitle; only active while a matching window is focused |
 | `waitRelease` | Run once per press; ignore key repeat until release |
+| `allowSimulated` | Also fire when a program simulates the keys (see [Simulated keys](#simulated-keys)) |
 | `onRelease` | Action to run when the key, or the binding's modifier key, is released (press-and-hold) |
 | `onNextKey` | Action to run on the next press of any other key, which is consumed (see below) |
 | `onCancel` | With `onNextKey`: action to run instead when that key is Escape |
@@ -121,10 +122,6 @@ dictation tool's start/stop toggle. Key repeat never starts it twice.
   one, so pressing the same chord again just stops.
 - Bindings with the same `exclusive` name are never active together: pressing
   one while another is active stops that one and starts nothing.
-- When one of these ends while a modifier key is still held (CapsLock after
-  letting go of Space), that modifier's other bindings stay off until it is
-  released, so a tool that types or pastes when it stops isn't mistaken for a
-  chord. Hold and press-then-next-key bindings still work meanwhile.
 
 ### Modifiers
 
@@ -191,6 +188,27 @@ across restarts (in `state.json` beside `hotkit.log`), so saving the config
 keeps you on the same layer. The shortcut overlay lists the active layer's
 bindings plus those on every layer; tick *All layers* to see the rest. Actions:
 `layer.activate`, `layer.next`, `layer.previous`.
+
+### Simulated keys
+
+Shortcuts fire only on keys typed on a keyboard. Keystrokes that a program
+simulates, such as a dictation tool pasting with Ctrl+V, a remote-access client
+injecting keys, or another script, go to the focused app without triggering
+anything. AutoHotkey itself can't tell them apart, so hotkit runs its own
+low-level keyboard hook that reads the flag Windows sets on injected keys.
+
+Some programs are meant to trigger shortcuts, for example a mouse utility that
+maps buttons to F13, or a remote machine that sends F24. Mark those bindings:
+
+```jsonc
+{ "keys": "F13", "action": "taskView.open", "allowSimulated": true }
+```
+
+`"settings": { "ignoreSimulatedKeys": false }` turns the check off. When in
+doubt, the check lets the key through: if Windows skipped the hook because
+hotkit was busy, or hotkit couldn't install it (listed under *Show Config
+Problems*), shortcuts behave as if the setting were off. The hook is
+re-installed every 30 seconds so it keeps running ahead of AutoHotkey's.
 
 ### Groups
 
