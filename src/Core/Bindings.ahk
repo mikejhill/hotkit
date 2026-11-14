@@ -365,14 +365,22 @@ class Bindings {
     static ToggleGroup(name) => Bindings.SetGroup(name, !Bindings.GroupEnabled(name))
 
     ; Display rows for the shortcut overlay.
+    ; An every-layer binding is "overridden" (and not onLayer) while a binding on
+    ; the active layer has the same keys, modifier, group and whenActive.
     static Rows() {
         rows := []
+        shadowed := Bindings._CaseMap()
+        for spec in Bindings.specs {
+            if (spec.layers.Length && Bindings._Includes(spec.layers, Bindings.activeLayer))
+                shadowed[spec.modifier "|" spec.group "|" spec.whenActive "|" spec.keys] := true
+        }
         for spec in Bindings.specs {
             label := spec.modifier != "" ? Bindings.modifiers[spec.modifier].label : ""
             layerText := ""
             for i, name in spec.layers
                 layerText .= (i = 1 ? "" : ", ") Bindings.layers[name].label
-            onLayer := !spec.layers.Length || Bindings._Includes(spec.layers, Bindings.activeLayer)
+            overridden := !spec.layers.Length && shadowed.Has(spec.modifier "|" spec.group "|" spec.whenActive "|" spec.keys)
+            onLayer := (!spec.layers.Length && !overridden) || Bindings._Includes(spec.layers, Bindings.activeLayer)
             rows.Push({
                 keys: HotkeyText.Format(spec.keys, label),
                 raw: spec.keys,
@@ -381,6 +389,7 @@ class Bindings {
                 modifier: spec.modifier,
                 layers: layerText,
                 onLayer: onLayer,
+                overridden: overridden,
                 group: spec.group,
                 active: onLayer && (spec.group = "" || Bindings.GroupEnabled(spec.group)),
                 source: spec.source,

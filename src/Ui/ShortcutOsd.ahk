@@ -83,7 +83,8 @@ class ShortcutOsd {
         lv.Opt("-Redraw")
         lv.Delete()
         for row in ShortcutOsd.FilterRows(ShortcutOsd._rows, query, ShortcutOsd.AllLayers) {
-            layerText := row.layers = "" ? "" : row.layers (row.onLayer ? "" : " (inactive)")
+            layerText := row.overridden ? "(overridden on " Bindings.layers[Bindings.activeLayer].label ")"
+                : row.layers = "" ? "" : row.layers (row.onLayer ? "" : " (inactive)")
             scope := row.group != "" ? row.group (Bindings.GroupEnabled(row.group) ? "" : " (off)") : ""
             lv.Add(, row.keys, row.description, layerText, scope, row.action, row.source)
         }

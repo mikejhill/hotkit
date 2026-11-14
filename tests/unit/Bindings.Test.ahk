@@ -368,6 +368,19 @@ class Bindings_Tests {
         Assert.Equal(0, Bindings.specs.Length)
     }
 
+    static Test_RowsMarkOverriddenEveryLayerBindings() {
+        Bindings_Tests.Load('{ "layers": ["1", "2"], "bindings": [',
+            '{ "keys": "F13", "action": "t.a" },',
+            '{ "keys": "F13", "action": "t.b", "layer": "2" } ] }')
+        rows := Bindings.Rows()
+        Assert.True(rows[1].onLayer && !rows[1].overridden, "not overridden on layer 1")
+        Bindings.SetLayer("2")
+        rows := Bindings.Rows()
+        Assert.True(rows[1].overridden)
+        Assert.False(rows[1].onLayer || rows[1].active)
+        Assert.True(rows[2].onLayer && rows[2].active)
+    }
+
     static Test_UnknownModifierIsReported() {
         problems := Bindings_Tests.Load('{ "bindings": [ { "keys": "F13", "modifier": "x", "action": "t.a" } ] }')
         Assert.Contains(problems[1], "unknown modifier 'x'")
