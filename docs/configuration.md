@@ -121,6 +121,10 @@ dictation tool's start/stop toggle. Key repeat never starts it twice.
   one, so pressing the same chord again just stops.
 - Bindings with the same `exclusive` name are never active together: pressing
   one while another is active stops that one and starts nothing.
+- When one of these ends while a modifier key is still held (CapsLock after
+  letting go of Space), that modifier's other bindings stay off until it is
+  released, so a tool that types or pastes when it stops isn't mistaken for a
+  chord. Hold and press-then-next-key bindings still work meanwhile.
 
 ### Modifiers
 

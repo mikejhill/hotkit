@@ -128,7 +128,10 @@ class Bindings_Tests {
         Bindings.LatchHookFactory := (*) => FakeLatchHook()
     }
 
-    static RestoreHookFactory() => Bindings.LatchHookFactory := (*) => InputHook("L0 I V")
+    static RestoreHookFactory() {
+        Bindings.LatchHookFactory := (*) => InputHook("L0 I V")
+        Bindings.PhysicalKeyDown := (key) => GetKeyState(key, "P")
+    }
 
     static Joined(list) {
         out := ""
@@ -360,6 +363,31 @@ class Bindings_Tests {
         Assert.Equal("Win,Alt", Bindings_Tests.Joined(Bindings.PhysicalMods(Bindings.specs[5])))
         Assert.False(Bindings._Context(Bindings.specs[1]) == Bindings._Context(Bindings.specs[2]), "different chords get their own context")
         Assert.True(Bindings.AllPhysicallyDown([]))
+    }
+
+    static Test_EndingHoldQuietsHeldModifier() {
+        Bindings_Tests.LoadKeyBindings(
+            '{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onRelease": "t.stop" },'
+            . '{ "keys": "^V", "modifier": "caps", "action": "t.start2" }')
+        hold := Bindings.specs[1], other := Bindings.specs[2]
+        Assert.False(Bindings.Quietable(hold), "hold/latch bindings keep working")
+        Assert.True(Bindings.Quietable(other))
+        Assert.False(Bindings._Context(hold) == Bindings._Context(other))
+        Bindings.PhysicalKeyDown := (key) => key = "CapsLock"
+        state := Bindings.NewKeyState()
+        Bindings.HoldPress(hold, state)
+        Assert.False(Bindings._quiet.Has("CapsLock"), "quiet only after it ends")
+        Bindings.HoldEnd(hold, state)              ; Space let go, CapsLock still held
+        Assert.True(Bindings._quiet.Has("CapsLock"))
+    }
+
+    static Test_EndingLatchWithModifierUpLeavesItActive() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onNextKey": "t.stop" }')
+        Bindings.PhysicalKeyDown := (key) => false
+        state := Bindings.NewKeyState()
+        Bindings.LatchPress(Bindings.specs[1], state)
+        Bindings.LatchEnd(Bindings.specs[1], state, Bindings.specs[1].onNextKey)
+        Assert.Equal(0, Bindings._quiet.Count)
     }
 
     static Test_RowsUseModifierLabels() {
