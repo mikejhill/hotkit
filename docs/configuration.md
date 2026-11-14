@@ -270,12 +270,21 @@ whichever icon is in use; see [stay-awake.md](stay-awake.md).
 load, which is only detected when the app runs.
 
 To regenerate the default icon after changing its design, run
-`python tools/make_icon.py` (requires Pillow).
+`uv run tools/make_icon.py --preview .tmp/v9-icon-preview.png` (Pillow only).
+It writes all eight ICO sizes and a nearest-neighbour preview on light and dark
+taskbar backgrounds. With Pillow installed, `python tools/make_icon.py` also works.
 
 To regenerate the README marks and social preview, run
-`python tools/make_brand.py` (also requires Pillow). It shares the palette in
-`tools/make_icon.py` and writes `assets/brand/` plus light/dark header previews
-under `.tmp/`, without rewriting the icon. The wordmark is drawn from shapes;
-no fonts or external images are needed. Upload `assets/brand/social-preview.png`
+`uv run --with pillow --with fonttools tools/make_brand.py`. It shares the palette
+and E6 keycap geometry in `tools/make_icon.py` and writes `assets/brand/` plus
+`.tmp/v9-brand-light.png` and `.tmp/v9-brand-dark.png`, without rewriting the icon.
+The wordmark uses the bundled `assets/brand/fonts/JetBrainsMono[wght].ttf`,
+instanced at Medium (`wght=500`). fontTools converts the glyph outlines to SVG
+paths, so the README needs no installed fonts. Pillow renders the PNGs from the
+same Medium instance. The font's SIL Open Font License is bundled in
+`assets/brand/fonts/OFL.txt`, fetched from the
+[JetBrains Mono repository](https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/OFL.txt).
+
+Upload `assets/brand/social-preview.png`
 manually in the GitHub repository's **Settings > General > Social preview**
 to use it for shared repository links.

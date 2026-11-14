@@ -1,4 +1,4 @@
-"""Generate hotkit's quiet four-key hotkey tile using Pillow shapes.
+"""Generate hotkit's E6 steel-blue keycap and soft-amber bolt using Pillow shapes.
 
 Run ``python tools/make_icon.py [--preview .tmp/icon-preview.png]``.
 Each ICO frame is drawn independently: native pixel geometry through 32px,
@@ -18,57 +18,39 @@ from PIL.PngImagePlugin import PngInfo
 
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["Pillow>=10"]
+# dependencies = ["Pillow==12.3.0"]
 # ///
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets" / "hotkit.ico"
 SIZES = (16, 20, 24, 32, 40, 48, 64, 256)
-SLATE = "#52616A"
-SAGE = "#B5C5BC"
-BLUE = "#A6BAC5"
+FACE = "#506F8D"
+RIM = "#30475E"
+BOLT = "#E3C17C"
+WORDMARK_LIGHT = RIM
+WORDMARK_DARK = "#D4DEEA"
 BACKGROUNDS = ("#F3F3F3", "#202020")
 LIGHT_BACKGROUND = "#FFFFFF"
 DARK_BACKGROUND = "#0D1117"
-SOCIAL_BACKGROUND = "#E8EEEB"
-SOCIAL_KEYS = "#DCE5DF"
+SOCIAL_BACKGROUND = "#E8EDF2"
+SOCIAL_KEYS = "#DCE3EB"
 PIXEL_SIZE_LIMIT = 32
 DESIGN_SIZE = 16
-RADIUS_RATIO = 0.2
+RIM_WIDTH = 1
+INNER_RADIUS = 2
+OUTER_RADIUS = 3
+assert OUTER_RADIUS == INNER_RADIUS + RIM_WIDTH, "Keycap radii must be concentric"
 
-
-class CornerGeometry:
-    """Keep rectangle radii proportional, allowing only pixel rounding error."""
-
-    @staticmethod
-    def radius(width: float, height: float, quantum: float = 0) -> float:
-        """Return 20% of the shorter side, optionally snapped to a pixel grid."""
-        shorter = min(width, height)
-        assert shorter > 0 and quantum >= 0, "Invalid rectangle or pixel grid"
-        radius = RADIUS_RATIO * shorter
-        if quantum:
-            radius = round(radius / quantum) * quantum
-        assert (
-            abs(radius / shorter - RADIUS_RATIO) <= quantum / (2 * shorter) + 1e-12
-        ), "Corner radius ratio exceeds pixel rounding tolerance"
-        return radius
-
-
-# Exclusive bounds, radius, and fill; branding uses this same centered grid.
-KEY_LAYERS = tuple(
-    (bounds, CornerGeometry.radius(bounds[2] - bounds[0], bounds[3] - bounds[1]), color)
-    for bounds, color in (
-        ((1, 1, 15, 15), SLATE),
-        ((2.5, 2.5, 7.5, 7.5), SAGE),
-        ((8.5, 2.5, 13.5, 7.5), SAGE),
-        ((2.5, 8.5, 7.5, 13.5), SAGE),
-        ((8.5, 8.5, 13.5, 13.5), BLUE),
-    )
+# Exclusive bounds, radii, and bolt vertices from concept E6's 16-unit grid.
+KEY_LAYERS = (
+    ((1, 1, 15, 15), OUTER_RADIUS, RIM),
+    ((2, 2, 14, 14), INNER_RADIUS, FACE),
 )
+BOLT_POINTS = ((8, 3), (11, 3), (9, 7), (12, 7), (6, 13), (7, 9), (4, 9))
 
 
 class TrayIcon:
-    """Four composable keys in one tile, with exactly one highlighted hotkey."""
+    """One concentric keycap with an opaque lightning bolt."""
 
     @classmethod
     def render(cls, size: int) -> Image.Image:
@@ -78,54 +60,35 @@ class TrayIcon:
         scale = 1 if size <= PIXEL_SIZE_LIMIT else 4
         canvas = Image.new("RGBA", (size * scale, size * scale))
         draw = ImageDraw.Draw(canvas)
-        for bounds, _, color in KEY_LAYERS:
-            cls._layer(draw, size, scale, bounds, color)
+        units = size * scale / DESIGN_SIZE
+        for bounds, radius, color in KEY_LAYERS:
+            cls._layer(draw, units, bounds, radius, color)
+        draw.polygon(
+            [(round(x * units), round(y * units)) for x, y in BOLT_POINTS],
+            fill=BOLT,
+        )
         if scale == 1:
             return canvas
         # BOX preserves the snapped silhouette bounds without filter halos.
         return canvas.resize((size, size), Image.Resampling.BOX)
 
     @staticmethod
-    def layer_geometry(
-        size: int,
-        bounds: tuple[float, float, float, float],
-    ) -> tuple[int, int, int, int, float]:
-        """Return exclusive pixel bounds and a radius based on their shorter side."""
-        left, top, right, bottom = (
-            round(value * size / DESIGN_SIZE) for value in bounds
-        )
-        if size == 16:
-            # Hand-hinted 5x5 keys: [2,7) and [8,13), separated by one pixel.
-            # The spare lower/right pixel gives the case a shallow visual depth.
-            left, top, right, bottom = (int(value) for value in bounds)
-        if bounds == KEY_LAYERS[0][0]:
-            # Round outer padding down symmetrically: 24px must not shrink to 20px.
-            padding = size // DESIGN_SIZE
-            left = top = padding
-            right = bottom = size - padding
-        quantum = 1 if size <= PIXEL_SIZE_LIMIT else 0.25
-        radius = CornerGeometry.radius(right - left, bottom - top, quantum)
-        return left, top, right, bottom, radius
-
-    @classmethod
     def _layer(
-        cls,
         draw: ImageDraw.ImageDraw,
-        size: int,
-        scale: int,
+        units: float,
         bounds: tuple[float, float, float, float],
+        radius: float,
         color: str,
     ) -> None:
-        """Draw proportional corners on the native or supersampled pixel grid."""
-        left, top, right, bottom, snapped_radius = (
-            value * scale for value in cls.layer_geometry(size, bounds)
-        )
+        """Match the concept's snapped bounds and concentric corner radii."""
+        left, top, right, bottom = (round(value * units) for value in bounds)
+        corners = radius * units
         draw.rounded_rectangle(
-            (left, top, right - 1, bottom - 1), radius=snapped_radius, fill=color
+            (left, top, right - 1, bottom - 1), radius=corners, fill=color
         )
         # Pillow 12 can omit a one-pixel center strip; fill only the flat interior.
         draw.rectangle(
-            (left + snapped_radius, top, right - 1 - snapped_radius, bottom - 1),
+            (left + corners, top, right - 1 - corners, bottom - 1),
             fill=color,
         )
 
@@ -197,12 +160,10 @@ class TrayIcon:
         sys.stdout.write(
             f"wrote {OUT.relative_to(ROOT)} ({', '.join(map(str, SIZES))})\n"
         )
-        for size in (16, 256):
-            radii = [cls.layer_geometry(size, bounds)[4] for bounds, _, _ in KEY_LAYERS]
-            sys.stdout.write(
-                f"{size}px: radius ratio={RADIUS_RATIO:g}, "
-                f"outer={radii[0]:g}px, keys={radii[1]:g}px\n"
-            )
+        sys.stdout.write(
+            f"radii (grid units): outer {OUTER_RADIUS} = "
+            f"inner {INNER_RADIUS} + rim {RIM_WIDTH}\n"
+        )
         return 0
 
 
