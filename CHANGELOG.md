@@ -6,6 +6,10 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The README wordmark now uses squarer, terminal-style monospaced letters with square stroke ends.
+- Icon corner radii are now proportional to each box (20% of its shorter side), so the outer tile is rounder than its keys in proportion to its size.
+
 ## [1.5.0] - 2026-11-14
 
 ### Changed
