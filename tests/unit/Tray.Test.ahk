@@ -156,5 +156,38 @@ class Tray_Tests {
         DllCall("DestroyIcon", "Ptr", h)
         Assert.Equal(0, Tray.BadgedIcon(Tray_Tests.Dir "\icons\my.ico", 1, 16), "unloadable icon")
     }
+    ; Draws an icon onto opaque black and returns pixel (x, y) as 0xAARRGGBB.
+    static Render(h, x, y) {
+        bi := Buffer(40, 0)
+        NumPut("UInt", 40, "Int", 16, "Int", -16, "UShort", 1, "UShort", 32, bi)
+        hdc := DllCall("CreateCompatibleDC", "Ptr", 0, "Ptr")
+        hbm := DllCall("CreateDIBSection", "Ptr", hdc, "Ptr", bi, "UInt", 0, "Ptr*", &bits := 0, "Ptr", 0, "UInt", 0, "Ptr")
+        old := DllCall("SelectObject", "Ptr", hdc, "Ptr", hbm, "Ptr")
+        loop 256
+            NumPut("UInt", 0xFF000000, bits, (A_Index - 1) * 4)
+        DllCall("DrawIconEx", "Ptr", hdc, "Int", 0, "Int", 0, "Ptr", h, "Int", 16, "Int", 16, "UInt", 0, "Ptr", 0, "UInt", 3)
+        DllCall("GdiFlush")
+        px := NumGet(bits, (y * 16 + x) * 4, "UInt")
+        DllCall("SelectObject", "Ptr", hdc, "Ptr", old)
+        DllCall("DeleteObject", "Ptr", hbm)
+        DllCall("DeleteDC", "Ptr", hdc)
+        return Format("0x{:08X}", px)
+    }
+
+    static Test_BadgeKeepsSemiTransparentPixels() {
+        f := A_LineFile "\..\fixtures\semi-transparent.ico"
+        plain := LoadPicture(f, "Icon1 w16 h16", &imageType)
+        badged := Tray.BadgedIcon(f, 1, 16)
+        Assert.Equal(Tray_Tests.Render(plain, 0, 0), Tray_Tests.Render(badged, 0, 0), "renders like the original")
+        DllCall("DestroyIcon", "Ptr", plain), DllCall("DestroyIcon", "Ptr", badged)
+    }
+
+    static Test_BadgeKeepsMaskOnlyTransparency() {
+        f := A_LineFile "\..\fixtures\mask-only.ico"
+        badged := Tray.BadgedIcon(f, 1, 16)
+        Assert.Equal("0xFF000000", Tray_Tests.Render(badged, 1, 0), "transparent column stays transparent")
+        Assert.Equal("0xFFFF0000", Tray_Tests.Render(badged, 8, 0), "opaque red stays red")
+        DllCall("DestroyIcon", "Ptr", badged)
+    }
 }
 TestRunner.Add(Tray_Tests)
