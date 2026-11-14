@@ -13,7 +13,7 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.1.0"
+    static Version := "1.2.0"
     static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule]
     static Config := ""
     static ConfigPath := ""
