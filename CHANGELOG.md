@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The tray icon shows an amber warning badge while Keep Awake, Keep Screen On or Keep Unlocked is on. It works with a custom `tray.icon` too.
+
 ## [1.6.0] - 2026-11-14
 
 ### Added

@@ -144,6 +144,7 @@ class PowerModule {
         PowerModule._ApplyScreenSaver(PowerModule.State.keepUnlocked)
         PowerModule._UpdateMenu()
         Tray.RefreshTip()
+        Tray.SetBadge(PowerModule.Summary(PowerModule.State) != "")
         timed := false
         for name in PowerModule.Names
             timed := timed || PowerModule.Until.%name% != ""
