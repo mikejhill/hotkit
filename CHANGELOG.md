@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-14
+
 ### Added
 - hotkit checks GitHub for new releases. *Check for Updates* in the tray checks right away and becomes *Update to vX.Y.Z* when one is out; installing fast-forwards your git clone to the release tag and restarts hotkit. It refuses, with the reason in a toast, when the clone has uncommitted changes, is not on a branch, or has commits the release lacks. `settings.updates` turns checks off (`check`), installs automatically once you're idle (`apply`: `auto`), and sets the interval and repository. New actions: `app.checkForUpdates`, `app.update`.
 
