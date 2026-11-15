@@ -195,7 +195,7 @@ class Updates {
     }
 
     static _AutoTick() {
-        if (A_TimeIdlePhysical < Updates.IdleMs || Updates.Busy)
+        if (A_TimeIdle < Updates.IdleMs || Updates.Busy)
             return
         SetTimer(Updates._autoTimer, 0)
         Updates._autoTimer := ""
@@ -203,7 +203,7 @@ class Updates {
     }
 
     static _RestartWhenIdle() {
-        if (A_TimeIdlePhysical < Updates.IdleMs) {
+        if (A_TimeIdle < Updates.IdleMs) {
             SetTimer(Updates._restartTimer, -15000)
             return
         }
