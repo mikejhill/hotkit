@@ -20,7 +20,7 @@
           "properties": {
             "check": { "type": "boolean", "description": "Look for new releases (default true)." },
             "apply": { "enum": ["manual", "auto"], "description": "manual (default): offer tray › Update to vX.Y.Z. auto: install and reload once you're idle." },
-            "intervalHours": { "type": "number", "minimum": 1, "description": "Hours between checks (default 6)." },
+            "intervalHours": { "type": "number", "minimum": 1, "maximum": 720, "description": "Hours between checks (default 6, at most 720)." },
             "repository": { "type": "string", "pattern": "^[\\w.-]+/[\\w.-]+$", "description": "GitHub owner/name to follow (default mikejhill/hotkit)." }
           },
           "additionalProperties": false

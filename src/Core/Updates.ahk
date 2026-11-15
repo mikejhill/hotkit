@@ -8,7 +8,7 @@
 ;       "check": true,                    ; look for new releases (default true)
 ;       "apply": "manual",                ; "manual": tray › Update to vX.Y.Z
 ;                                         ; "auto": install and reload once you're idle
-;       "intervalHours": 6,               ; how often to look (default 6)
+;       "intervalHours": 6,               ; how often to look (default 6, at most 720)
 ;       "repository": "mikejhill/hotkit"  ; GitHub owner/name to follow
 ;     }
 ;   }
@@ -33,6 +33,7 @@ class Updates {
     static _notified := ""
     static _autoFailed := ""
     static _autoTimer := ""
+    static _restartTimer := () => Updates._RestartWhenIdle()
     static _menu := ""
     static _menuItem := ""
 
@@ -48,10 +49,10 @@ class Updates {
         else
             out.problems.Push('settings.updates.apply: use "manual" or "auto"; using "manual".')
         hours := MapGet(s, "intervalHours", 6)
-        if (IsNumber(hours) && hours >= 1)
+        if (IsNumber(hours) && hours >= 1 && hours <= 720)
             out.intervalHours := hours
         else
-            out.problems.Push("settings.updates.intervalHours: use a number of hours, 1 or more; using 6.")
+            out.problems.Push("settings.updates.intervalHours: use a number of hours from 1 to 720; using 6.")
         repo := MapGet(s, "repository", Updates.DefaultRepository)
         if (!IsObject(repo) && RegExMatch(repo, "^[\w.-]+/[\w.-]+$"))
             out.repository := repo
@@ -201,6 +202,15 @@ class Updates {
         Updates.Install(true)
     }
 
+    static _RestartWhenIdle() {
+        if (A_TimeIdlePhysical < Updates.IdleMs) {
+            SetTimer(Updates._restartTimer, -15000)
+            return
+        }
+        if (Updates.OnRestart != "")
+            Updates.OnRestart.Call()
+    }
+
     ; The tray item and app.update: installs the available release, or checks
     ; for one when none is known yet.
     static Install(auto := false) {
@@ -220,7 +230,9 @@ class Updates {
         if (result.ok) {
             StatusLog.Info("updated to " release.version ", restarting")
             EnvSet("HOTKIT_UPDATED_FROM", Updates.Version)
-            if (Updates.OnRestart != "")
+            if (auto)
+                Updates._RestartWhenIdle()  ; input may have resumed during the download
+            else if (Updates.OnRestart != "")
                 Updates.OnRestart.Call()
             return
         }

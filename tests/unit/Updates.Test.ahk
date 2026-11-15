@@ -26,6 +26,7 @@ class Updates_Tests {
         if (Updates._autoTimer != "")
             SetTimer(Updates._autoTimer, 0)
         Updates._autoTimer := ""
+        SetTimer(Updates._restartTimer, 0)
         Updates.Toaster := ""
         Updates.GitRunner := ""
         Updates.Fetcher := ""
@@ -285,6 +286,30 @@ class Updates_Tests {
             Assert.Equal(calls, Updates_Tests.GitCalls.Length, "no retry for a version that failed")
             Assert.Equal("1.5.0", Updates.Available.version, "still offered in the tray")
             Assert.Equal("hotkit 1.5.0 is available Tray › Update to v1.5.0", Updates_Tests.Toasts[2])
+        } finally {
+            Updates.IdleMs := saved
+        }
+    }
+
+    static Test_IntervalAboveTimerLimitIsRejected() {
+        s := Updates.ReadSettings(Config.FromText('{ "settings": { "updates": { "intervalHours": 721 } } }'))
+        Assert.Equal(6, s.intervalHours)
+        Assert.Contains(s.problems[1], "from 1 to 720")
+        Assert.Equal(720, Updates.ReadSettings(Config.FromText('{ "settings": { "updates": { "intervalHours": 720 } } }')).intervalHours)
+    }
+
+    static Test_AutoInstallDefersRestartUntilIdleAgain() {
+        Updates.Available := { version: "1.5.0", tag: "v1.5.0", url: "" }
+        Updates_Tests.FakeGit()
+        saved := Updates.IdleMs
+        try {
+            Updates.IdleMs := 0x7FFFFFFF
+            Updates.Install(true)
+            Assert.Equal(6, Updates_Tests.GitCalls.Length, "installed")
+            Assert.Equal(0, Updates_Tests.Restarts, "user became active during the download")
+            Updates.IdleMs := 0
+            Updates._RestartWhenIdle()
+            Assert.Equal(1, Updates_Tests.Restarts)
         } finally {
             Updates.IdleMs := saved
         }

@@ -302,7 +302,7 @@ release is found it becomes *Update to vX.Y.Z* and the tray tooltip says so.
   "updates": {
     "check": true,          // look for new releases (default true)
     "apply": "manual",      // "manual" (default) or "auto"
-    "intervalHours": 6,     // hours between checks (default 6)
+    "intervalHours": 6,     // hours between checks (default 6, at most 720)
     "repository": "mikejhill/hotkit"  // GitHub owner/name to follow
   }
 }
@@ -311,7 +311,8 @@ release is found it becomes *Update to vX.Y.Z* and the tray tooltip says so.
 - `manual`: a toast announces the release once; pick *Update to vX.Y.Z* to
   install it.
 - `auto`: the release is installed once the keyboard and mouse have been idle
-  for two minutes, so the restart doesn't interrupt typing.
+  for two minutes, and hotkit restarts only once you're idle again, so the
+  restart doesn't interrupt typing.
 
 Installing needs a git clone and `git` on `PATH`. hotkit downloads the release
 tag and fast-forwards the clone to it, then restarts itself and shows the new
