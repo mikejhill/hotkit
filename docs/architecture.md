@@ -8,6 +8,7 @@ src/Main.ahk
   ├─ Core/Bindings     config bindings → live hotkeys (modifiers, layers, groups, gestures)
   ├─ Core/Plugins      discovers <config>\plugins\*.ahk, writes local\plugins.generated.ahk
   ├─ Core/Tray         tray menu
+  ├─ Core/Updates      GitHub release checks, fast-forward install
   ├─ Core/App          startup, CLI flags, restart, config watch
   ├─ Ui/ShortcutOsd    searchable shortcut overlay
   ├─ Modules/*         register actions (Apps, QuickWindows, Windows, Desktop, Display)

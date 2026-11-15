@@ -31,6 +31,7 @@ for arg in A_Args {
 #Include %A_ScriptDir%\Core\Bindings.ahk
 #Include %A_ScriptDir%\Core\Plugins.ahk
 #Include %A_ScriptDir%\Core\Tray.ahk
+#Include %A_ScriptDir%\Core\Updates.ahk
 #Include %A_ScriptDir%\Core\App.ahk
 #Include %A_ScriptDir%\Ui\ShortcutOsd.ahk
 

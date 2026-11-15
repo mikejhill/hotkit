@@ -160,6 +160,7 @@ class App {
         Bindings.LoadConfig(cfg)
         Bindings.Validate()
         App.ValidateTray(cfg.List("tray.items"))
+        Updates.Configure(cfg, Bindings.problems)
         iconProblem := Tray.ResolveIcon(cfg).problem
         if (iconProblem != "")
             Bindings.problems.Push(iconProblem)
@@ -200,6 +201,11 @@ class App {
         Tray.Build(cfg, menus)
         Tray.Version := App.Version
         Tray.AddStatus(() => Bindings.activeLayer != "" ? Bindings.layers[Bindings.activeLayer].label : "")
+        Tray.AddStatus(() => Updates.Status(Updates.Available))
+        Updates.Version := App.Version
+        Updates.RepoDir := Paths.RepoRoot()
+        Updates.OnRestart := () => App.Restart()
+        Updates.Start(A_TrayMenu, "Open &Config Folder")
         Tray.RefreshTip()
         if (cfg.Get("settings.watchConfig", true))
             App.WatchConfig()
@@ -227,6 +233,8 @@ class App {
         reg("app.openConfigFolder", (*) => Run('explorer.exe "' Paths.ConfigDir() '"'), "Open the config folder")
         reg("app.editConfig", (*) => App.EditConfig(), "Open config.json in the default editor")
         reg("app.showProblems", (*) => App.ShowProblems(), "List config problems")
+        reg("app.checkForUpdates", (*) => Updates.Check(true), "Check GitHub for a newer hotkit release")
+        reg("app.update", (*) => Updates.Install(), "Install the newer hotkit release and reload (checks first if none is known)")
         reg("bindings.toggleGroup", (name) => App.ToggleGroup(name), "Turn a binding group on or off", "group")
         reg("bindings.enableGroup", (name) => Bindings.SetGroup(name, true), "Turn a binding group on", "group")
         reg("bindings.disableGroup", (name) => Bindings.SetGroup(name, false), "Turn a binding group off", "group")

@@ -14,6 +14,17 @@
           "type": "boolean",
           "description": "Restart when the config file or plugin folder changes."
         },
+        "updates": {
+          "type": "object",
+          "description": "Look for new hotkit releases on GitHub and install them into the git checkout hotkit runs from.",
+          "properties": {
+            "check": { "type": "boolean", "description": "Look for new releases (default true)." },
+            "apply": { "enum": ["manual", "auto"], "description": "manual (default): offer tray › Update to vX.Y.Z. auto: install and reload once you're idle." },
+            "intervalHours": { "type": "number", "minimum": 1, "description": "Hours between checks (default 6)." },
+            "repository": { "type": "string", "pattern": "^[\\w.-]+/[\\w.-]+$", "description": "GitHub owner/name to follow (default mikejhill/hotkit)." }
+          },
+          "additionalProperties": false
+        },
         "ignoreSimulatedKeys": {
           "type": "boolean",
           "description": "Shortcuts ignore keystrokes that programs simulate (default true); set allowSimulated on bindings fed by such programs."

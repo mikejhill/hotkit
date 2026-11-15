@@ -52,7 +52,7 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 
 | Key | Purpose |
 | --- | --- |
-| `settings` | `watchConfig`, `debug`, `ignoreSimulatedKeys` (default `true`, see [Simulated keys](#simulated-keys)), `keyboard.capsLock` / `keyboard.numLock` (`On`, `Off`, `AlwaysOn`, `AlwaysOff`) |
+| `settings` | `watchConfig`, `debug`, `ignoreSimulatedKeys` (default `true`, see [Simulated keys](#simulated-keys)), `updates` (see [Updates](#updates)), `keyboard.capsLock` / `keyboard.numLock` (`On`, `Off`, `AlwaysOn`, `AlwaysOff`) |
 | `modifiers` | Keys that act as modifiers while held (e.g. CapsLock) |
 | `layers` | Switchable sets of bindings; one is active at a time |
 | `groups` | Named sets of bindings that can be switched on and off |
@@ -291,8 +291,41 @@ Quick windows hide by turning fully transparent and click-through rather than mi
 | `taskSwitcher` | `ignore: [{ exe, title, emptyTitle }]` windows skipped by `window.activateLast` |
 | `windowRules` | `pollMs`, `rules: [{ match, alwaysOnTop }]` enforced on matching windows |
 
-## Tray
+## Updates
 
+hotkit looks for a newer release on GitHub a minute after it starts and then
+every few hours. The tray item *Check for Updates* checks right away; when a
+release is found it becomes *Update to vX.Y.Z* and the tray tooltip says so.
+
+```jsonc
+"settings": {
+  "updates": {
+    "check": true,          // look for new releases (default true)
+    "apply": "manual",      // "manual" (default) or "auto"
+    "intervalHours": 6,     // hours between checks (default 6)
+    "repository": "mikejhill/hotkit"  // GitHub owner/name to follow
+  }
+}
+```
+
+- `manual`: a toast announces the release once; pick *Update to vX.Y.Z* to
+  install it.
+- `auto`: the release is installed once the keyboard and mouse have been idle
+  for two minutes, so the restart doesn't interrupt typing.
+
+Installing needs a git clone and `git` on `PATH`. hotkit downloads the release
+tag and fast-forwards the clone to it, then restarts itself and shows the new
+version. It changes nothing and explains why in a toast when the clone has
+uncommitted changes, is not on a branch, or has commits the release doesn't
+have (for example a feature branch or a newer `main`). An automatic install
+that fails is not retried for that release; the tray item stays. Without a git
+clone, *Update to vX.Y.Z* opens the release page instead.
+
+`app.checkForUpdates` and `app.update` do the same from a binding. With
+`"check": false` hotkit never contacts GitHub on its own; the tray item still
+checks on request.
+
+## Tray
 ```jsonc
 "tray": {
   "icon": "icons/my-icon.ico",

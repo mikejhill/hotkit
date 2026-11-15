@@ -1,6 +1,6 @@
 // E2E fixture. {{PROBE}} is replaced by the driver.
 {
-  "settings": { "watchConfig": true, "ignoreSimulatedKeys": false },
+  "settings": { "watchConfig": true, "ignoreSimulatedKeys": false, "updates": { "check": false } },
   "plugins": { "probe": { "file": "{{PROBE}}" } },
   "groups": { "g": { "enabled": true } },
   "layers": ["1", "2"],

@@ -23,6 +23,7 @@ OnError((err, *) => (FileAppend("Bail out! " err.Message " (" err.File ":" err.L
 #Include %A_ScriptDir%\..\..\src\Core\Bindings.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Plugins.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Tray.ahk
+#Include %A_ScriptDir%\..\..\src\Core\Updates.ahk
 #Include %A_ScriptDir%\..\..\src\Ui\ShortcutOsd.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\Apps.ahk
 #Include %A_ScriptDir%\..\..\src\Modules\QuickWindows.ahk
@@ -47,6 +48,7 @@ OnError((err, *) => (FileAppend("Bail out! " err.Message " (" err.File ":" err.L
 #Include %A_ScriptDir%\Power.Test.ahk
 #Include %A_ScriptDir%\StatusLog.Test.ahk
 #Include %A_ScriptDir%\Tray.Test.ahk
+#Include %A_ScriptDir%\Updates.Test.ahk
 #Include %A_ScriptDir%\WindowMatcher.Test.ahk
 
 TestRunner.Run()
