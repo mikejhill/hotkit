@@ -35,6 +35,7 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 | **Stay awake** | Off-by-default toggles to keep the PC awake, keep the screen on, or keep the session unlocked (standard Windows power requests; never overrides an enforced lock), plus monitors off. See [docs/stay-awake.md](docs/stay-awake.md). |
 | **Plugins** | Drop an `.ahk` file into your config folder to add private actions. |
 | **Tray icon** | Ships with its own icon; point `tray.icon` at any `.ico`, `.dll` or `.exe` to use your own. |
+| **Updates** | Checks GitHub for new releases and installs them into your clone from the tray, or automatically once you're idle. See [Updates](docs/configuration.md#updates). |
 | **One config location** | `%USERPROFILE%\.config\hotkit\`, live-reloaded on save. |
 
 ## Quick start

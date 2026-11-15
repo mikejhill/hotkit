@@ -7,7 +7,9 @@
 
   "settings": {
     "watchConfig": true,
-    "keyboard": { "capsLock": "AlwaysOff" }
+    "keyboard": { "capsLock": "AlwaysOff" },
+    // Look for new releases; "auto" installs them and reloads once you're idle.
+    "updates": { "check": true, "apply": "manual" }
   },
 
   // A modifier is active while its key is held. With Caps Lock forced off

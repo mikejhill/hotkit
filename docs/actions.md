@@ -24,11 +24,13 @@ pass `args` as a JSON array in the order listed under **Arguments**
 
 | Action | Arguments | Description |
 | --- | --- | --- |
+| `app.checkForUpdates` |  | Check GitHub for a newer hotkit release |
 | `app.editConfig` |  | Open config.json in the default editor |
 | `app.exit` |  | Exit hotkit |
 | `app.openConfigFolder` |  | Open the config folder |
 | `app.reload` |  | Reload scripts and config |
 | `app.showProblems` |  | List config problems |
+| `app.update` |  | Install the newer hotkit release and reload (checks first if none is known) |
 | `bindings.disableGroup` | group | Turn a binding group off |
 | `bindings.enableGroup` | group | Turn a binding group on |
 | `bindings.toggleGroup` | group | Turn a binding group on or off |
