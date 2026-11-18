@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- VS Code no longer marks the comments and trailing commas in `config.json` as errors: the schema now declares them allowed, and the example config links the published schema (its relative link broke once the file was copied to the config folder).
+
 ## [1.12.0] - 2026-11-14
 
 ### Added
