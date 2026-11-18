@@ -1,6 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "hotkit configuration",
+  "allowComments": true,
+  "allowTrailingCommas": true,
   "description": "See docs/configuration.md. Comments and trailing commas are allowed in the actual file.",
   "type": "object",
   "properties": {
