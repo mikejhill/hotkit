@@ -390,12 +390,12 @@ class Bindings_Tests {
         Assert.Equal("", RemoteSessions.LiftedState("", false))
     }
 
-    static Test_RemoteSessionSkipsHookCheckWhenKeysArrive() {
-        Assert.True(RemoteSessions.SawKeySince(true, 1500, 1000), "a key after the last check")
-        Assert.False(RemoteSessions.SawKeySince(true, 900, 1000), "only keys before it")
-        Assert.False(RemoteSessions.SawKeySince(true, 0, 1000), "no key recorded yet")
-        Assert.False(RemoteSessions.SawKeySince(false, 1500, 1000), "our hook isn't running")
-        Assert.True(RemoteSessions.SawKeySince(true, 5, 0xFFFFFFF0), "across the tick wrap")
+    static Test_RemoteSessionPostponesHookCheckWhileKeysArrive() {
+        Assert.True(RemoteSessions.KeyRecent(true, 1000, 1200, 500), "a key 200 ms ago")
+        Assert.False(RemoteSessions.KeyRecent(true, 1000, 1600, 500), "a key 600 ms ago")
+        Assert.False(RemoteSessions.KeyRecent(true, 0, 1200, 500), "no key recorded yet")
+        Assert.False(RemoteSessions.KeyRecent(false, 1000, 1200, 500), "our hook isn't running")
+        Assert.True(RemoteSessions.KeyRecent(true, 0xFFFFFFF0, 5, 500), "across the tick wrap")
     }
 
     static Test_YieldToRemoteStandsAsideInSessions() {
