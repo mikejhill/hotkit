@@ -3,6 +3,7 @@
 #Include %A_LineFile%\..\ActionRegistry.ahk
 #Include %A_LineFile%\..\..\Lib\HotkeyText.ahk
 #Include %A_LineFile%\..\..\Lib\SimulatedKeys.ahk
+#Include %A_LineFile%\..\..\Lib\RemoteSessions.ahk
 #Include %A_LineFile%\..\Config.ahk
 
 ; Turns binding definitions (from config or plugins) into live hotkeys.
@@ -20,6 +21,8 @@
 ;                pressing another stops it instead of starting
 ;   waitRelease  wait for the key to be released after the action runs
 ;   allowSimulated  also fire on keys injected by programs (see SimulatedKeys)
+;   yieldToRemote  stand aside while a remote session window is active, so the
+;                key reaches the remote machine (see RemoteSessions)
 ;   modifier     name of a held key from "modifiers" (active while it is held)
 ;   layer        layer name, or list of names, from "layers" (active only while
 ;                one of them is the active layer; omitted = every layer)
@@ -49,6 +52,8 @@ class Bindings {
     ; Whether bindings ignore simulated (program-injected) keys; set from
     ; settings.ignoreSimulatedKeys before Apply().
     static ignoreSimulated := false
+    ; WinTitles from settings.remoteWindows (see RemoteSessions).
+    static remoteWindows := []
     static _rearmHook := ""
     ; key -> watchers for the shared "*key" and "~*key Up" hotkeys
     static _downWatchers := Bindings._CaseMap()
@@ -77,6 +82,7 @@ class Bindings {
         Bindings._sessions := Bindings._CaseMap()
         Bindings._rearmKey := ""
         Bindings.ignoreSimulated := false
+        Bindings.remoteWindows := []
     }
 
     ; Loads modifiers, layers, groups, and bindings from a Config. Returns
@@ -87,6 +93,10 @@ class Bindings {
         Bindings.DefineLayers(cfg.Get("layers", ""))
         for name, group in cfg.Section("groups")
             Bindings.DefineGroup(name, MapGet(group, "enabled", true), MapGet(group, "description", ""))
+        remote := RemoteSessions.Parse(cfg.Get("settings.remoteWindows", ""))
+        Bindings.remoteWindows := remote.titles
+        for p in remote.problems
+            Bindings.problems.Push(p)
         for index, raw in cfg.List("bindings")
             Bindings.Add(raw, source " #" index)
         return Bindings.problems
@@ -253,6 +263,7 @@ class Bindings {
             whenActive: MapGet(raw, "whenActive", ""),
             waitRelease: !!MapGet(raw, "waitRelease", false),
             allowSimulated: !!MapGet(raw, "allowSimulated", false),
+            yieldToRemote: !!MapGet(raw, "yieldToRemote", false),
             exclusive: Bindings._Name(MapGet(raw, "exclusive", "")),
             kind: "action",
             action: "",
@@ -374,6 +385,8 @@ class Bindings {
             key .= "|" mod
         if Bindings.ChecksSimulated(spec)
             key .= "|real"
+        if (spec.HasOwnProp("yieldToRemote") && spec.yieldToRemote)
+            key .= "|yield"
         return key
     }
 
@@ -483,6 +496,11 @@ class Bindings {
     static _Register(spec) {
         context := Bindings._Context(spec)
         handler := Bindings._Handler(spec)
+        modifierKey := Bindings.ModifierKey(spec)
+        ; In a remote session the modifier key also went to the remote machine:
+        ; release it there before the local binding takes over.
+        if (modifierKey != "")
+            handler := Bindings._ReleasingRemote(handler, modifierKey)
         HotIf(context)
         try {
             Hotkey(spec.keys, handler, "On")
@@ -495,6 +513,8 @@ class Bindings {
             HotIf()
         }
     }
+
+    static _ReleasingRemote(handler, key) => (params*) => (RemoteSessions.ReleaseKey(key), handler(params*))
 
     ; Returns a shared HotIf callback for a modifier/layer/group/window
     ; combination, or "" for global bindings.
@@ -515,6 +535,7 @@ class Bindings {
         layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
+        yieldToRemote := spec.HasOwnProp("yieldToRemote") && spec.yieldToRemote
         fn := (hotkeyName := "", *) => (!checkSimulated || SimulatedKeys.Allows(hotkeyName))
             && (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
             && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)
@@ -522,6 +543,7 @@ class Bindings {
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
+            && (!yieldToRemote || !RemoteSessions.IsActive())
         Bindings._contexts[id] := fn
         return fn
     }

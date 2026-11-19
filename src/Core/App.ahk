@@ -13,7 +13,7 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.13.0"
+    static Version := "1.14.0"
     static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
@@ -200,13 +200,20 @@ class App {
         App.RestoreLayer()
         Bindings.ignoreSimulated := !!cfg.Get("settings.ignoreSimulatedKeys", true)
         Bindings.Apply()
-        ; After Apply: AutoHotkey's keyboard hook must exist before ours.
-        if (Bindings.ignoreSimulated) {
+        ; After Apply: AutoHotkey's keyboard hook must exist before ours. Remote
+        ; sessions also use its record of the latest key (see RemoteSessions).
+        if (Bindings.ignoreSimulated || Bindings.remoteWindows.Length) {
             try {
                 SimulatedKeys.Enable()
             } catch as e {
                 Bindings.problems.Push("Couldn't watch for simulated keys, so programs can trigger shortcuts: " e.Message)
             }
+        }
+        ; After SimulatedKeys: re-installing hooks for a remote session keeps that order.
+        try {
+            RemoteSessions.Start(Bindings.remoteWindows, cfg.Get("settings.keyboard.capsLock", ""))
+        } catch as e {
+            Bindings.problems.Push("Couldn't watch for remote session windows, so their clients may take keys first: " e.Message)
         }
         menus := []
         for m in App.Modules {
