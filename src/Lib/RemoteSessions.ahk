@@ -12,7 +12,8 @@
 ;     its window gets focus. Re-installing also clears key state that the client
 ;     swallowed, such as the release of the CapsLock that switched to it. A check
 ;     waits while a key pressed since activation is still held (as our own hook
-;     saw it): re-installing then would forget it.
+;     saw it): re-installing then would forget it. It waits 3 seconds at most,
+;     in case the client swallowed that key's release.
 ;   - A forced CapsLock state (AlwaysOff/AlwaysOn) is lifted, because a forced
 ;     state swallows CapsLock and the remote machine never sees it held. The
 ;     force comes back when focus leaves. The local state isn't corrected in
@@ -26,6 +27,7 @@ class RemoteSessions {
     static active := false
     static ReassertDelays := [50, 300, 1000]
     static RetryMs := 250
+    static MaxWaitMs := 3000
     static _hook := 0
     static _callback := 0
     static _restore := ""          ; force to put back on leaving, or ""
@@ -80,7 +82,8 @@ class RemoteSessions {
 
     ; Pure: whether a hook check must wait. Our hook sits ahead of AutoHotkey's,
     ; so keys it saw go down since activation and not up are really held.
-    static MustWait(hookEnabled, heldCount) => hookEnabled && heldCount > 0
+    static MustWait(hookEnabled, heldCount, waitedMs := 0, maxWaitMs := 3000)
+        => hookEnabled && heldCount > 0 && waitedMs < maxWaitMs
 
     ; keyboard.toggleCapsLock forced a state. Remember it for the next session;
     ; inside one, keep it for leaving but stay unforced so CapsLock reaches it.
@@ -122,15 +125,15 @@ class RemoteSessions {
             RemoteSessions._RestoreCapsLock()
     }
 
-    static _ReassertLater(generation) => (*) => RemoteSessions._Reassert(generation)
+    static _ReassertLater(generation, waited := 0) => (*) => RemoteSessions._Reassert(generation, waited)
 
     ; Re-installs AutoHotkey's keyboard hook (resetting its key state) so it runs
     ; ahead of the client's, then ours ahead of that, as at startup.
-    static _Reassert(generation) {
+    static _Reassert(generation, waited := 0) {
         if (generation != RemoteSessions._generation || !RemoteSessions.IsActive())
             return
-        if RemoteSessions.MustWait(SimulatedKeys.enabled, SimulatedKeys.down.Count) {
-            SetTimer(RemoteSessions._ReassertLater(generation), -RemoteSessions.RetryMs)
+        if RemoteSessions.MustWait(SimulatedKeys.enabled, SimulatedKeys.down.Count, waited, RemoteSessions.MaxWaitMs) {
+            SetTimer(RemoteSessions._ReassertLater(generation, waited + RemoteSessions.RetryMs), -RemoteSessions.RetryMs)
             return
         }
         try InstallKeybdHook(true, true)

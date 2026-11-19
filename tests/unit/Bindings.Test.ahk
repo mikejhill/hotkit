@@ -394,6 +394,7 @@ class Bindings_Tests {
         Assert.True(RemoteSessions.MustWait(true, 1), "a key pressed since activation is held")
         Assert.False(RemoteSessions.MustWait(true, 0))
         Assert.False(RemoteSessions.MustWait(false, 1), "without our hook there is nothing to go by")
+        Assert.False(RemoteSessions.MustWait(true, 1, 3000, 3000), "gives up in case the client swallowed the release")
     }
 
     static Test_RemoteSessionRemembersRuntimeCapsLockForce() {
