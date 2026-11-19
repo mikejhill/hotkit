@@ -13,7 +13,7 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.12.1"
+    static Version := "1.13.0"
     static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
@@ -124,6 +124,24 @@ class App {
             path := App.Bootstrap(path)
         }
         App.ConfigPath := path
+        if (App.Mode = "run") {
+            SplitPath(path, , &dir)
+            if (dir = "")
+                dir := A_WorkingDir
+            ; A copy of the schema next to the config, matching this version, lets
+            ; editors use "$schema": "./config.schema.json" with no network access
+            ; (VS Code asks before loading a schema from an untrusted web domain).
+            ; A file of that name that isn't a hotkit schema is left alone.
+            target := dir "\config.schema.json"
+            try {
+                if (target = path || (FileExist(target) && !Paths.IsHotkitSchema(target)))
+                    StatusLog.Warn("not updating " target ": it isn't a hotkit schema copy")
+                else
+                    Paths.SyncCopy(Paths.Schema(), target)
+            } catch as e {
+                StatusLog.Warn("could not copy config.schema.json: " e.Message)
+            }
+        }
         App.Config := Config.FromFile(path)
     }
 

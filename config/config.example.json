@@ -3,7 +3,7 @@
 // Comments and trailing commas are allowed. Full reference: docs/configuration.md
 // Hotkey notation: ^ Ctrl, ! Alt, + Shift, # Win, < left, > right (e.g. ">^>!PgUp").
 {
-  "$schema": "https://raw.githubusercontent.com/mikejhill/hotkit/main/config/config.schema.json",
+  "$schema": "./config.schema.json",
 
   "settings": {
     "watchConfig": true,

@@ -1,5 +1,7 @@
 #Requires AutoHotkey v2.0
 
+#Include %A_LineFile%\..\..\Lib\JSON.ahk
+
 ; Resolves where user-owned files live. Everything personal (config, plugins,
 ; private libraries) sits in one directory outside the repository.
 ;
@@ -47,6 +49,27 @@ class Paths {
     ; Repository root (parent of src\).
     static RepoRoot() => Paths.Normalize(A_LineFile "\..\..\..")
     static ExampleConfig() => Paths.RepoRoot() "\config\config.example.json"
+    static Schema() => Paths.RepoRoot() "\config\config.schema.json"
+
+    ; Whether a file is a copy of the hotkit config schema (any version): its
+    ; top-level title, not a nested one in a schema that embeds it.
+    static IsHotkitSchema(path) {
+        try {
+            schema := JSON.Parse(FileRead(path, "UTF-8"))
+            return schema is Map && schema.Has("title") && schema["title"] = "hotkit configuration"
+        }
+        return false
+    }
+
+    ; Copies source over target only when target is missing or differs.
+    ; Returns whether it wrote.
+    static SyncCopy(source, target) {
+        wanted := FileRead(source, "UTF-8")
+        if (FileExist(target) && FileRead(target, "UTF-8") == wanted)
+            return false
+        FileCopy(source, target, true)
+        return true
+    }
     ; Git-ignored directory for machine-local generated files.
     static LocalDir() => Paths.RepoRoot() "\local"
     static PluginStub() => Paths.LocalDir() "\plugins.generated.ahk"

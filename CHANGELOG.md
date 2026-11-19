@@ -6,6 +6,11 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-19
+
+### Changed
+- hotkit now keeps a copy of the schema next to your config (`config.schema.json`, refreshed on each version change), and the example config points `"$schema"` at `./config.schema.json`. VS Code loads it without asking you to trust a web domain, and it always matches the installed version. Change `"$schema"` in your config to `./config.schema.json` to use it.
+
 ## [1.12.1] - 2026-11-17
 
 ### Fixed
