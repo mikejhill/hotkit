@@ -390,6 +390,14 @@ class Bindings_Tests {
         Assert.Equal("", RemoteSessions.LiftedState("", false))
     }
 
+    static Test_RemoteSessionSkipsHookCheckWhenKeysArrive() {
+        Assert.True(RemoteSessions.SawKeySince(true, 1500, 1000), "a key after the last check")
+        Assert.False(RemoteSessions.SawKeySince(true, 900, 1000), "only keys before it")
+        Assert.False(RemoteSessions.SawKeySince(true, 0, 1000), "no key recorded yet")
+        Assert.False(RemoteSessions.SawKeySince(false, 1500, 1000), "our hook isn't running")
+        Assert.True(RemoteSessions.SawKeySince(true, 5, 0xFFFFFFF0), "across the tick wrap")
+    }
+
     static Test_YieldToRemoteStandsAsideInSessions() {
         Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock" } }, "bindings": [',
             '{ "keys": "F13", "action": "t.a", "yieldToRemote": true },',

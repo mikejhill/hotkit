@@ -85,9 +85,10 @@ class DesktopModule {
 
     static ToggleLock(name) {
         state := GetKeyState(name, "T") ? "AlwaysOff" : "AlwaysOn"
-        if (name = "CapsLock")
+        if (name = "CapsLock") {
             SetCapsLockState(state)
-        else
+            RemoteSessions.CapsLockForced(state)
+        } else
             SetNumLockState(state)
     }
 
