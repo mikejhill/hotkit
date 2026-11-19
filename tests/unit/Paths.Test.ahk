@@ -21,6 +21,9 @@ class Paths_Tests {
             Assert.True(Paths.SyncCopy(dir "\src.json", dir "\dst.json"), "a changed schema replaces the copy")
             Assert.Equal(FileRead(dir "\src.json", "UTF-8"), FileRead(dir "\dst.json", "UTF-8"))
             Assert.True(FileExist(Paths.Schema()) != "", "the bundled schema exists")
+            Assert.True(Paths.IsHotkitSchema(Paths.Schema()))
+            Assert.False(Paths.IsHotkitSchema(dir "\src.json"), "another file is not ours")
+            Assert.False(Paths.IsHotkitSchema(dir "\missing.json"))
         } finally {
             DirDelete(dir, true)
         }

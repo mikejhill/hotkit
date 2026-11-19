@@ -126,12 +126,21 @@ class App {
         App.ConfigPath := path
         if (App.Mode = "run") {
             SplitPath(path, , &dir)
+            if (dir = "")
+                dir := A_WorkingDir
             ; A copy of the schema next to the config, matching this version, lets
             ; editors use "$schema": "./config.schema.json" with no network access
             ; (VS Code asks before loading a schema from an untrusted web domain).
-            try Paths.SyncCopy(Paths.Schema(), dir "\config.schema.json")
-            catch as e
+            ; A file of that name that isn't a hotkit schema is left alone.
+            target := dir "\config.schema.json"
+            try {
+                if (target = path || (FileExist(target) && !Paths.IsHotkitSchema(target)))
+                    StatusLog.Warn("not updating " target ": it isn't a hotkit schema copy")
+                else
+                    Paths.SyncCopy(Paths.Schema(), target)
+            } catch as e {
                 StatusLog.Warn("could not copy config.schema.json: " e.Message)
+            }
         }
         App.Config := Config.FromFile(path)
     }

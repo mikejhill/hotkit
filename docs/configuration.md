@@ -17,8 +17,9 @@ hotkit\
 
 `config.json` is JSON with comments (`//`, `/* */`) and trailing commas allowed.
 hotkit keeps a copy of the schema next to `config.json`, as `config.schema.json`,
-and refreshes it whenever the installed version changes. Point the config at it
-so editors offer completion and validation:
+and refreshes it when hotkit starts with a different version. It leaves an
+existing `config.schema.json` alone unless it is a hotkit schema. Point the
+config at it so editors offer completion and validation:
 
 ```jsonc
 { "$schema": "./config.schema.json" }
@@ -28,6 +29,9 @@ A local file loads without network access or a trust prompt (VS Code asks
 before loading a schema from a web domain it doesn't trust). The schema also
 tells VS Code, and other editors built on its JSON support, to accept comments
 and trailing commas, so the file isn't flagged even though it is named `.json`.
+
+If the config folder is synced between machines running different hotkit
+versions, the copy matches whichever machine started hotkit last.
 Paths accept `%VAR%` and a leading `~`.
 
 With `settings.watchConfig` on (the default), saving the file or adding/removing

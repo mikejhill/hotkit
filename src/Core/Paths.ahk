@@ -49,6 +49,12 @@ class Paths {
     static ExampleConfig() => Paths.RepoRoot() "\config\config.example.json"
     static Schema() => Paths.RepoRoot() "\config\config.schema.json"
 
+    ; Whether a file is a copy of the hotkit config schema (any version).
+    static IsHotkitSchema(path) {
+        try return InStr(FileRead(path, "UTF-8"), '"title": "hotkit configuration"') > 0
+        return false
+    }
+
     ; Copies source over target only when target is missing or differs.
     ; Returns whether it wrote.
     static SyncCopy(source, target) {
