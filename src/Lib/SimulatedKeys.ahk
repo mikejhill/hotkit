@@ -85,10 +85,14 @@ class SimulatedKeys {
                 up: (flags & 0x80) != 0,
                 time: NumGet(lParam, 12, "uint"),
             }
-            if (SimulatedKeys.last.up)
-                SimulatedKeys.down.Delete(SimulatedKeys.last.vk)
-            else if (!SimulatedKeys.last.injected)
-                SimulatedKeys.down[SimulatedKeys.last.vk] := true
+            ; Typed keys only: an injected release (RemoteSessions.ReleaseKey) leaves
+            ; the physical key held. Never throw here: this runs inside the hook.
+            if (!SimulatedKeys.last.injected) {
+                if (!SimulatedKeys.last.up)
+                    SimulatedKeys.down[SimulatedKeys.last.vk] := true
+                else if SimulatedKeys.down.Has(SimulatedKeys.last.vk)
+                    SimulatedKeys.down.Delete(SimulatedKeys.last.vk)
+            }
         }
         return DllCall("CallNextHookEx", "ptr", 0, "int", nCode, "ptr", wParam, "ptr", lParam, "ptr")
     }
