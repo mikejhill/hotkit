@@ -1,5 +1,7 @@
 #Requires AutoHotkey v2.0
 
+#Include %A_LineFile%\..\..\Lib\JSON.ahk
+
 ; Resolves where user-owned files live. Everything personal (config, plugins,
 ; private libraries) sits in one directory outside the repository.
 ;
@@ -49,9 +51,13 @@ class Paths {
     static ExampleConfig() => Paths.RepoRoot() "\config\config.example.json"
     static Schema() => Paths.RepoRoot() "\config\config.schema.json"
 
-    ; Whether a file is a copy of the hotkit config schema (any version).
+    ; Whether a file is a copy of the hotkit config schema (any version): its
+    ; top-level title, not a nested one in a schema that embeds it.
     static IsHotkitSchema(path) {
-        try return InStr(FileRead(path, "UTF-8"), '"title": "hotkit configuration"') > 0
+        try {
+            schema := JSON.Parse(FileRead(path, "UTF-8"))
+            return schema is Map && schema.Has("title") && schema["title"] = "hotkit configuration"
+        }
         return false
     }
 

@@ -24,6 +24,8 @@ class Paths_Tests {
             Assert.True(Paths.IsHotkitSchema(Paths.Schema()))
             Assert.False(Paths.IsHotkitSchema(dir "\src.json"), "another file is not ours")
             Assert.False(Paths.IsHotkitSchema(dir "\missing.json"))
+            FileAppend('{ "title": "mine", "$defs": { "hk": { "title": "hotkit configuration" } } }', dir "\nested.json", "UTF-8")
+            Assert.False(Paths.IsHotkitSchema(dir "\nested.json"), "a schema embedding ours is not a managed copy")
         } finally {
             DirDelete(dir, true)
         }
