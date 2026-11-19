@@ -10,9 +10,9 @@
 ;   - Shortly after it is activated, hotkit re-installs its keyboard hook. The
 ;     newest low-level hook sees keys first, and Remote Desktop installs one when
 ;     its window gets focus. Re-installing also clears key state that the client
-;     swallowed, such as the release of the CapsLock that switched to it. A check
-;     is skipped when our own hook saw a key since the previous one: hotkit is
-;     still first then, and re-installing would forget keys held right now.
+;     swallowed, such as the release of the CapsLock that switched to it. Once
+;     our own hook sees a key after activation, hotkit is evidently first and the
+;     remaining checks are dropped: re-installing would forget keys held now.
 ;   - A forced CapsLock state (AlwaysOff/AlwaysOn) is lifted, because a forced
 ;     state swallows CapsLock and the remote machine never sees it held. The
 ;     force comes back when focus leaves. The local state isn't corrected in
@@ -29,6 +29,7 @@ class RemoteSessions {
     static _callback := 0
     static _restore := ""          ; force to put back on leaving, or ""
     static _checkedAt := 0         ; A_TickCount of the last hook check
+    static _settled := false       ; a key arrived after activation: no more checks
 
     ; Pure: validates settings.remoteWindows. Returns { titles, problems }.
     static Parse(raw) {
@@ -84,10 +85,13 @@ class RemoteSessions {
         return hookEnabled && eventTime != 0 && ((eventTime - sinceTick) & 0xFFFFFFFF) < 0x80000000
     }
 
-    ; keyboard.toggleCapsLock forced a state inside a session: keep it when leaving.
+    ; keyboard.toggleCapsLock forced a state inside a session: keep it for
+    ; leaving, but stay unforced so CapsLock still reaches the session.
     static CapsLockForced(state) {
-        if (RemoteSessions.active && RemoteSessions._restore != "")
-            RemoteSessions._restore := state
+        if !(RemoteSessions.active && RemoteSessions._restore != "")
+            return
+        RemoteSessions._restore := state
+        SetCapsLockState(state = "AlwaysOn" ? "On" : "Off")
     }
 
     ; Releases a held modifier key in the session before a local binding runs.
@@ -105,6 +109,7 @@ class RemoteSessions {
         now := RemoteSessions.IsActive()
         if (now) {
             RemoteSessions._checkedAt := A_TickCount & 0xFFFFFFFF
+            RemoteSessions._settled := false
             ; One closure per delay: SetTimer on the same function would just move one timer.
             for delay in RemoteSessions.ReassertDelays
                 SetTimer(RemoteSessions._ReassertLater(delay), -delay)
@@ -123,12 +128,14 @@ class RemoteSessions {
     ; Re-installs AutoHotkey's keyboard hook (resetting its key state) so it runs
     ; ahead of the client's, then ours ahead of that, as at startup.
     static _Reassert() {
-        if !RemoteSessions.IsActive()
+        if (RemoteSessions._settled || !RemoteSessions.IsActive())
             return
         since := RemoteSessions._checkedAt
         RemoteSessions._checkedAt := A_TickCount & 0xFFFFFFFF
-        if RemoteSessions.SawKeySince(SimulatedKeys.enabled, SimulatedKeys.last.time, since)
+        if RemoteSessions.SawKeySince(SimulatedKeys.enabled, SimulatedKeys.last.time, since) {
+            RemoteSessions._settled := true
             return
+        }
         try InstallKeybdHook(true, true)
         if SimulatedKeys.enabled
             try SimulatedKeys._Install()
