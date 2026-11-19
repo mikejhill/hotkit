@@ -124,6 +124,15 @@ class App {
             path := App.Bootstrap(path)
         }
         App.ConfigPath := path
+        if (App.Mode = "run") {
+            SplitPath(path, , &dir)
+            ; A copy of the schema next to the config, matching this version, lets
+            ; editors use "$schema": "./config.schema.json" with no network access
+            ; (VS Code asks before loading a schema from an untrusted web domain).
+            try Paths.SyncCopy(Paths.Schema(), dir "\config.schema.json")
+            catch as e
+                StatusLog.Warn("could not copy config.schema.json: " e.Message)
+        }
         App.Config := Config.FromFile(path)
     }
 

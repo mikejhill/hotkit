@@ -9,6 +9,23 @@ class Paths_Tests {
 
     static Teardown() => Paths_Tests.Setup()
 
+    static Test_SyncCopyWritesOnlyWhenDifferent() {
+        dir := A_Temp "\hotkit-synccopy-" A_TickCount
+        DirCreate(dir)
+        try {
+            FileAppend('{ "a": 1 }', dir "\src.json", "UTF-8")
+            Assert.True(Paths.SyncCopy(dir "\src.json", dir "\dst.json"), "missing target is written")
+            Assert.False(Paths.SyncCopy(dir "\src.json", dir "\dst.json"), "identical target is left alone")
+            FileDelete(dir "\src.json")
+            FileAppend('{ "a": 2 }', dir "\src.json", "UTF-8")
+            Assert.True(Paths.SyncCopy(dir "\src.json", dir "\dst.json"), "a changed schema replaces the copy")
+            Assert.Equal(FileRead(dir "\src.json", "UTF-8"), FileRead(dir "\dst.json", "UTF-8"))
+            Assert.True(FileExist(Paths.Schema()) != "", "the bundled schema exists")
+        } finally {
+            DirDelete(dir, true)
+        }
+    }
+
     static Test_DefaultConfigDir() {
         Assert.Equal(EnvGet("USERPROFILE") "\.config\hotkit", Paths.ConfigDir())
         Assert.Equal(Paths.ConfigDir() "\config.json", Paths.ConfigFile())

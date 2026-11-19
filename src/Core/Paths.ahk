@@ -47,6 +47,17 @@ class Paths {
     ; Repository root (parent of src\).
     static RepoRoot() => Paths.Normalize(A_LineFile "\..\..\..")
     static ExampleConfig() => Paths.RepoRoot() "\config\config.example.json"
+    static Schema() => Paths.RepoRoot() "\config\config.schema.json"
+
+    ; Copies source over target only when target is missing or differs.
+    ; Returns whether it wrote.
+    static SyncCopy(source, target) {
+        wanted := FileRead(source, "UTF-8")
+        if (FileExist(target) && FileRead(target, "UTF-8") == wanted)
+            return false
+        FileCopy(source, target, true)
+        return true
+    }
     ; Git-ignored directory for machine-local generated files.
     static LocalDir() => Paths.RepoRoot() "\local"
     static PluginStub() => Paths.LocalDir() "\plugins.generated.ahk"
