@@ -105,8 +105,9 @@ class RemoteSessions {
         now := RemoteSessions.IsActive()
         if (now) {
             RemoteSessions._checkedAt := A_TickCount & 0xFFFFFFFF
+            ; One closure per delay: SetTimer on the same function would just move one timer.
             for delay in RemoteSessions.ReassertDelays
-                SetTimer(() => RemoteSessions._Reassert(), -delay)
+                SetTimer(RemoteSessions._ReassertLater(delay), -delay)
         }
         if (now = RemoteSessions.active)
             return
@@ -116,6 +117,8 @@ class RemoteSessions {
         else
             RemoteSessions._RestoreCapsLock()
     }
+
+    static _ReassertLater(delay) => (*) => (delay, RemoteSessions._Reassert())
 
     ; Re-installs AutoHotkey's keyboard hook (resetting its key state) so it runs
     ; ahead of the client's, then ours ahead of that, as at startup.

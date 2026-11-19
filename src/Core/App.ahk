@@ -200,8 +200,9 @@ class App {
         App.RestoreLayer()
         Bindings.ignoreSimulated := !!cfg.Get("settings.ignoreSimulatedKeys", true)
         Bindings.Apply()
-        ; After Apply: AutoHotkey's keyboard hook must exist before ours.
-        if (Bindings.ignoreSimulated) {
+        ; After Apply: AutoHotkey's keyboard hook must exist before ours. Remote
+        ; sessions also use its record of the latest key (see RemoteSessions).
+        if (Bindings.ignoreSimulated || Bindings.remoteWindows.Length) {
             try {
                 SimulatedKeys.Enable()
             } catch as e {
