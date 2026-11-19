@@ -31,6 +31,11 @@
           "type": "boolean",
           "description": "Shortcuts ignore keystrokes that programs simulate (default true); set allowSimulated on bindings fed by such programs."
         },
+        "remoteWindows": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "WinTitles of remote session clients (Remote Desktop, virtual desktop viewers). There hotkit keeps its hook ahead of the client's, lets CapsLock through, and keys no local binding takes reach the remote machine."
+        },
         "debug": {
           "type": "boolean"
         },
@@ -585,6 +590,10 @@
         "allowSimulated": {
           "type": "boolean",
           "description": "Also fire when a program simulates the keys (mouse utilities, remote machines)."
+        },
+        "yieldToRemote": {
+          "type": "boolean",
+          "description": "Stand aside while a window from settings.remoteWindows is active, so the remote machine gets the keys."
         },
         "modifier": {
           "type": "string",

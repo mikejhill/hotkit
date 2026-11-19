@@ -6,6 +6,10 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `settings.remoteWindows` lists remote session clients such as Remote Desktop. In their windows your local bindings keep working, and keys no local binding takes (for example CapsLock combinations unbound on the current layer) reach the remote machine and the hotkit running there. hotkit stays ahead of Remote Desktop's keyboard hook, so the CapsLock layer no longer sticks on after switching to a session, and a forced CapsLock state no longer swallows CapsLock there.
+- Bindings accept `"yieldToRemote": true` to leave their keys to the remote machine while a remote session window is active.
+
 ## [1.13.0] - 2026-11-19
 
 ### Changed

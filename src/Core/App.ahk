@@ -208,6 +208,12 @@ class App {
                 Bindings.problems.Push("Couldn't watch for simulated keys, so programs can trigger shortcuts: " e.Message)
             }
         }
+        ; After SimulatedKeys: re-installing hooks for a remote session keeps that order.
+        try {
+            RemoteSessions.Start(Bindings.remoteWindows, cfg.Get("settings.keyboard.capsLock", ""))
+        } catch as e {
+            Bindings.problems.Push("Couldn't watch for remote session windows, so their clients may take keys first: " e.Message)
+        }
         menus := []
         for m in App.Modules {
             if HasMethod(m, "TrayMenus") {

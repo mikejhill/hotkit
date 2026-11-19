@@ -65,6 +65,8 @@ Binding kinds:
 
 Simulated keys: `SimulatedKeys` installs a `WH_KEYBOARD_LL` hook after `Bindings.Apply()`. Windows calls the newest hook first, so it records each event's `LLKHF_INJECTED` flag before AutoHotkey's hook evaluates `#HotIf`. Binding contexts (unless `allowSimulated`) call `SimulatedKeys.Allows(hotkeyName)`, which blocks only a fresh injected event for the hotkey's own key and otherwise fails open. A 30-second timer re-installs the hook.
 
+Remote sessions: `RemoteSessions` starts after `SimulatedKeys` and watches `EVENT_SYSTEM_FOREGROUND`. When a `settings.remoteWindows` window becomes active it calls `InstallKeybdHook(true, true)` 50, 300 and 1000 ms later (a forced re-install resets AutoHotkey's key state and puts its hook ahead of the client's), then re-installs the `SimulatedKeys` hook to keep that one first. It also lifts a forced CapsLock state while the window is active. Modifier bindings are wrapped to send the modifier's key-up to the session before the action, and `yieldToRemote` adds `!RemoteSessions.IsActive()` to the context.
+
 ## Libraries
 
 `src/Lib` holds standalone classes (window utilities, DDC/CI, WMI brightness,

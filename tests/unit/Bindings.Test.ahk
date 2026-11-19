@@ -372,6 +372,59 @@ class Bindings_Tests {
         Assert.True(SimulatedKeys.Decide(true, 0xA3, 0xA2, 5, 1000), "RCtrl event does not match LCtrl")
     }
 
+    static Test_RemoteWindowsSettingIsParsed() {
+        problems := Bindings_Tests.Load('{ "settings": { "remoteWindows": ["ahk_exe mstsc.exe", "", 5] } }')
+        Assert.Equal(1, Bindings.remoteWindows.Length)
+        Assert.Equal("ahk_exe mstsc.exe", Bindings.remoteWindows[1])
+        Assert.Equal(2, problems.Length, "empty and non-string entries are reported")
+        Assert.Contains(problems[1], "settings.remoteWindows")
+        Assert.Equal(1, RemoteSessions.Parse("ahk_exe a.exe").titles.Length, "a single string is accepted")
+        Assert.Equal(0, RemoteSessions.Parse("").titles.Length)
+    }
+
+    static Test_RemoteSessionLiftsOnlyForcedCapsLock() {
+        Assert.Equal("Off", RemoteSessions.LiftedState("AlwaysOff", false))
+        Assert.Equal("On", RemoteSessions.LiftedState("AlwaysOff", true), "follows a state keyboard.toggleCapsLock flipped")
+        Assert.Equal("On", RemoteSessions.LiftedState("AlwaysOn", true))
+        Assert.Equal("", RemoteSessions.LiftedState("Off", false), "an unforced state is left alone")
+        Assert.Equal("", RemoteSessions.LiftedState("", false))
+    }
+
+    static Test_YieldToRemoteStandsAsideInSessions() {
+        Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock" } }, "bindings": [',
+            '{ "keys": "F13", "action": "t.a", "yieldToRemote": true },',
+            '{ "keys": "F14", "action": "t.a" } ] }')
+        Assert.True(Bindings.specs[1].yieldToRemote)
+        Assert.False(Bindings.specs[2].yieldToRemote)
+        Assert.Equal("", Bindings._Context(Bindings.specs[2]), "plain global binding stays context-free")
+        ctx := Bindings._Context(Bindings.specs[1])
+        Assert.NotEqual("", ctx)
+        original := RemoteSessions.GetOwnPropDesc("IsActive")
+        try {
+            RemoteSessions.DefineProp("IsActive", { Call: (*) => false })
+            Assert.True(ctx.Call("F13"), "fires outside remote sessions")
+            RemoteSessions.DefineProp("IsActive", { Call: (*) => true })
+            Assert.False(ctx.Call("F13"), "stands aside in a remote session")
+        } finally {
+            RemoteSessions.DefineProp("IsActive", original)
+        }
+    }
+
+    static Test_ModifierBindingsReleaseTheKeyRemotelyFirst() {
+        calls := []
+        handler := Bindings._ReleasingRemote((*) => calls.Push("action"), "CapsLock")
+        original := RemoteSessions.GetOwnPropDesc("ReleaseKey")
+        try {
+            RemoteSessions.DefineProp("ReleaseKey", { Call: (cls, key) => calls.Push("release " key) })
+            handler("E")
+        } finally {
+            RemoteSessions.DefineProp("ReleaseKey", original)
+        }
+        Assert.Equal(2, calls.Length)
+        Assert.Equal("release CapsLock", calls[1])
+        Assert.Equal("action", calls[2])
+    }
+
     static Test_BindingsRefuseSimulatedKeysUnlessAllowed() {
         Bindings_Tests.Load('{ "bindings": [',
             '{ "keys": "^V", "action": "t.a" },',
