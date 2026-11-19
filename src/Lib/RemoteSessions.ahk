@@ -11,8 +11,8 @@
 ;     newest low-level hook sees keys first, and Remote Desktop installs one when
 ;     its window gets focus. Re-installing also clears key state that the client
 ;     swallowed, such as the release of the CapsLock that switched to it. A check
-;     waits while keys are arriving at our own hook: re-installing then would
-;     forget keys held right now, and a held key keeps arriving (auto-repeat).
+;     waits while a key pressed since activation is still held (as our own hook
+;     saw it): re-installing then would forget it.
 ;   - A forced CapsLock state (AlwaysOff/AlwaysOn) is lifted, because a forced
 ;     state swallows CapsLock and the remote machine never sees it held. The
 ;     force comes back when focus leaves. The local state isn't corrected in
@@ -22,10 +22,9 @@
 ;   - Bindings marked yieldToRemote stand aside.
 class RemoteSessions {
     static titles := []
-    static capsLock := ""          ; forced state from settings.keyboard.capsLock
+    static capsLock := ""          ; current forced CapsLock state, or "" / On / Off
     static active := false
     static ReassertDelays := [50, 300, 1000]
-    static BusyMs := 500           ; a key this recent postpones a check
     static RetryMs := 250
     static _hook := 0
     static _callback := 0
@@ -79,15 +78,14 @@ class RemoteSessions {
         return false
     }
 
-    ; Pure: whether our hook, which sits ahead of AutoHotkey's, recorded a key
-    ; event within the last windowMs. Tick arithmetic wraps like GetTickCount.
-    static KeyRecent(hookEnabled, eventTime, nowTick, windowMs) {
-        return hookEnabled && eventTime != 0 && ((nowTick - eventTime) & 0xFFFFFFFF) < windowMs
-    }
+    ; Pure: whether a hook check must wait. Our hook sits ahead of AutoHotkey's,
+    ; so keys it saw go down since activation and not up are really held.
+    static MustWait(hookEnabled, heldCount) => hookEnabled && heldCount > 0
 
-    ; keyboard.toggleCapsLock forced a state inside a session: keep it for
-    ; leaving, but stay unforced so CapsLock still reaches the session.
+    ; keyboard.toggleCapsLock forced a state. Remember it for the next session;
+    ; inside one, keep it for leaving but stay unforced so CapsLock reaches it.
     static CapsLockForced(state) {
+        RemoteSessions.capsLock := state
         if !RemoteSessions.active
             return
         RemoteSessions._restore := state
@@ -109,6 +107,8 @@ class RemoteSessions {
         now := RemoteSessions.IsActive()
         if (now) {
             generation := ++RemoteSessions._generation
+            ; Presses from before activation may have lost their release to the client.
+            SimulatedKeys.down.Clear()
             ; One closure per delay: SetTimer on the same function would just move one timer.
             for delay in RemoteSessions.ReassertDelays
                 SetTimer(RemoteSessions._ReassertLater(generation), -delay)
@@ -129,8 +129,7 @@ class RemoteSessions {
     static _Reassert(generation) {
         if (generation != RemoteSessions._generation || !RemoteSessions.IsActive())
             return
-        if RemoteSessions.KeyRecent(SimulatedKeys.enabled, SimulatedKeys.last.time,
-            A_TickCount & 0xFFFFFFFF, RemoteSessions.BusyMs) {
+        if RemoteSessions.MustWait(SimulatedKeys.enabled, SimulatedKeys.down.Count) {
             SetTimer(RemoteSessions._ReassertLater(generation), -RemoteSessions.RetryMs)
             return
         }

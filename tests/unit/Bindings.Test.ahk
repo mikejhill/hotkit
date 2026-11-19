@@ -390,12 +390,24 @@ class Bindings_Tests {
         Assert.Equal("", RemoteSessions.LiftedState("", false))
     }
 
-    static Test_RemoteSessionPostponesHookCheckWhileKeysArrive() {
-        Assert.True(RemoteSessions.KeyRecent(true, 1000, 1200, 500), "a key 200 ms ago")
-        Assert.False(RemoteSessions.KeyRecent(true, 1000, 1600, 500), "a key 600 ms ago")
-        Assert.False(RemoteSessions.KeyRecent(true, 0, 1200, 500), "no key recorded yet")
-        Assert.False(RemoteSessions.KeyRecent(false, 1000, 1200, 500), "our hook isn't running")
-        Assert.True(RemoteSessions.KeyRecent(true, 0xFFFFFFF0, 5, 500), "across the tick wrap")
+    static Test_RemoteSessionWaitsWhileKeysAreHeld() {
+        Assert.True(RemoteSessions.MustWait(true, 1), "a key pressed since activation is held")
+        Assert.False(RemoteSessions.MustWait(true, 0))
+        Assert.False(RemoteSessions.MustWait(false, 1), "without our hook there is nothing to go by")
+    }
+
+    static Test_RemoteSessionRemembersRuntimeCapsLockForce() {
+        saved := { capsLock: RemoteSessions.capsLock, active: RemoteSessions.active }
+        try {
+            RemoteSessions.capsLock := ""
+            RemoteSessions.active := false
+            RemoteSessions.CapsLockForced("AlwaysOn")
+            Assert.Equal("AlwaysOn", RemoteSessions.capsLock, "a force applied outside a session is lifted next time")
+            Assert.Equal("On", RemoteSessions.LiftedState(RemoteSessions.capsLock, true))
+        } finally {
+            RemoteSessions.capsLock := saved.capsLock
+            RemoteSessions.active := saved.active
+        }
     }
 
     static Test_YieldToRemoteStandsAsideInSessions() {

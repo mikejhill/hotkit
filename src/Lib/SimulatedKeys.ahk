@@ -27,6 +27,9 @@ class SimulatedKeys {
     ; The latest keyboard event: virtual key, injected flag, key up, event time
     ; (GetTickCount milliseconds).
     static last := { vk: 0, injected: false, up: false, time: 0 }
+    ; Virtual keys typed (not injected) and not yet released, as this hook saw
+    ; them. Owners may Clear() it: RemoteSessions does on each activation.
+    static down := Map()
 
     ; mutate: off (Windows hook plumbing)
     static Enable() {
@@ -82,6 +85,10 @@ class SimulatedKeys {
                 up: (flags & 0x80) != 0,
                 time: NumGet(lParam, 12, "uint"),
             }
+            if (SimulatedKeys.last.up)
+                SimulatedKeys.down.Delete(SimulatedKeys.last.vk)
+            else if (!SimulatedKeys.last.injected)
+                SimulatedKeys.down[SimulatedKeys.last.vk] := true
         }
         return DllCall("CallNextHookEx", "ptr", 0, "int", nCode, "ptr", wParam, "ptr", lParam, "ptr")
     }
