@@ -57,6 +57,8 @@ class Updates_Tests {
         answers := answers is Map ? answers : Map()
         if (!answers.Has("rev-parse"))
             answers["rev-parse"] := { exit: 0, out: "C:/hotkit" }
+        if (!answers.Has("symbolic-ref"))
+            answers["symbolic-ref"] := { exit: 0, out: "refs/heads/main" }
         Updates.GitRunner := (args) => Updates_Tests._Git(answers, args)
     }
 
@@ -224,7 +226,11 @@ class Updates_Tests {
             [Map("symbolic-ref", { exit: 1, out: "" }), "isn't on a branch", 3],
             [Map("fetch", { exit: 128, out: "remote: Not Found`nfatal: couldn't find remote ref" }),
                 "Couldn't download v1.5.0: fatal: couldn't find remote ref", 4],
-            [Map("merge-base", { exit: 1, out: "" }), "has commits that v1.5.0 doesn't have", 5],
+            [Map("merge-base", { exit: 1, out: "" }), "folder has commits that v1.5.0 doesn't have.", 5],
+            [Map("symbolic-ref", { exit: 0, out: "refs/heads/fix/thing" }, "merge-base", { exit: 1, out: "" }),
+                "is on the fix/thing branch, which has commits that v1.5.0", 5],
+            [Map("symbolic-ref", { exit: 0, out: "refs/heads/Main" }, "merge-base", { exit: 1, out: "" }),
+                "is on the Main branch, which has commits that v1.5.0", 5],
             [Map("merge --ff-only", { exit: 128, out: "fatal: Not possible to fast-forward, aborting." }),
                 "git merge failed: fatal: Not possible to fast-forward, aborting.", 6],
         ]

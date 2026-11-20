@@ -6,6 +6,11 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-11-19
+
+### Fixed
+- When an update can't install because the hotkit folder is on a branch other than main, the message now names the branch, instead of only saying the folder has commits the release doesn't have.
+
 ## [1.15.0] - 2026-11-19
 
 ### Changed
