@@ -259,15 +259,21 @@ class Updates {
             return fail("git status failed: " Updates.LastLine(r.out))
         if (r.out != "")
             return fail("The hotkit folder has uncommitted changes.")
-        if (Updates.Git("symbolic-ref -q HEAD").exit != 0)
+        r := Updates.Git("symbolic-ref -q --short HEAD")
+        if (r.exit != 0)
             return fail("The hotkit folder isn't on a branch.")
+        branch := Updates.LastLine(r.out)
         tag := release.tag
         ref := '"refs/tags/' tag '"'
         r := Updates.Git('fetch --no-tags "https://github.com/' Updates.Settings.repository '.git" "refs/tags/' tag ':refs/tags/' tag '"')
         if (r.exit != 0)
             return fail("Couldn't download " tag ": " Updates.LastLine(r.out))
-        if (Updates.Git("merge-base --is-ancestor HEAD " ref).exit != 0)
+        if (Updates.Git("merge-base --is-ancestor HEAD " ref).exit != 0) {
+            if (branch != "" && branch != "main")
+                return fail("The hotkit folder is on the " branch " branch, which has commits that " tag
+                    " doesn't have. Switch it to main, then update.")
             return fail("The hotkit folder has commits that " tag " doesn't have.")
+        }
         r := Updates.Git("merge --ff-only " ref)
         if (r.exit != 0)
             return fail("git merge failed: " Updates.LastLine(r.out))

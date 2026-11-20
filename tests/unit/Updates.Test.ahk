@@ -57,6 +57,8 @@ class Updates_Tests {
         answers := answers is Map ? answers : Map()
         if (!answers.Has("rev-parse"))
             answers["rev-parse"] := { exit: 0, out: "C:/hotkit" }
+        if (!answers.Has("symbolic-ref"))
+            answers["symbolic-ref"] := { exit: 0, out: "main" }
         Updates.GitRunner := (args) => Updates_Tests._Git(answers, args)
     }
 
@@ -206,7 +208,7 @@ class Updates_Tests {
         Assert.Equal(6, calls.Length)
         Assert.Equal("rev-parse --show-toplevel", calls[1])
         Assert.Equal("status --porcelain --untracked-files=no", calls[2])
-        Assert.Equal("symbolic-ref -q HEAD", calls[3])
+        Assert.Equal("symbolic-ref -q --short HEAD", calls[3])
         Assert.Equal('fetch --no-tags "https://github.com/mikejhill/hotkit.git" "refs/tags/v1.5.0:refs/tags/v1.5.0"', calls[4])
         Assert.Equal('merge-base --is-ancestor HEAD "refs/tags/v1.5.0"', calls[5])
         Assert.Equal('merge --ff-only "refs/tags/v1.5.0"', calls[6])
@@ -224,7 +226,9 @@ class Updates_Tests {
             [Map("symbolic-ref", { exit: 1, out: "" }), "isn't on a branch", 3],
             [Map("fetch", { exit: 128, out: "remote: Not Found`nfatal: couldn't find remote ref" }),
                 "Couldn't download v1.5.0: fatal: couldn't find remote ref", 4],
-            [Map("merge-base", { exit: 1, out: "" }), "has commits that v1.5.0 doesn't have", 5],
+            [Map("merge-base", { exit: 1, out: "" }), "folder has commits that v1.5.0 doesn't have.", 5],
+            [Map("symbolic-ref", { exit: 0, out: "fix/thing" }, "merge-base", { exit: 1, out: "" }),
+                "is on the fix/thing branch, which has commits that v1.5.0 doesn't have. Switch it to main, then update.", 5],
             [Map("merge --ff-only", { exit: 128, out: "fatal: Not possible to fast-forward, aborting." }),
                 "git merge failed: fatal: Not possible to fast-forward, aborting.", 6],
         ]
