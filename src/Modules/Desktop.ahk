@@ -85,10 +85,9 @@ class DesktopModule {
 
     static ToggleLock(name) {
         state := GetKeyState(name, "T") ? "AlwaysOff" : "AlwaysOn"
-        if (name = "CapsLock") {
+        if (name = "CapsLock")
             SetCapsLockState(state)
-            RemoteSessions.CapsLockForced(state)
-        } else
+        else
             SetNumLockState(state)
     }
 
@@ -135,8 +134,8 @@ class DesktopModule {
             return
         }
         ; Before focus moves: the binding's whenActive must still match.
-        triggers := DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
-            (spec) => (fn := Bindings._Context(spec)) = "" || fn())
+        triggers := Bindings.WithRemoteKeys(DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
+            (spec) => (fn := Bindings._Context(spec)) = "" || fn()))
         movedFocus := false
         if (DesktopModule.ForegroundIsFullScreen()) {
             hwnd := DesktopModule.FocusDesktop()
@@ -147,7 +146,7 @@ class DesktopModule {
                 return Toast.ShowToast({ color: "Red", fadeDelay: 3000 }, "Taskbar:", "Could not move focus off the full-screen window")
             movedFocus := true
         }
-        isDown := (k) => GetKeyState(k, "P")
+        isDown := (k) => Bindings.HeldKey(k)
         held := DesktopModule.TaskbarHoldKeys(triggers, isDown)
         win := DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
         if (win.Length) {
@@ -189,7 +188,7 @@ class DesktopModule {
         if (!hold)
             return SetTimer(DesktopModule._TaskbarPoll, 0)
         if (A_TickCount - hold.started > 60000
-            || !DesktopModule.TaskbarHoldKeys(hold.keys, (k) => GetKeyState(k, "P")).Length)
+            || !DesktopModule.TaskbarHoldKeys(hold.keys, (k) => Bindings.HeldKey(k)).Length)
             DesktopModule.ReleaseTaskbarHold()
     }
 

@@ -6,6 +6,12 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-11-19
+
+### Changed
+- In remote session windows, hotkit no longer lifts a forced CapsLock state, which could leave CapsLock on. Instead, a modifier with the new `remoteKey` option (for example `"caps": { "key": "CapsLock", "remoteKey": "F18" }`) is passed on as that key, and the remote hotkit treats it as the modifier. Without `remoteKey`, CapsLock combinations no longer reach the remote machine.
+- hotkit now keeps its keyboard hook ahead of Remote Desktop's for as long as a remote session window is active, not only right after activation, so whether a key is handled locally or remotely no longer varies.
+
 ## [1.14.0] - 2026-11-19
 
 ### Added

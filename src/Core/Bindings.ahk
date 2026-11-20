@@ -117,7 +117,84 @@ class Bindings {
             else
                 Bindings.problems.Push("Modifier '" name "': suspendWhenActive entries must be non-empty WinTitle strings.")
         }
-        Bindings.modifiers[name] := { name: name, key: key, label: label, suspendWhenActive: titles }
+        remoteKey := (modifier is Map) ? MapGet(modifier, "remoteKey", "") : ""
+        if (remoteKey != "" && !(remoteKey is String && Bindings._IsKeyName(remoteKey) && Bindings._KeyboardKey(remoteKey))) {
+            Bindings.problems.Push("Modifier '" name "': remoteKey must be a keyboard key name, such as F18.")
+            remoteKey := ""
+        } else if (remoteKey != "" && !Bindings.ForwardableKey(key)) {
+            Bindings.problems.Push("Modifier '" name "': remoteKey needs a key with its own key code, such as CapsLock or LCtrl, not Ctrl/Shift/Alt or a numpad key that shares one.")
+            remoteKey := ""
+        }
+        Bindings.modifiers[name] := { name: name, key: key, label: label, suspendWhenActive: titles, remoteKey: remoteKey }
+    }
+
+    ; Pure-ish: whether the keyboard hook can tell this key apart by its
+    ; virtual key code alone (needed to pass it on as a remoteKey).
+    static ForwardableKey(key) {
+        vk := 0
+        try vk := GetKeyVK(key)
+        if (!vk || (vk >= 0x10 && vk <= 0x12) || !Bindings._KeyboardKey(key))
+            return false
+        ; A numpad key sharing its code with another key has a different scan code.
+        try return GetKeySC(GetKeyName(Format("vk{:x}", vk))) = GetKeySC(key)
+        return false
+    }
+
+    ; Mouse buttons have no scan code; only keyboard keys can be passed on.
+    static _KeyboardKey(name) {
+        try return GetKeySC(name) != 0
+        return false
+    }
+
+    static _IsKeyName(name) {
+        try return GetKeyVK(name) != 0
+        return false
+    }
+
+    ; Modifiers with a remoteKey, for RemoteSessions.Start: [{ key, remoteKey }].
+    static RemoteModifiers() {
+        list := []
+        for name, modifier in Bindings.modifiers
+            if (modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "")
+                list.Push({ key: modifier.key, remoteKey: modifier.remoteKey })
+        return list
+    }
+
+    ; keys plus the remoteKey of each modifier among them, for actions that
+    ; watch the modifier being held (window cycling, taskbar.activate).
+    static WithRemoteKeys(keys) {
+        out := keys.Clone()
+        for k in keys {
+            for name, modifier in Bindings.modifiers {
+                if (modifier.key = k && modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "")
+                    out.Push(modifier.remoteKey)
+            }
+        }
+        return out
+    }
+
+    ; Whether a key counts as held: physically, or for a modifier's remoteKey
+    ; the same way ModifierDown accepts it.
+    static HeldKey(k) {
+        if GetKeyState(k, "P")
+            return true
+        for name, modifier in Bindings.modifiers {
+            if (modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "" && modifier.remoteKey = k)
+                return GetKeyState(k) && !RemoteSessions.IsActive()
+        }
+        return false
+    }
+
+    ; Pure-ish: whether a held modifier counts as down. The key itself must be
+    ; physically down. Its remoteKey (pressed for us by the hotkit of a machine
+    ; whose remote session we are in) counts too, by logical state since a
+    ; remote client may inject it, but never while we are the one forwarding,
+    ; that is, while one of our own remote session windows is active.
+    static ModifierDown(modifier) {
+        if GetKeyState(modifier.key, "P")
+            return true
+        return modifier.HasOwnProp("remoteKey") && modifier.remoteKey != ""
+            && GetKeyState(modifier.remoteKey) && !RemoteSessions.IsActive()
     }
 
     ; True when a window listed in the modifier's suspendWhenActive is active.
@@ -538,7 +615,7 @@ class Bindings {
         yieldToRemote := spec.HasOwnProp("yieldToRemote") && spec.yieldToRemote
         fn := (hotkeyName := "", *) => (!checkSimulated || SimulatedKeys.Allows(hotkeyName))
             && (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
-            && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)
+            && (modifierKey = "" || (Bindings.ModifierDown(modifier) && !Bindings.ModifierSuspended(modifier)
                 && Bindings.AllPhysicallyDown(physicalMods)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
@@ -585,6 +662,19 @@ class Bindings {
         modifierKey := Bindings.ModifierKey(spec)
         if (modifierKey != "")
             Bindings._WatchUp(modifierKey, () => state.active, () => Bindings.HoldEnd(spec, state))
+        ; A hold started through the remote stand-in ends when that is released
+        ; too, but not one started on the real key: in our own remote sessions
+        ; the stand-in is released for the remote machine while the key is held.
+        remoteKey := Bindings.RemoteKey(spec)
+        if (remoteKey != "")
+            Bindings._WatchUp(remoteKey, () => state.active && !GetKeyState(modifierKey, "P"), () => Bindings.HoldEnd(spec, state))
+    }
+
+    static RemoteKey(spec) {
+        if (spec.modifier = "" || !Bindings.modifiers.Has(spec.modifier))
+            return ""
+        modifier := Bindings.modifiers[spec.modifier]
+        return modifier.HasOwnProp("remoteKey") ? modifier.remoteKey : ""
     }
 
     ; Press runs the action and waits for the next press of another key (see
