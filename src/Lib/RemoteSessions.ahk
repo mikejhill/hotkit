@@ -243,7 +243,8 @@ class RemoteSessions {
             return
         now := A_TickCount
         held := SimulatedKeys.down.Count
-        if (held && !RemoteSessions._heldSince)
+        ; The deadline runs from when keys were last all up, not the first check.
+        if (held && (!RemoteSessions._heldSince || SimulatedKeys.emptyAt > RemoteSessions._heldSince))
             RemoteSessions._heldSince := now
         heldMs := held ? now - RemoteSessions._heldSince : 0
         if RemoteSessions.MustWait(SimulatedKeys.enabled, held, heldMs, RemoteSessions.MaxHoldMs)

@@ -662,10 +662,12 @@ class Bindings {
         modifierKey := Bindings.ModifierKey(spec)
         if (modifierKey != "")
             Bindings._WatchUp(modifierKey, () => state.active, () => Bindings.HoldEnd(spec, state))
-        ; A hold started through the remote stand-in ends when that is released too.
+        ; A hold started through the remote stand-in ends when that is released
+        ; too, but not one started on the real key: in our own remote sessions
+        ; the stand-in is released for the remote machine while the key is held.
         remoteKey := Bindings.RemoteKey(spec)
         if (remoteKey != "")
-            Bindings._WatchUp(remoteKey, () => state.active, () => Bindings.HoldEnd(spec, state))
+            Bindings._WatchUp(remoteKey, () => state.active && !GetKeyState(modifierKey, "P"), () => Bindings.HoldEnd(spec, state))
     }
 
     static RemoteKey(spec) {

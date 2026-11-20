@@ -33,6 +33,8 @@ class SimulatedKeys {
     ; Optional fn(vk, up) called for every typed (not injected) key event,
     ; inside the hook: it must return quickly and leave sending to a timer.
     static OnTyped := ""
+    ; A_TickCount when the last typed key in `down` was released.
+    static emptyAt := 0
 
     ; mutate: off (Windows hook plumbing)
     static Enable() {
@@ -93,8 +95,11 @@ class SimulatedKeys {
             if (!SimulatedKeys.last.injected) {
                 if (!SimulatedKeys.last.up)
                     SimulatedKeys.down[SimulatedKeys.last.vk] := true
-                else if SimulatedKeys.down.Has(SimulatedKeys.last.vk)
+                else if SimulatedKeys.down.Has(SimulatedKeys.last.vk) {
                     SimulatedKeys.down.Delete(SimulatedKeys.last.vk)
+                    if !SimulatedKeys.down.Count
+                        SimulatedKeys.emptyAt := A_TickCount
+                }
                 if (SimulatedKeys.OnTyped != "")
                     try SimulatedKeys.OnTyped.Call(SimulatedKeys.last.vk, SimulatedKeys.last.up)
             }
