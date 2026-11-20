@@ -121,8 +121,23 @@ class Bindings {
         if (remoteKey != "" && !(remoteKey is String && Bindings._IsKeyName(remoteKey))) {
             Bindings.problems.Push("Modifier '" name "': remoteKey must be a key name, such as F18.")
             remoteKey := ""
+        } else if (remoteKey != "" && !Bindings.ForwardableKey(key)) {
+            Bindings.problems.Push("Modifier '" name "': remoteKey needs a key with its own key code, such as CapsLock or LCtrl, not Ctrl/Shift/Alt or a numpad key that shares one.")
+            remoteKey := ""
         }
         Bindings.modifiers[name] := { name: name, key: key, label: label, suspendWhenActive: titles, remoteKey: remoteKey }
+    }
+
+    ; Pure-ish: whether the keyboard hook can tell this key apart by its
+    ; virtual key code alone (needed to pass it on as a remoteKey).
+    static ForwardableKey(key) {
+        vk := 0
+        try vk := GetKeyVK(key)
+        if (!vk || (vk >= 0x10 && vk <= 0x12))
+            return false
+        ; A numpad key sharing its code with another key has a different scan code.
+        try return GetKeySC(GetKeyName(Format("vk{:x}", vk))) = GetKeySC(key)
+        return false
     }
 
     static _IsKeyName(name) {

@@ -423,6 +423,10 @@ class Bindings_Tests {
         list := Bindings.RemoteModifiers()
         Assert.Equal(1, list.Length)
         Assert.Equal("CapsLock", list[1].key)
+        Assert.True(Bindings.ForwardableKey("CapsLock"))
+        Assert.True(Bindings.ForwardableKey("LCtrl"))
+        Assert.False(Bindings.ForwardableKey("Ctrl"), "either side would match")
+        Assert.False(Bindings.ForwardableKey("NumpadEnter"), "shares Enter's key code")
         Assert.Equal("F18", list[1].remoteKey)
     }
 

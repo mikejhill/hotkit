@@ -133,7 +133,7 @@ class RemoteSessions {
     ; of the chord (as AutoHotkey's own hook does for its disguise keys).
     static _OnTyped(vk, up) {
         for m in RemoteSessions.modifiers {
-            if !SimulatedKeys.SameKey(vk, m.vk)
+            if (vk != m.vk)                   ; Bindings only accepts keys with their own code
                 continue
             m.state := RemoteSessions.Next(m.state, up ? "up" : "down", up || RemoteSessions.IsActive())
             RemoteSessions._Sync(m)
