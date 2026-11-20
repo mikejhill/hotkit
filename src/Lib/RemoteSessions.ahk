@@ -91,7 +91,7 @@ class RemoteSessions {
             try vk := GetKeyVK(m.key)
             if (m.remoteKey != "" && vk)
                 RemoteSessions.modifiers.Push({ key: m.key, remoteKey: m.remoteKey, vk: vk,
-                    state: { pressed: false, released: false }, sent: false })
+                    state: { pressed: false, released: false }, sent: false, owed: 0 })
         }
         if (!titles.Length || RemoteSessions._hook)
             return
@@ -172,8 +172,10 @@ class RemoteSessions {
         ; Moving between two session windows: what the old one holds is let go,
         ; and the new one gets keys from the next press on.
         if (RemoteSessions.active && window != RemoteSessions._window)
-            RemoteSessions._ReleaseAll()
+            RemoteSessions._ReleaseAll(RemoteSessions._window)
         RemoteSessions._window := window
+        if (now)
+            RemoteSessions._PayOwed(window)
         if (now) {
             generation := ++RemoteSessions._generation
             RemoteSessions._heldSince := 0
@@ -189,10 +191,26 @@ class RemoteSessions {
         SetTimer(RemoteSessions._tickFn, now ? RemoteSessions.IntervalMs : 0)
     }
 
-    static _ReleaseAll() {
+    ; Focus already left the window, so a release sent now would go elsewhere:
+    ; most clients let go of keys when they lose focus, and for the rest the
+    ; release is owed to the window and sent when it is active again.
+    static _ReleaseAll(window) {
         for m in RemoteSessions.modifiers {
             m.state := RemoteSessions.Next(m.state, "release", false)
-            RemoteSessions._Sync(m)
+            if m.sent
+                m.owed := window
+            m.sent := false
+        }
+    }
+
+    static _PayOwed(window) {
+        for m in RemoteSessions.modifiers {
+            if (m.HasOwnProp("owed") && m.owed) {
+                if (m.owed = window)
+                    RemoteSessions._KeyEvent(m.remoteKey, false)
+                if (m.owed = window || !WinExist("ahk_id " m.owed))
+                    m.owed := 0
+            }
         }
     }
 
