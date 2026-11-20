@@ -105,8 +105,11 @@ class RemoteSessions {
             RemoteSessions._callback := 0
             throw OSError(A_LastError, , "SetWinEventHook")
         }
-        if RemoteSessions.modifiers.Length
+        if RemoteSessions.modifiers.Length {
             SimulatedKeys.OnTyped := (vk, up) => RemoteSessions._OnTyped(vk, up)
+            ; A restart or exit must not leave a stand-in held in the session.
+            OnExit((*) => RemoteSessions._ReleaseHeld())
+        }
         RemoteSessions._tickFn := () => RemoteSessions._Reassert(RemoteSessions._generation)
         RemoteSessions._Update()
     }
@@ -206,6 +209,14 @@ class RemoteSessions {
                     RemoteSessions._owed[window] := []
                 RemoteSessions._owed[window].Push(m.remoteKey)
             }
+        }
+    }
+
+    static _ReleaseHeld() {
+        for m in RemoteSessions.modifiers {
+            if m.sent
+                RemoteSessions._KeyEvent(m.remoteKey, false)
+            m.sent := false
         }
     }
 
