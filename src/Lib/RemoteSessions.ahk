@@ -204,6 +204,12 @@ class RemoteSessions {
             return
         RemoteSessions._heldSince := 0
         SimulatedKeys.down.Clear()
+        ; Forget presses too, as AutoHotkey is about to: release a stand-in
+        ; left down by a release the client swallowed.
+        for m in RemoteSessions.modifiers {
+            m.state := RemoteSessions.Next(m.state, "up", false)
+            RemoteSessions._Sync(m)
+        }
         try InstallKeybdHook(true, true)
         if SimulatedKeys.enabled
             try SimulatedKeys._Install()
