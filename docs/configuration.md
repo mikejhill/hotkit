@@ -259,7 +259,9 @@ While a listed window is active:
   holds F18 in the session, and the remote hotkit, given the same `remoteKey`,
   treats F18 as CapsLock. CapsLock itself never reaches the session, so a
   forced `settings.keyboard.capsLock` state holds on both machines. Pick a
-  key that nothing else uses.
+  key that nothing else uses. The modifier key itself is not held back, so
+  use `remoteKey` with a key the session never sees anyway, such as
+  CapsLock with `AlwaysOff`.
 - When a local binding on a held modifier fires, hotkit first releases the
   `remoteKey` in the session, so the remote machine doesn't see it stuck down.
 - A binding with `"yieldToRemote": true` stands aside and its keys go to the

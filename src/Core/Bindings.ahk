@@ -139,6 +139,31 @@ class Bindings {
         return list
     }
 
+    ; keys plus the remoteKey of each modifier among them, for actions that
+    ; watch the modifier being held (window cycling, taskbar.activate).
+    static WithRemoteKeys(keys) {
+        out := keys.Clone()
+        for k in keys {
+            for name, modifier in Bindings.modifiers {
+                if (modifier.key = k && modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "")
+                    out.Push(modifier.remoteKey)
+            }
+        }
+        return out
+    }
+
+    ; Whether a key counts as held: physically, or for a modifier's remoteKey
+    ; the same way ModifierDown accepts it.
+    static HeldKey(k) {
+        if GetKeyState(k, "P")
+            return true
+        for name, modifier in Bindings.modifiers {
+            if (modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "" && modifier.remoteKey = k)
+                return GetKeyState(k) && !RemoteSessions.IsActive()
+        }
+        return false
+    }
+
     ; Pure-ish: whether a held modifier counts as down. The key itself must be
     ; physically down. Its remoteKey (pressed for us by the hotkit of a machine
     ; whose remote session we are in) counts too, by logical state since a

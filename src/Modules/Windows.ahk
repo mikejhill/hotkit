@@ -93,8 +93,8 @@ class WindowsModule {
         session := WindowsModule._cycle
         if (!session) {
             session := WindowUtil.CycleSnapshot()
-            session.keys := WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
-                WindowsModule._ContextActive)
+            session.keys := Bindings.WithRemoteKeys(WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
+                WindowsModule._ContextActive))
         }
         WindowUtil.CycleStep(session, direction)
         if (WindowsModule.AnyDown(session.keys)) {
@@ -122,7 +122,7 @@ class WindowsModule {
 
     static AnyDown(keys) {
         for k in keys {
-            if GetKeyState(k, "P")
+            if Bindings.HeldKey(k)
                 return true
         }
         return false
