@@ -118,8 +118,8 @@ class Bindings {
                 Bindings.problems.Push("Modifier '" name "': suspendWhenActive entries must be non-empty WinTitle strings.")
         }
         remoteKey := (modifier is Map) ? MapGet(modifier, "remoteKey", "") : ""
-        if (remoteKey != "" && !(remoteKey is String && Bindings._IsKeyName(remoteKey))) {
-            Bindings.problems.Push("Modifier '" name "': remoteKey must be a key name, such as F18.")
+        if (remoteKey != "" && !(remoteKey is String && Bindings._IsKeyName(remoteKey) && Bindings._KeyboardKey(remoteKey))) {
+            Bindings.problems.Push("Modifier '" name "': remoteKey must be a keyboard key name, such as F18.")
             remoteKey := ""
         } else if (remoteKey != "" && !Bindings.ForwardableKey(key)) {
             Bindings.problems.Push("Modifier '" name "': remoteKey needs a key with its own key code, such as CapsLock or LCtrl, not Ctrl/Shift/Alt or a numpad key that shares one.")
@@ -133,10 +133,16 @@ class Bindings {
     static ForwardableKey(key) {
         vk := 0
         try vk := GetKeyVK(key)
-        if (!vk || (vk >= 0x10 && vk <= 0x12))
+        if (!vk || (vk >= 0x10 && vk <= 0x12) || !Bindings._KeyboardKey(key))
             return false
         ; A numpad key sharing its code with another key has a different scan code.
         try return GetKeySC(GetKeyName(Format("vk{:x}", vk))) = GetKeySC(key)
+        return false
+    }
+
+    ; Mouse buttons have no scan code; only keyboard keys can be passed on.
+    static _KeyboardKey(name) {
+        try return GetKeySC(name) != 0
         return false
     }
 

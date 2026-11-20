@@ -427,6 +427,7 @@ class Bindings_Tests {
         Assert.True(Bindings.ForwardableKey("LCtrl"))
         Assert.False(Bindings.ForwardableKey("Ctrl"), "either side would match")
         Assert.False(Bindings.ForwardableKey("NumpadEnter"), "shares Enter's key code")
+        Assert.False(Bindings.ForwardableKey("XButton1"), "the hook only sees the keyboard")
         Assert.Equal("F18", list[1].remoteKey)
     }
 

@@ -40,6 +40,7 @@ class RemoteSessions {
     static _generation := 0        ; bumped on each activation; stale checks stop
     static _heldSince := 0         ; A_TickCount when a check first found keys held
     static _tickFn := ""
+    static _window := 0            ; the session window keys are passed on to
 
     ; Pure: validates settings.remoteWindows. Returns { titles, problems }.
     static Parse(raw) {
@@ -167,6 +168,12 @@ class RemoteSessions {
 
     static _Update() {
         now := RemoteSessions.IsActive()
+        window := now ? WinExist("A") : 0
+        ; Moving between two session windows: what the old one holds is let go,
+        ; and the new one gets keys from the next press on.
+        if (RemoteSessions.active && window != RemoteSessions._window)
+            RemoteSessions._ReleaseAll()
+        RemoteSessions._window := window
         if (now) {
             generation := ++RemoteSessions._generation
             RemoteSessions._heldSince := 0
@@ -180,11 +187,12 @@ class RemoteSessions {
             return
         RemoteSessions.active := now
         SetTimer(RemoteSessions._tickFn, now ? RemoteSessions.IntervalMs : 0)
-        if (!now) {
-            for m in RemoteSessions.modifiers {
-                m.state := RemoteSessions.Next(m.state, "release", false)
-                RemoteSessions._Sync(m)
-            }
+    }
+
+    static _ReleaseAll() {
+        for m in RemoteSessions.modifiers {
+            m.state := RemoteSessions.Next(m.state, "release", false)
+            RemoteSessions._Sync(m)
         }
     }
 
