@@ -390,11 +390,25 @@ class Bindings_Tests {
     }
 
     static Test_RemoteSessionForwardsModifierAsRemoteKey() {
-        Assert.Equal("down", RemoteSessions.ForwardAction(false, false, true), "press in a session")
-        Assert.Equal("", RemoteSessions.ForwardAction(false, true, true), "auto-repeat is not sent again")
-        Assert.Equal("", RemoteSessions.ForwardAction(false, false, false), "outside a session nothing is sent")
-        Assert.Equal("up", RemoteSessions.ForwardAction(true, true, false), "release is sent even after leaving")
-        Assert.Equal("", RemoteSessions.ForwardAction(true, false, true), "nothing to release")
+        idle := { pressed: false, released: false }
+        held := RemoteSessions.Next(idle, "down", true)
+        Assert.True(RemoteSessions.ShouldHold(held), "a press in a session holds remoteKey")
+        Assert.True(RemoteSessions.Next(held, "down", true) == held, "auto-repeat changes nothing")
+        let := RemoteSessions.Next(held, "release", true)
+        Assert.False(RemoteSessions.ShouldHold(let), "a local binding releases it")
+        Assert.True(RemoteSessions.Next(let, "down", true) == let, "auto-repeat does not press it again")
+        Assert.False(RemoteSessions.ShouldHold(RemoteSessions.Next(let, "up", true)))
+        Assert.True(RemoteSessions.ShouldHold(RemoteSessions.Next(RemoteSessions.Next(let, "up", true), "down", true)),
+            "a new press holds it again")
+        Assert.False(RemoteSessions.ShouldHold(RemoteSessions.Next(idle, "down", false)),
+            "a press outside a session is not passed on")
+        Assert.False(RemoteSessions.ShouldHold(RemoteSessions.Next(held, "up", false)))
+    }
+
+    static Test_RemoteSessionSyncSendsOnlyChanges() {
+        m := { remoteKey: "F18", state: { pressed: true, released: true }, sent: false }
+        RemoteSessions._Sync(m)
+        Assert.False(m.sent, "a queued press after a release sends nothing")
     }
 
     static Test_ModifierRemoteKeyIsParsed() {

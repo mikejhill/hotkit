@@ -616,6 +616,17 @@ class Bindings {
         modifierKey := Bindings.ModifierKey(spec)
         if (modifierKey != "")
             Bindings._WatchUp(modifierKey, () => state.active, () => Bindings.HoldEnd(spec, state))
+        ; A hold started through the remote stand-in ends when that is released too.
+        remoteKey := Bindings.RemoteKey(spec)
+        if (remoteKey != "")
+            Bindings._WatchUp(remoteKey, () => state.active, () => Bindings.HoldEnd(spec, state))
+    }
+
+    static RemoteKey(spec) {
+        if (spec.modifier = "" || !Bindings.modifiers.Has(spec.modifier))
+            return ""
+        modifier := Bindings.modifiers[spec.modifier]
+        return modifier.HasOwnProp("remoteKey") ? modifier.remoteKey : ""
     }
 
     ; Press runs the action and waits for the next press of another key (see

@@ -26,7 +26,11 @@
 ;   - Bindings marked yieldToRemote stand aside.
 class RemoteSessions {
     static titles := []
-    static modifiers := []         ; [{ key, remoteKey, vk }]
+    ; [{ key, remoteKey, vk, state: { pressed, released }, sent }]: pressed is the
+    ; physical press cycle, released means a local binding (or leaving the
+    ; window) let go of remoteKey until that press ends, and sent is what the
+    ; session was last told.
+    static modifiers := []
     static active := false
     static ReassertDelays := [50, 300]
     static IntervalMs := 1000
@@ -36,7 +40,6 @@ class RemoteSessions {
     static _generation := 0        ; bumped on each activation; stale checks stop
     static _heldSince := 0         ; A_TickCount when a check first found keys held
     static _tickFn := ""
-    static _forwarded := Map()     ; remoteKey -> true while pressed in the session
 
     ; Pure: validates settings.remoteWindows. Returns { titles, problems }.
     static Parse(raw) {
@@ -58,13 +61,25 @@ class RemoteSessions {
     static MustWait(hookEnabled, heldCount, heldMs := 0, maxHoldMs := 10000)
         => hookEnabled && heldCount > 0 && heldMs < maxHoldMs
 
-    ; Pure: what a typed modifier event does in a remote session: "down" to
-    ; press remoteKey there, "up" to release it, or "" to do nothing.
-    static ForwardAction(up, forwarded, sessionActive) {
-        if up
-            return forwarded ? "up" : ""
-        return (!forwarded && sessionActive) ? "down" : ""
+    ; Pure: the next forwarding state of a modifier after an event: "down" or
+    ; "up" (typed; repeats arrive as "down"), or "release" (a local binding
+    ; ran, or focus left the session). remoteKey should be held in the session
+    ; exactly while ShouldHold(state).
+    static Next(state, event, sessionActive) {
+        switch event {
+            case "down":
+                if state.pressed
+                    return state                      ; auto-repeat
+                return { pressed: true, released: !sessionActive }
+            case "up":
+                return { pressed: false, released: false }
+            case "release":
+                return { pressed: state.pressed, released: true }
+        }
+        return state
     }
+
+    static ShouldHold(state) => state.pressed && !state.released
 
     ; modifiers: [{ key, remoteKey }]; entries without remoteKey are ignored.
     static Start(titles, modifiers := []) {
@@ -74,7 +89,8 @@ class RemoteSessions {
             vk := 0
             try vk := GetKeyVK(m.key)
             if (m.remoteKey != "" && vk)
-                RemoteSessions.modifiers.Push({ key: m.key, remoteKey: m.remoteKey, vk: vk })
+                RemoteSessions.modifiers.Push({ key: m.key, remoteKey: m.remoteKey, vk: vk,
+                    state: { pressed: false, released: false }, sent: false })
         }
         if (!titles.Length || RemoteSessions._hook)
             return
@@ -101,37 +117,41 @@ class RemoteSessions {
         return false
     }
 
-    ; Releases a modifier's remoteKey in the session before a local binding runs.
+    ; Releases a modifier's remoteKey in the session before a local binding
+    ; runs; it stays released until the modifier is pressed again.
     static ReleaseKey(key) {
         for m in RemoteSessions.modifiers {
-            if (m.key = key && RemoteSessions._forwarded.Has(m.remoteKey)) {
-                RemoteSessions._forwarded.Delete(m.remoteKey)
-                RemoteSessions._Send(m.remoteKey, false)
+            if (m.key = key) {
+                m.state := RemoteSessions.Next(m.state, "release", true)
+                RemoteSessions._Sync(m)
             }
         }
     }
 
-    ; Runs inside the SimulatedKeys hook for typed keys: decide now, send later.
+    ; Runs inside the SimulatedKeys hook for typed keys: update state now,
+    ; send on a timer (never from inside the hook).
     static _OnTyped(vk, up) {
         for m in RemoteSessions.modifiers {
             if (m.vk != vk)
                 continue
-            forwarded := RemoteSessions._forwarded.Has(m.remoteKey)
-            switch RemoteSessions.ForwardAction(up, forwarded, forwarded || RemoteSessions.IsActive()) {
-                case "down":
-                    RemoteSessions._forwarded[m.remoteKey] := true
-                    SetTimer(RemoteSessions._SendLater(m.remoteKey, true), -1)
-                case "up":
-                    RemoteSessions._forwarded.Delete(m.remoteKey)
-                    SetTimer(RemoteSessions._SendLater(m.remoteKey, false), -1)
+            next := RemoteSessions.Next(m.state, up ? "up" : "down", up || RemoteSessions.IsActive())
+            if (next != m.state) {
+                m.state := next
+                SetTimer(RemoteSessions._SyncLater(m), -1)
             }
         }
     }
 
-    static _SendLater(key, down) => (*) => RemoteSessions._Send(key, down)
+    static _SyncLater(m) => (*) => RemoteSessions._Sync(m)
 
-    static _Send(key, down) {
-        try Send("{Blind}{" key (down ? " down" : " up") "}")
+    ; Brings the session in line with the state; a no-op when it already is,
+    ; so a timer that runs after ReleaseKey sends nothing.
+    static _Sync(m) {
+        hold := RemoteSessions.ShouldHold(m.state)
+        if (hold = m.sent)
+            return
+        m.sent := hold
+        try Send("{Blind}{" m.remoteKey (hold ? " down" : " up") "}")
     }
 
     static _OnForeground() {
@@ -155,17 +175,11 @@ class RemoteSessions {
         RemoteSessions.active := now
         SetTimer(RemoteSessions._tickFn, now ? RemoteSessions.IntervalMs : 0)
         if (!now) {
-            for key in RemoteSessions._ForwardedKeys()
-                RemoteSessions._Send(key, false)
-            RemoteSessions._forwarded := Map()
+            for m in RemoteSessions.modifiers {
+                m.state := RemoteSessions.Next(m.state, "release", false)
+                RemoteSessions._Sync(m)
+            }
         }
-    }
-
-    static _ForwardedKeys() {
-        keys := []
-        for key in RemoteSessions._forwarded
-            keys.Push(key)
-        return keys
     }
 
     static _ReassertLater(generation) => (*) => RemoteSessions._Reassert(generation)
