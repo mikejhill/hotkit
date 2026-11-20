@@ -41,6 +41,7 @@ class RemoteSessions {
     static _heldSince := 0         ; A_TickCount when a check first found keys held
     static _tickFn := ""
     static _window := 0            ; the session window keys are passed on to
+    static _owed := Map()          ; hwnd -> [remoteKey]: releases owed to a window
 
     ; Pure: validates settings.remoteWindows. Returns { titles, problems }.
     static Parse(raw) {
@@ -91,7 +92,7 @@ class RemoteSessions {
             try vk := GetKeyVK(m.key)
             if (m.remoteKey != "" && vk)
                 RemoteSessions.modifiers.Push({ key: m.key, remoteKey: m.remoteKey, vk: vk,
-                    state: { pressed: false, released: false }, sent: false, owed: 0 })
+                    state: { pressed: false, released: false }, sent: false })
         }
         if (!titles.Length || RemoteSessions._hook)
             return
@@ -191,27 +192,35 @@ class RemoteSessions {
         SetTimer(RemoteSessions._tickFn, now ? RemoteSessions.IntervalMs : 0)
     }
 
-    ; Focus already left the window, so a release sent now would go elsewhere:
-    ; most clients let go of keys when they lose focus, and for the rest the
-    ; release is owed to the window and sent when it is active again.
+    ; Focus already left the window. The release is sent now anyway, which
+    ; clears the key's state here, and is also owed to the window and sent
+    ; again when it is active next, for clients that keep keys held while
+    ; unfocused (most let go of them on losing focus).
     static _ReleaseAll(window) {
         for m in RemoteSessions.modifiers {
+            wasSent := m.sent
             m.state := RemoteSessions.Next(m.state, "release", false)
-            if m.sent
-                m.owed := window
-            m.sent := false
+            RemoteSessions._Sync(m)
+            if (wasSent && window) {
+                if !RemoteSessions._owed.Has(window)
+                    RemoteSessions._owed[window] := []
+                RemoteSessions._owed[window].Push(m.remoteKey)
+            }
         }
     }
 
     static _PayOwed(window) {
-        for m in RemoteSessions.modifiers {
-            if (m.HasOwnProp("owed") && m.owed) {
-                if (m.owed = window)
-                    RemoteSessions._KeyEvent(m.remoteKey, false)
-                if (m.owed = window || !WinExist("ahk_id " m.owed))
-                    m.owed := 0
-            }
+        if RemoteSessions._owed.Has(window) {
+            for key in RemoteSessions._owed[window]
+                RemoteSessions._KeyEvent(key, false)
+            RemoteSessions._owed.Delete(window)
         }
+        stale := []
+        for hwnd in RemoteSessions._owed
+            if !WinExist("ahk_id " hwnd)
+                stale.Push(hwnd)
+        for hwnd in stale
+            RemoteSessions._owed.Delete(hwnd)
     }
 
     static _ReassertLater(generation) => (*) => RemoteSessions._Reassert(generation)
