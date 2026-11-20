@@ -382,32 +382,45 @@ class Bindings_Tests {
         Assert.Equal(0, RemoteSessions.Parse("").titles.Length)
     }
 
-    static Test_RemoteSessionLiftsOnlyForcedCapsLock() {
-        Assert.Equal("Off", RemoteSessions.LiftedState("AlwaysOff", false))
-        Assert.Equal("On", RemoteSessions.LiftedState("AlwaysOff", true), "follows a state keyboard.toggleCapsLock flipped")
-        Assert.Equal("On", RemoteSessions.LiftedState("AlwaysOn", true))
-        Assert.Equal("", RemoteSessions.LiftedState("Off", false), "an unforced state is left alone")
-        Assert.Equal("", RemoteSessions.LiftedState("", false))
-    }
-
     static Test_RemoteSessionWaitsWhileKeysAreHeld() {
         Assert.True(RemoteSessions.MustWait(true, 1), "a key pressed since activation is held")
         Assert.False(RemoteSessions.MustWait(true, 0))
         Assert.False(RemoteSessions.MustWait(false, 1), "without our hook there is nothing to go by")
-        Assert.False(RemoteSessions.MustWait(true, 1, 3000, 3000), "gives up in case the client swallowed the release")
+        Assert.False(RemoteSessions.MustWait(true, 1, 10000, 10000), "gives up in case the client swallowed the release")
     }
 
-    static Test_RemoteSessionRemembersRuntimeCapsLockForce() {
-        saved := { capsLock: RemoteSessions.capsLock, active: RemoteSessions.active }
+    static Test_RemoteSessionForwardsModifierAsRemoteKey() {
+        Assert.Equal("down", RemoteSessions.ForwardAction(false, false, true), "press in a session")
+        Assert.Equal("", RemoteSessions.ForwardAction(false, true, true), "auto-repeat is not sent again")
+        Assert.Equal("", RemoteSessions.ForwardAction(false, false, false), "outside a session nothing is sent")
+        Assert.Equal("up", RemoteSessions.ForwardAction(true, true, false), "release is sent even after leaving")
+        Assert.Equal("", RemoteSessions.ForwardAction(true, false, true), "nothing to release")
+    }
+
+    static Test_ModifierRemoteKeyIsParsed() {
+        problems := Bindings_Tests.Load('{ "modifiers": {',
+            '"caps": { "key": "CapsLock", "remoteKey": "F18" },',
+            '"apps": { "key": "AppsKey", "remoteKey": "NoSuchKey" },',
+            '"plain": { "key": "ScrollLock" } } }')
+        Assert.Equal(1, problems.Length)
+        Assert.Contains(problems[1], "remoteKey")
+        Assert.Equal("F18", Bindings.modifiers["caps"].remoteKey)
+        Assert.Equal("", Bindings.modifiers["apps"].remoteKey, "an invalid remoteKey is dropped")
+        list := Bindings.RemoteModifiers()
+        Assert.Equal(1, list.Length)
+        Assert.Equal("CapsLock", list[1].key)
+        Assert.Equal("F18", list[1].remoteKey)
+    }
+
+    static Test_RemoteKeyCountsOnlyOutsideOwnSessions() {
+        modifier := { key: "F17", remoteKey: "F18" }
+        original := RemoteSessions.GetOwnPropDesc("IsActive")
         try {
-            RemoteSessions.capsLock := ""
-            RemoteSessions.active := false
-            RemoteSessions.CapsLockForced("AlwaysOn")
-            Assert.Equal("AlwaysOn", RemoteSessions.capsLock, "a force applied outside a session is lifted next time")
-            Assert.Equal("On", RemoteSessions.LiftedState(RemoteSessions.capsLock, true))
+            RemoteSessions.DefineProp("IsActive", { Call: (*) => false })
+            Assert.False(Bindings.ModifierDown(modifier), "neither key is down in the test run")
+            Assert.False(Bindings.ModifierDown({ key: "F17", remoteKey: "" }))
         } finally {
-            RemoteSessions.capsLock := saved.capsLock
-            RemoteSessions.active := saved.active
+            RemoteSessions.DefineProp("IsActive", original)
         }
     }
 

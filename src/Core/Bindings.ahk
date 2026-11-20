@@ -117,7 +117,38 @@ class Bindings {
             else
                 Bindings.problems.Push("Modifier '" name "': suspendWhenActive entries must be non-empty WinTitle strings.")
         }
-        Bindings.modifiers[name] := { name: name, key: key, label: label, suspendWhenActive: titles }
+        remoteKey := (modifier is Map) ? MapGet(modifier, "remoteKey", "") : ""
+        if (remoteKey != "" && !(remoteKey is String && Bindings._IsKeyName(remoteKey))) {
+            Bindings.problems.Push("Modifier '" name "': remoteKey must be a key name, such as F18.")
+            remoteKey := ""
+        }
+        Bindings.modifiers[name] := { name: name, key: key, label: label, suspendWhenActive: titles, remoteKey: remoteKey }
+    }
+
+    static _IsKeyName(name) {
+        try return GetKeyVK(name) != 0
+        return false
+    }
+
+    ; Modifiers with a remoteKey, for RemoteSessions.Start: [{ key, remoteKey }].
+    static RemoteModifiers() {
+        list := []
+        for name, modifier in Bindings.modifiers
+            if (modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "")
+                list.Push({ key: modifier.key, remoteKey: modifier.remoteKey })
+        return list
+    }
+
+    ; Pure-ish: whether a held modifier counts as down. The key itself must be
+    ; physically down. Its remoteKey (pressed for us by the hotkit of a machine
+    ; whose remote session we are in) counts too, by logical state since a
+    ; remote client may inject it, but never while we are the one forwarding,
+    ; that is, while one of our own remote session windows is active.
+    static ModifierDown(modifier) {
+        if GetKeyState(modifier.key, "P")
+            return true
+        return modifier.HasOwnProp("remoteKey") && modifier.remoteKey != ""
+            && GetKeyState(modifier.remoteKey) && !RemoteSessions.IsActive()
     }
 
     ; True when a window listed in the modifier's suspendWhenActive is active.
@@ -538,7 +569,7 @@ class Bindings {
         yieldToRemote := spec.HasOwnProp("yieldToRemote") && spec.yieldToRemote
         fn := (hotkeyName := "", *) => (!checkSimulated || SimulatedKeys.Allows(hotkeyName))
             && (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
-            && (modifierKey = "" || (GetKeyState(modifierKey, "P") && !Bindings.ModifierSuspended(modifier)
+            && (modifierKey = "" || (Bindings.ModifierDown(modifier) && !Bindings.ModifierSuspended(modifier)
                 && Bindings.AllPhysicallyDown(physicalMods)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))

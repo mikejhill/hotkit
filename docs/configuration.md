@@ -226,11 +226,10 @@ re-installed every 30 seconds so it keeps running ahead of AutoHotkey's.
 
 ### Remote sessions
 
-Remote Desktop, virtual desktop viewers, and similar clients forward keys to another machine,
-which may run hotkit too. List their windows and both machines share the
-keyboard: your local bindings keep working in the session, and any key no
-local binding takes reaches the remote machine, CapsLock combinations
-included.
+Remote Desktop, virtual desktop viewers, and similar clients forward keys to
+another machine, which may run hotkit too. List their windows and both
+machines share the keyboard: your local bindings keep working in the session,
+and any key no local binding takes reaches the remote machine.
 
 ```jsonc
 "settings": {
@@ -238,6 +237,9 @@ included.
     "ahk_class TscShellContainerClass ahk_exe mstsc.exe",
     "ahk_exe vncviewer.exe"
   ]
+},
+"modifiers": {
+  "caps": { "key": "CapsLock", "remoteKey": "F18" }
 },
 "bindings": [
   { "layer": "1", "modifier": "caps", "keys": "E", "action": "app.toggle", "args": ["remoteDesktop"] },
@@ -247,15 +249,19 @@ included.
 
 While a listed window is active:
 
-- hotkit re-installs its keyboard hook just after the window is activated, so
-  it sees keys before the client's own hook. Remote Desktop installs one when
-  its window gets focus (in full screen, by default), which would otherwise
-  take every key, including the CapsLock release that left the CapsLock
-  layer stuck on.
-- A forced `settings.keyboard.capsLock` state is lifted, so CapsLock reaches
-  the remote machine, and is restored when you leave the window.
-- When a local binding on a held modifier fires, hotkit first releases that
-  modifier in the session, so the remote machine doesn't see it stuck down.
+- hotkit keeps its keyboard hook ahead of the client's. Remote Desktop
+  installs its own hook (in full screen, by default) whenever its window gets
+  focus, and that hook would take every key, including the CapsLock release
+  that left the CapsLock layer stuck on. hotkit re-installs its hook just
+  after the window is activated and then every second, except while a key is
+  held.
+- A modifier with a `remoteKey` is passed on as that key. Holding CapsLock
+  holds F18 in the session, and the remote hotkit, given the same `remoteKey`,
+  treats F18 as CapsLock. CapsLock itself never reaches the session, so a
+  forced `settings.keyboard.capsLock` state holds on both machines. Pick a
+  key that nothing else uses.
+- When a local binding on a held modifier fires, hotkit first releases the
+  `remoteKey` in the session, so the remote machine doesn't see it stuck down.
 - A binding with `"yieldToRemote": true` stands aside and its keys go to the
   remote machine.
 
@@ -263,7 +269,7 @@ To hand the whole keyboard to the remote machine, switch to a layer with
 few bindings (for example only the layer keys): CapsLock combinations that
 layer leaves unbound go through. Holding CapsLock across a local binding
 releases it remotely, so press it again before a combination meant for the
-remote machine.
+remote machine. Both machines need a hotkit version with `remoteKey`.
 
 ### Groups
 

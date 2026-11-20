@@ -211,7 +211,7 @@ class App {
         }
         ; After SimulatedKeys: re-installing hooks for a remote session keeps that order.
         try {
-            RemoteSessions.Start(Bindings.remoteWindows, cfg.Get("settings.keyboard.capsLock", ""))
+            RemoteSessions.Start(Bindings.remoteWindows, Bindings.RemoteModifiers())
         } catch as e {
             Bindings.problems.Push("Couldn't watch for remote session windows, so their clients may take keys first: " e.Message)
         }

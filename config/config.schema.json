@@ -34,7 +34,7 @@
         "remoteWindows": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
-          "description": "WinTitles of remote session clients (Remote Desktop, virtual desktop viewers). There hotkit keeps its hook ahead of the client's, lets CapsLock through, and keys no local binding takes reach the remote machine."
+          "description": "WinTitles of remote session clients (Remote Desktop, virtual desktop viewers). There hotkit keeps its hook ahead of the client's, passes held modifiers on as their remoteKey, and keys no local binding takes reach the remote machine."
         },
         "debug": {
           "type": "boolean"
@@ -68,6 +68,11 @@
           },
           "label": {
             "type": "string"
+          },
+          "remoteKey": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Key that stands in for this modifier across remote sessions, e.g. F18. In a settings.remoteWindows window, holding the modifier holds this key in the session; a hotkit receiving it treats it as the modifier."
           },
           "suspendWhenActive": {
             "description": "WinTitle(s) that pause the modifier while active, e.g. windows that scramble keystrokes sent to keyboard hooks.",

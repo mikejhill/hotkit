@@ -30,6 +30,9 @@ class SimulatedKeys {
     ; Virtual keys typed (not injected) and not yet released, as this hook saw
     ; them. Owners may Clear() it: RemoteSessions does on each activation.
     static down := Map()
+    ; Optional fn(vk, up) called for every typed (not injected) key event,
+    ; inside the hook: it must return quickly and leave sending to a timer.
+    static OnTyped := ""
 
     ; mutate: off (Windows hook plumbing)
     static Enable() {
@@ -92,6 +95,8 @@ class SimulatedKeys {
                     SimulatedKeys.down[SimulatedKeys.last.vk] := true
                 else if SimulatedKeys.down.Has(SimulatedKeys.last.vk)
                     SimulatedKeys.down.Delete(SimulatedKeys.last.vk)
+                if (SimulatedKeys.OnTyped != "")
+                    try SimulatedKeys.OnTyped.Call(SimulatedKeys.last.vk, SimulatedKeys.last.up)
             }
         }
         return DllCall("CallNextHookEx", "ptr", 0, "int", nCode, "ptr", wParam, "ptr", lParam, "ptr")
