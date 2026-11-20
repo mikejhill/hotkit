@@ -408,7 +408,7 @@ class Bindings_Tests {
     static Test_RemoteSessionSyncSendsOnlyChanges() {
         m := { remoteKey: "F18", state: { pressed: true, released: true }, sent: false }
         RemoteSessions._Sync(m)
-        Assert.False(m.sent, "a queued press after a release sends nothing")
+        Assert.False(m.sent, "a released modifier sends nothing")
     }
 
     static Test_ModifierRemoteKeyIsParsed() {

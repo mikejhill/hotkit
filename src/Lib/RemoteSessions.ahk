@@ -128,30 +128,36 @@ class RemoteSessions {
         }
     }
 
-    ; Runs inside the SimulatedKeys hook for typed keys: update state now,
-    ; send on a timer (never from inside the hook).
+    ; Runs inside the SimulatedKeys hook for typed keys. remoteKey is sent from
+    ; right here, so it is queued behind this event and ahead of the next key
+    ; of the chord (as AutoHotkey's own hook does for its disguise keys).
     static _OnTyped(vk, up) {
         for m in RemoteSessions.modifiers {
-            if (m.vk != vk)
+            if !SimulatedKeys.SameKey(vk, m.vk)
                 continue
-            next := RemoteSessions.Next(m.state, up ? "up" : "down", up || RemoteSessions.IsActive())
-            if (next != m.state) {
-                m.state := next
-                SetTimer(RemoteSessions._SyncLater(m), -1)
-            }
+            m.state := RemoteSessions.Next(m.state, up ? "up" : "down", up || RemoteSessions.IsActive())
+            RemoteSessions._Sync(m)
         }
     }
 
-    static _SyncLater(m) => (*) => RemoteSessions._Sync(m)
-
-    ; Brings the session in line with the state; a no-op when it already is,
-    ; so a timer that runs after ReleaseKey sends nothing.
+    ; Brings the session in line with the state; a no-op when it already is.
     static _Sync(m) {
         hold := RemoteSessions.ShouldHold(m.state)
         if (hold = m.sent)
             return
         m.sent := hold
-        try Send("{Blind}{" m.remoteKey (hold ? " down" : " up") "}")
+        RemoteSessions._KeyEvent(m.remoteKey, hold)
+    }
+
+    ; A plain keybd_event rather than Send: it is safe inside the hook, and it
+    ; carries the scan code that Remote Desktop forwards.
+    static _KeyEvent(key, down) {
+        try {
+            vk := GetKeyVK(key)
+            sc := GetKeySC(key)
+            flags := (down ? 0 : 0x2) | (sc > 0xFF ? 0x1 : 0)  ; KEYEVENTF_KEYUP, KEYEVENTF_EXTENDEDKEY
+            DllCall("keybd_event", "uchar", vk, "uchar", sc & 0xFF, "uint", flags, "uptr", 0)
+        }
     }
 
     static _OnForeground() {
