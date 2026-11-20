@@ -271,7 +271,7 @@ class Updates {
         if (Updates.Git("merge-base --is-ancestor HEAD " ref).exit != 0) {
             ; Case-sensitive: git ref names are, and "Main" isn't main.
             if (SubStr(headRef, 1, 11) == "refs/heads/" && headRef !== "refs/heads/main")
-                return fail("The hotkit folder is on the " SubStr(headRef, 12) " branch, not main.")
+                return fail("The hotkit folder is on the " SubStr(headRef, 12) " branch, which has commits that " tag " doesn't have.")
             return fail("The hotkit folder has commits that " tag " doesn't have.")
         }
         r := Updates.Git("merge --ff-only " ref)

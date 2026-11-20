@@ -228,9 +228,9 @@ class Updates_Tests {
                 "Couldn't download v1.5.0: fatal: couldn't find remote ref", 4],
             [Map("merge-base", { exit: 1, out: "" }), "folder has commits that v1.5.0 doesn't have.", 5],
             [Map("symbolic-ref", { exit: 0, out: "refs/heads/fix/thing" }, "merge-base", { exit: 1, out: "" }),
-                "is on the fix/thing branch, not main.", 5],
+                "is on the fix/thing branch, which has commits that v1.5.0", 5],
             [Map("symbolic-ref", { exit: 0, out: "refs/heads/Main" }, "merge-base", { exit: 1, out: "" }),
-                "is on the Main branch, not main.", 5],
+                "is on the Main branch, which has commits that v1.5.0", 5],
             [Map("merge --ff-only", { exit: 128, out: "fatal: Not possible to fast-forward, aborting." }),
                 "git merge failed: fatal: Not possible to fast-forward, aborting.", 6],
         ]
