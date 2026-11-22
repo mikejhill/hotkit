@@ -7,7 +7,7 @@ All notable changes are listed here. The format follows
 ## [Unreleased]
 
 ### Fixed
-- When an update can't fast-forward because the hotkit folder is on another branch, the message now says to switch to main (the branch keeps its commits) instead of only listing the problem. On main itself, it says the extra commits need to be removed or merged.
+- When an update can't fast-forward, the message now says what to do: switch to main when the folder is on another branch and main can take the update (the branch keeps its commits), or rebase local commits onto the release. When the branch is already ahead of the release, it says so instead of reporting a problem.
 
 ## [1.15.1] - 2026-11-19
 
