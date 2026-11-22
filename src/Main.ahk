@@ -1,5 +1,8 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
+; App.Main shows the icon in run mode; --check, --list-actions, --sync-plugins and
+; test runs (HOTKIT_HEADLESS=1) exit quickly and must not flash one in the tray.
+#NoTrayIcon
 #Warn All, OutputDebug
 
 ; hotkit entry point. Run this one script; everything personal

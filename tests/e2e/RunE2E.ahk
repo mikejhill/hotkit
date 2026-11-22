@@ -91,6 +91,16 @@ class E2E_Tests {
             "tray icon should be the bundled default, got <" icon ">")
     }
 
+    static Test_01c_HeadlessRunHidesTrayIcon() {
+        ; tools/ahk.py runs tests with HOTKIT_HEADLESS=1, which this hotkit inherits.
+        hidden := ""
+        for m in E2E_Tests.Marks() {
+            if (SubStr(m, 1, 11) = "iconHidden:")
+                hidden := SubStr(m, 12)
+        }
+        Assert.Equal("1", hidden, "headless run should not show a tray icon")
+    }
+
     static Test_02_SimpleBinding() {
         E2E_Tests.Press(">^>!F20")
         E2E_Tests.WaitFor("simple")

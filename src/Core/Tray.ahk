@@ -22,6 +22,10 @@ class Tray {
     ; none. Call Tray.RefreshTip() when it changes.
     static AddStatus(fn) => Tray._status.Push(fn)
 
+    ; Main.ahk starts with #NoTrayIcon so short-lived runs never flash an icon.
+    ; Only the interactive run mode shows it; test runs (HOTKIT_HEADLESS=1) don't.
+    static ShowsIcon(mode, headless) => mode = "run" && !headless
+
     static RefreshTip() {
         parts := []
         for fn in Tray._status {

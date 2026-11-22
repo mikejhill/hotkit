@@ -21,6 +21,13 @@ class Tray_Tests {
         return cfg
     }
 
+    static Test_OnlyInteractiveRunShowsIcon() {
+        Assert.True(Tray.ShowsIcon("run", false))
+        Assert.False(Tray.ShowsIcon("run", true), "HOTKIT_HEADLESS=1")
+        for mode in ["check", "list-actions", "sync-plugins"]
+            Assert.False(Tray.ShowsIcon(mode, false), mode)
+    }
+
     static Test_DefaultIconShipsWithRepo() {
         Assert.Equal(Paths.RepoRoot() "\assets\hotkit.ico", Tray.DefaultIcon())
         Assert.True(FileExist(Tray.DefaultIcon()), "missing " Tray.DefaultIcon())

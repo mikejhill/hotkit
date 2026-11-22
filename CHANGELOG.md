@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- `--check`, `--list-actions`, `--sync-plugins` and test runs no longer flash a tray icon while they run. Only a normal hotkit run shows the icon.
+
 ## [1.15.2] - 2026-11-22
 
 ### Fixed

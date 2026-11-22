@@ -48,6 +48,8 @@ class App {
     static Main(args := unset) {
         App._args := IsSet(args) ? args : []
         App.ParseArgs(App._args)
+        if Tray.ShowsIcon(App.Mode, EnvGet("HOTKIT_HEADLESS") = "1")
+            A_IconHidden := false
         if (App.Mode = "run") {
             OnError((err, mode) => StatusLog.OnError(err, mode))
             StatusLog.Start(App._explicitConfig != "" ? Paths.Normalize(App._explicitConfig) : Paths.ConfigFile())
