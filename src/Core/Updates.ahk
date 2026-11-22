@@ -288,7 +288,7 @@ class Updates {
             branch := SubStr(headRef, 12)
             if (Updates.Git("merge-base --is-ancestor refs/heads/main " ref).exit = 0)
                 return "hotkit is on the " branch " branch. Switch to main to update; " branch " keeps its commits."
-            return "hotkit is on the " branch " branch, which has commits that " tag " doesn't have."
+            return "hotkit is on the " branch " branch, which has commits that " tag " doesn't have. Rebase them onto " tag " to update."
         }
         if (Updates.Git("merge-base --is-ancestor " ref " HEAD").exit = 0)
             return "hotkit's branch already has everything in " tag ", plus newer commits."

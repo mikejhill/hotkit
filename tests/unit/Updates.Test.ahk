@@ -233,7 +233,7 @@ class Updates_Tests {
             [Map("symbolic-ref", { exit: 0, out: "refs/heads/fix/thing" }, "merge-base --is-ancestor HEAD", { exit: 1, out: "" }),
                 "hotkit is on the fix/thing branch. Switch to main to update; fix/thing keeps its commits.", 6],
             [Map("symbolic-ref", { exit: 0, out: "refs/heads/fix/thing" }, "merge-base", { exit: 1, out: "" }),
-                "hotkit is on the fix/thing branch, which has commits that v1.5.0 doesn't have.", 6],
+                "hotkit is on the fix/thing branch, which has commits that v1.5.0 doesn't have. Rebase them onto v1.5.0 to update.", 6],
             [Map("symbolic-ref", { exit: 0, out: "refs/heads/Main" }, "merge-base", { exit: 1, out: "" }),
                 "hotkit is on the Main branch, which has commits", 6],
             [Map("merge --ff-only", { exit: 128, out: "fatal: Not possible to fast-forward, aborting." }),
