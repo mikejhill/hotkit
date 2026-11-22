@@ -270,14 +270,29 @@ class Updates {
             return fail("Couldn't download " tag ": " Updates.LastLine(r.out))
         if (Updates.Git("merge-base --is-ancestor HEAD " ref).exit != 0) {
             ; Case-sensitive: git ref names are, and "Main" isn't main.
-            if (SubStr(headRef, 1, 11) == "refs/heads/" && headRef !== "refs/heads/main")
-                return fail("The hotkit folder is on the " SubStr(headRef, 12) " branch, which has commits that " tag " doesn't have.")
-            return fail("The hotkit folder has commits that " tag " doesn't have.")
+            return fail(Updates.NotFastForwardMessage(headRef, tag))
         }
         r := Updates.Git("merge --ff-only " ref)
         if (r.exit != 0)
             return fail("git merge failed: " Updates.LastLine(r.out))
         return { ok: true, message: "", notGit: false }
+    }
+
+    ; Why HEAD can't fast-forward to the release, and what to do about it.
+    ; Typical cause: a feature branch left checked out, often a squash-merged
+    ; one whose commits never appear in the release history.
+    static NotFastForwardMessage(headRef, tag) {
+        ref := '"refs/tags/' tag '"'
+        ; Case-sensitive: git ref names are, and "Main" isn't main.
+        if (SubStr(headRef, 1, 11) == "refs/heads/" && headRef !== "refs/heads/main") {
+            branch := SubStr(headRef, 12)
+            if (Updates.Git("merge-base --is-ancestor refs/heads/main " ref).exit = 0)
+                return "hotkit is on the " branch " branch. Switch to main to update; " branch " keeps its commits."
+            return "hotkit is on the " branch " branch, which has commits that " tag " doesn't have. Rebase them onto " tag " to update."
+        }
+        if (Updates.Git("merge-base --is-ancestor " ref " HEAD").exit = 0)
+            return "hotkit's branch already has everything in " tag ", plus newer commits."
+        return "hotkit's branch has commits that " tag " doesn't have. Rebase them onto " tag " to update."
     }
 
     ; Pure: last non-empty line of command output.
