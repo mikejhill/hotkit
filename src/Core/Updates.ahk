@@ -270,9 +270,11 @@ class Updates {
             return fail("Couldn't download " tag ": " Updates.LastLine(r.out))
         if (Updates.Git("merge-base --is-ancestor HEAD " ref).exit != 0) {
             ; Case-sensitive: git ref names are, and "Main" isn't main.
+            ; Typical cause: a feature branch left checked out, often one that was
+            ; squash-merged, so its commits never appear in the release history.
             if (SubStr(headRef, 1, 11) == "refs/heads/" && headRef !== "refs/heads/main")
-                return fail("The hotkit folder is on the " SubStr(headRef, 12) " branch, which has commits that " tag " doesn't have.")
-            return fail("The hotkit folder has commits that " tag " doesn't have.")
+                return fail("The hotkit folder is on the " SubStr(headRef, 12) " branch, not main. Switch to main to update (the branch keeps its commits).")
+            return fail("The hotkit folder's main branch has commits that " tag " doesn't have. Remove or merge them to update.")
         }
         r := Updates.Git("merge --ff-only " ref)
         if (r.exit != 0)
