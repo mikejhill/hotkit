@@ -13,7 +13,7 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.15.2"
+    static Version := "1.15.3"
     static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
@@ -48,6 +48,8 @@ class App {
     static Main(args := unset) {
         App._args := IsSet(args) ? args : []
         App.ParseArgs(App._args)
+        if Tray.ShowsIcon(App.Mode, EnvGet("HOTKIT_HEADLESS") = "1")
+            A_IconHidden := false
         if (App.Mode = "run") {
             OnError((err, mode) => StatusLog.OnError(err, mode))
             StatusLog.Start(App._explicitConfig != "" ? Paths.Normalize(App._explicitConfig) : Paths.ConfigFile())

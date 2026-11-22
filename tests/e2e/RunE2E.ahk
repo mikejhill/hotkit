@@ -75,6 +75,8 @@ class E2E_Tests {
         DirCreate(E2E_Tests.Dir "\plugins")
         FileCopy(A_ScriptDir "\fixture\plugins\Probe.ahk", E2E_Tests.Dir "\plugins\Probe.ahk")
         E2E_Tests.WriteConfig()
+        ; Headless even when this runner is started directly, not via tools/test.py.
+        EnvSet("HOTKIT_HEADLESS", "1")
         Run('"' A_AhkPath '" /ErrorStdOut "' E2E_Tests.Main '" --config-dir "' E2E_Tests.Dir '" --exit-after 120000 --allow-virtualized', , , &pid)
         E2E_Tests.Pid := pid
         ; First start writes the plugin stub and reloads itself, then reports ready.
@@ -89,6 +91,16 @@ class E2E_Tests {
         }
         Assert.True(icon != "" && SubStr(icon, -StrLen("\assets\hotkit.ico")) = "\assets\hotkit.ico",
             "tray icon should be the bundled default, got <" icon ">")
+    }
+
+    static Test_01c_HeadlessRunHidesTrayIcon() {
+        ; Test_01_Starts sets HOTKIT_HEADLESS=1 for this hotkit.
+        hidden := ""
+        for m in E2E_Tests.Marks() {
+            if (SubStr(m, 1, 11) = "iconHidden:")
+                hidden := SubStr(m, 12)
+        }
+        Assert.Equal("1", hidden, "headless run should not show a tray icon")
     }
 
     static Test_02_SimpleBinding() {
