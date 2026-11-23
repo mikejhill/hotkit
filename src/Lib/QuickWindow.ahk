@@ -177,19 +177,34 @@ class QuickWindow {
         activeIndex := 0
         for hwnd in candidates {
             if (hwnd = activeHwnd) {
-                activeIndex := this.Claim(hwnd)
+                activeIndex := this.TryClaim(hwnd)
                 break
             }
         }
         if (includeOtherWindows) {
             for hwnd in candidates
-                this.Claim(hwnd)
-        } else if (!this.windows.Length && candidates.Length) {
-            this.Claim(candidates[1])
+                this.TryClaim(hwnd)
+        } else if (!this.windows.Length) {
+            for hwnd in candidates {
+                if (this.TryClaim(hwnd))
+                    break
+            }
         }
         if (this.windows.Length)
             this.currentIndex := activeIndex ? activeIndex : (previousIndex ? previousIndex : 1)
         return this.windows.Length > 0
+    }
+
+    ; Claims an existing window, skipping one hotkit can't manage (for example a
+    ; window of an app running as administrator while hotkit is not). Returns its
+    ; index, or 0 when skipped.
+    TryClaim(hwnd) {
+        try
+            return this.Claim(hwnd)
+        catch as caughtError {
+            Debugger.Log(this.name ": skipped window " hwnd ": " caughtError.Message)
+            return 0
+        }
     }
 
     Claim(hwnd) {
@@ -271,7 +286,7 @@ class QuickWindow {
         if (alpha != "")
             saved |= 0x10000 | (alpha << 8)
         if (!DllCall("SetPropW", "ptr", hwnd, "str", this.propertyName, "ptr", saved, "int"))
-            throw Error("Could not mark the new window for recovery.")
+            throw Error("Could not mark the window for recovery (error " A_LastError ").")
         this.ApplyManagedStyle(hwnd)
         this.windows.Push(hwnd)
         this.currentIndex := this.windows.Length
