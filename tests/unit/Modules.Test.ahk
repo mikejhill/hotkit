@@ -153,6 +153,7 @@ class Modules_Tests {
         qw.AdoptExisting()
         Assert.Equal("2", Modules_Tests.Join(qw.windows))
         Assert.Equal(1, qw.currentIndex)
+        Assert.Equal("1:0", Modules_Tests.Join(qw.rollbacks), "rejected window rolled back without revealing it")
     }
 
     static Test_QuickWindowAdoptAllContinuesPastRejectedWindow() {
@@ -399,13 +400,14 @@ class QuickWindowClaimStub extends QuickWindow {
         this.rejected := rejected
         this.active := active
         this.attempts := []
+        this.rollbacks := []
         super.__New("Stub", "stub.exe", (*) => 0, (*) => false, Map("claimExisting", true))
     }
 
     Recover() => 0
     GetCandidates(includeHidden := false) => this.candidates
     ActiveWindow() => this.active
-    Restore(hwnd) => 0
+    Restore(hwnd, reveal := true) => this.rollbacks.Push(hwnd ":" reveal)
 
     Claim(hwnd) {
         this.attempts.Push(hwnd)
