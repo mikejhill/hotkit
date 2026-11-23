@@ -207,8 +207,9 @@ class QuickWindow {
         catch as caughtError {
             Debugger.Log(this.name ": skipped window " hwnd ": " caughtError.Message)
             ; Undo a partial claim: the window may be marked and restyled but untracked.
+            ; Claiming never changed its minimized state, so don't reveal it.
             if (!this.IsTracked(hwnd))
-                try this.Restore(hwnd)
+                try this.Restore(hwnd, false)
             return 0
         }
     }
@@ -317,12 +318,14 @@ class QuickWindow {
             WinSetAlwaysOnTop(true, "ahk_id " hwnd)
     }
 
-    Restore(hwnd) {
+    ; reveal: false puts the saved styles back without unminimizing the window.
+    Restore(hwnd, reveal := true) {
         saved := DllCall("GetPropW", "ptr", hwnd, "str", this.propertyName, "ptr")
         if (!saved)
             return
         ; Keep the marker until the window is restored, so a later Recover() can retry.
-        this.Reveal(hwnd)
+        if (reveal)
+            this.Reveal(hwnd)
         WinSetExStyle((saved & QuickWindow.ToolWindow) ? ("+" QuickWindow.ToolWindow) : ("-" QuickWindow.ToolWindow), "ahk_id " hwnd)
         WinSetExStyle((saved & QuickWindow.AppWindow) ? ("+" QuickWindow.AppWindow) : ("-" QuickWindow.AppWindow), "ahk_id " hwnd)
         WinSetExStyle((saved & QuickWindow.ClickThrough) ? ("+" QuickWindow.ClickThrough) : ("-" QuickWindow.ClickThrough), "ahk_id " hwnd)

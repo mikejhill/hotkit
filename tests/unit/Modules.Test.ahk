@@ -184,6 +184,20 @@ class Modules_Tests {
         }
     }
 
+    static Test_QuickWindowRollbackRestoreDoesNotReveal() {
+        g := Gui()
+        g.Show("Minimize NoActivate")
+        qw := QuickWindowRevealFails()
+        try {
+            DllCall("SetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr", 0x100000, "int")
+            qw.Restore(g.Hwnd, false)
+            Assert.False(DllCall("GetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr"), "marker removed after restore")
+            Assert.Equal(-1, WinGetMinMax("ahk_id " g.Hwnd))
+        } finally {
+            g.Destroy()
+        }
+    }
+
     static Test_QuickWindowRejectsBadMatch() {
         QuickWindowsModule.Definitions := Map("q", Map("exe", "x.exe", "launch", "x.exe", "match", Map("nope", 1)))
         QuickWindowsModule.Instances := Map()
