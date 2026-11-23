@@ -148,6 +148,58 @@ class Modules_Tests {
         Assert.Throws(() => QuickWindowsModule.Get("missing"), "Unknown quick window")
     }
 
+    static Test_QuickWindowAdoptSkipsRejectedWindow() {
+        qw := QuickWindowClaimStub([1, 2], [1])
+        qw.AdoptExisting()
+        Assert.Equal("2", Modules_Tests.Join(qw.windows))
+        Assert.Equal(1, qw.currentIndex)
+        Assert.Equal("1:0", Modules_Tests.Join(qw.rollbacks), "rejected window rolled back without revealing it")
+    }
+
+    static Test_QuickWindowAdoptAllContinuesPastRejectedWindow() {
+        qw := QuickWindowClaimStub([1, 2, 3], [2])
+        qw.AdoptExisting(true)
+        Assert.Equal("1,3", Modules_Tests.Join(qw.windows))
+    }
+
+    static Test_QuickWindowAdoptTriesRejectedActiveWindowOnce() {
+        qw := QuickWindowClaimStub([1, 2], [1], 1)
+        qw.AdoptExisting(true)
+        Assert.Equal("1,2", Modules_Tests.Join(qw.attempts))
+        Assert.Equal("2", Modules_Tests.Join(qw.windows))
+        qw := QuickWindowClaimStub([1, 2], [1], 1)
+        qw.AdoptExisting()
+        Assert.Equal("1,2", Modules_Tests.Join(qw.attempts))
+    }
+
+    static Test_QuickWindowFailedRestoreKeepsMarker() {
+        g := Gui()
+        qw := QuickWindowRevealFails()
+        try {
+            DllCall("SetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr", 0x100000, "int")
+            Assert.Throws(() => qw.Restore(g.Hwnd), "reveal failed")
+            Assert.True(DllCall("GetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr"), "marker kept for a later retry")
+        } finally {
+            DllCall("RemovePropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr")
+            g.Destroy()
+        }
+    }
+
+    static Test_QuickWindowRollbackRestoreDoesNotReveal() {
+        g := Gui()
+        g.Show("Minimize")
+        qw := QuickWindowRevealFails()
+        try {
+            Assert.Equal(-1, WinGetMinMax("ahk_id " g.Hwnd), "fixture window starts minimized")
+            DllCall("SetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr", 0x100000, "int")
+            qw.Restore(g.Hwnd, false)
+            Assert.False(DllCall("GetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr"), "marker removed after restore")
+            Assert.Equal(-1, WinGetMinMax("ahk_id " g.Hwnd))
+        } finally {
+            g.Destroy()
+        }
+    }
+
     static Test_QuickWindowRejectsBadMatch() {
         QuickWindowsModule.Definitions := Map("q", Map("exe", "x.exe", "launch", "x.exe", "match", Map("nope", 1)))
         QuickWindowsModule.Instances := Map()
@@ -339,3 +391,41 @@ class Modules_Tests {
     }
 }
 TestRunner.Add(Modules_Tests)
+
+; A quick window whose candidates and claim results are scripted, so adoption can
+; be tested without real windows. Claims of hwnds in `rejected` throw.
+class QuickWindowClaimStub extends QuickWindow {
+    __New(candidates, rejected, active := 0) {
+        this.candidates := candidates
+        this.rejected := rejected
+        this.active := active
+        this.attempts := []
+        this.rollbacks := []
+        super.__New("Stub", "stub.exe", (*) => 0, (*) => false, Map("claimExisting", true))
+    }
+
+    Recover() => 0
+    GetCandidates(includeHidden := false) => this.candidates
+    ActiveWindow() => this.active
+    Restore(hwnd, reveal := true) => this.rollbacks.Push(hwnd ":" reveal)
+
+    Claim(hwnd) {
+        this.attempts.Push(hwnd)
+        for rejectedHwnd in this.rejected {
+            if (rejectedHwnd = hwnd)
+                throw Error("Could not mark the window for recovery (error 5).")
+        }
+        this.windows.Push(hwnd)
+        this.currentIndex := this.windows.Length
+        return this.currentIndex
+    }
+}
+
+; A quick window whose restore fails on its first window operation.
+class QuickWindowRevealFails extends QuickWindow {
+    __New() => super.__New("RevealFails", "stub.exe", (*) => 0, (*) => false)
+    Recover() => 0
+    Reveal(hwnd) {
+        throw Error("reveal failed")
+    }
+}

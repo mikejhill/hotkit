@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Quick window toggle, cycle and show all now skip windows hotkit can't manage, such as an app window running as administrator while hotkit is not, instead of failing with "Could not mark the new window for recovery."
+
 ## [1.15.3] - 2026-11-22
 
 ### Fixed

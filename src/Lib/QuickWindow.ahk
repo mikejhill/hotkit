@@ -172,25 +172,57 @@ class QuickWindow {
 
     AdoptExisting(includeOtherWindows := false) {
         candidates := this.GetCandidates()
-        activeHwnd := WinActive("ahk_exe " this.exeName)
+        activeHwnd := this.ActiveWindow()
         previousIndex := this.currentIndex
         activeIndex := 0
         for hwnd in candidates {
             if (hwnd = activeHwnd) {
-                activeIndex := this.Claim(hwnd)
+                activeIndex := this.TryClaim(hwnd)
                 break
             }
         }
+        ; The active window was already tried above; don't try it again.
         if (includeOtherWindows) {
-            for hwnd in candidates
-                this.Claim(hwnd)
-        } else if (!this.windows.Length && candidates.Length) {
-            this.Claim(candidates[1])
+            for hwnd in candidates {
+                if (hwnd != activeHwnd)
+                    this.TryClaim(hwnd)
+            }
+        } else if (!this.windows.Length) {
+            for hwnd in candidates {
+                if (hwnd != activeHwnd && this.TryClaim(hwnd))
+                    break
+            }
         }
         if (this.windows.Length)
             this.currentIndex := activeIndex ? activeIndex : (previousIndex ? previousIndex : 1)
         return this.windows.Length > 0
     }
+
+    ; Claims an existing window, skipping one hotkit can't manage (for example a
+    ; window of an app running as administrator while hotkit is not). Returns its
+    ; index, or 0 when skipped.
+    TryClaim(hwnd) {
+        try
+            return this.Claim(hwnd)
+        catch as caughtError {
+            Debugger.Log(this.name ": skipped window " hwnd ": " caughtError.Message)
+            ; Undo a partial claim: the window may be marked and restyled but untracked.
+            ; Claiming never changed its minimized state, so don't reveal it.
+            if (!this.IsTracked(hwnd))
+                try this.Restore(hwnd, false)
+            return 0
+        }
+    }
+
+    IsTracked(hwnd) {
+        for trackedHwnd in this.windows {
+            if (trackedHwnd = hwnd)
+                return true
+        }
+        return false
+    }
+
+    ActiveWindow() => WinActive("ahk_exe " this.exeName)
 
     Claim(hwnd) {
         for index, trackedHwnd in this.windows {
@@ -271,7 +303,7 @@ class QuickWindow {
         if (alpha != "")
             saved |= 0x10000 | (alpha << 8)
         if (!DllCall("SetPropW", "ptr", hwnd, "str", this.propertyName, "ptr", saved, "int"))
-            throw Error("Could not mark the new window for recovery.")
+            throw Error("Could not mark the window for recovery (error " A_LastError ").")
         this.ApplyManagedStyle(hwnd)
         this.windows.Push(hwnd)
         this.currentIndex := this.windows.Length
@@ -286,23 +318,23 @@ class QuickWindow {
             WinSetAlwaysOnTop(true, "ahk_id " hwnd)
     }
 
-    Restore(hwnd) {
+    ; reveal: false puts the saved styles back without unminimizing the window.
+    Restore(hwnd, reveal := true) {
         saved := DllCall("GetPropW", "ptr", hwnd, "str", this.propertyName, "ptr")
         if (!saved)
             return
-        try {
+        ; Keep the marker until the window is restored, so a later Recover() can retry.
+        if (reveal)
             this.Reveal(hwnd)
-            WinSetExStyle((saved & QuickWindow.ToolWindow) ? ("+" QuickWindow.ToolWindow) : ("-" QuickWindow.ToolWindow), "ahk_id " hwnd)
-            WinSetExStyle((saved & QuickWindow.AppWindow) ? ("+" QuickWindow.AppWindow) : ("-" QuickWindow.AppWindow), "ahk_id " hwnd)
-            WinSetExStyle((saved & QuickWindow.ClickThrough) ? ("+" QuickWindow.ClickThrough) : ("-" QuickWindow.ClickThrough), "ahk_id " hwnd)
-            if (saved & 0x10000)
-                WinSetTransparent((saved >> 8) & 0xff, "ahk_id " hwnd)
-            else
-                WinSetTransparent("Off", "ahk_id " hwnd)
-            WinSetAlwaysOnTop(!!(saved & QuickWindow.Topmost), "ahk_id " hwnd)
-        } finally {
-            DllCall("RemovePropW", "ptr", hwnd, "str", this.propertyName, "ptr")
-        }
+        WinSetExStyle((saved & QuickWindow.ToolWindow) ? ("+" QuickWindow.ToolWindow) : ("-" QuickWindow.ToolWindow), "ahk_id " hwnd)
+        WinSetExStyle((saved & QuickWindow.AppWindow) ? ("+" QuickWindow.AppWindow) : ("-" QuickWindow.AppWindow), "ahk_id " hwnd)
+        WinSetExStyle((saved & QuickWindow.ClickThrough) ? ("+" QuickWindow.ClickThrough) : ("-" QuickWindow.ClickThrough), "ahk_id " hwnd)
+        if (saved & 0x10000)
+            WinSetTransparent((saved >> 8) & 0xff, "ahk_id " hwnd)
+        else
+            WinSetTransparent("Off", "ahk_id " hwnd)
+        WinSetAlwaysOnTop(!!(saved & QuickWindow.Topmost), "ahk_id " hwnd)
+        DllCall("RemovePropW", "ptr", hwnd, "str", this.propertyName, "ptr")
     }
 
     Recover() {
