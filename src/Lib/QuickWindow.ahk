@@ -172,7 +172,7 @@ class QuickWindow {
 
     AdoptExisting(includeOtherWindows := false) {
         candidates := this.GetCandidates()
-        activeHwnd := WinActive("ahk_exe " this.exeName)
+        activeHwnd := this.ActiveWindow()
         previousIndex := this.currentIndex
         activeIndex := 0
         for hwnd in candidates {
@@ -181,12 +181,15 @@ class QuickWindow {
                 break
             }
         }
+        ; The active window was already tried above; don't try it again.
         if (includeOtherWindows) {
-            for hwnd in candidates
-                this.TryClaim(hwnd)
+            for hwnd in candidates {
+                if (hwnd != activeHwnd)
+                    this.TryClaim(hwnd)
+            }
         } else if (!this.windows.Length) {
             for hwnd in candidates {
-                if (this.TryClaim(hwnd))
+                if (hwnd != activeHwnd && this.TryClaim(hwnd))
                     break
             }
         }
@@ -203,9 +206,22 @@ class QuickWindow {
             return this.Claim(hwnd)
         catch as caughtError {
             Debugger.Log(this.name ": skipped window " hwnd ": " caughtError.Message)
+            ; Undo a partial claim: the window may be marked and restyled but untracked.
+            if (!this.IsTracked(hwnd))
+                try this.Restore(hwnd)
             return 0
         }
     }
+
+    IsTracked(hwnd) {
+        for trackedHwnd in this.windows {
+            if (trackedHwnd = hwnd)
+                return true
+        }
+        return false
+    }
+
+    ActiveWindow() => WinActive("ahk_exe " this.exeName)
 
     Claim(hwnd) {
         for index, trackedHwnd in this.windows {

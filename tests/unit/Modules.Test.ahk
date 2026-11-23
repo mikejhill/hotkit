@@ -148,6 +148,36 @@ class Modules_Tests {
         Assert.Throws(() => QuickWindowsModule.Get("missing"), "Unknown quick window")
     }
 
+    static Test_QuickWindowAdoptSkipsRejectedWindow() {
+        qw := QuickWindowClaimStub([1, 2], [1])
+        qw.AdoptExisting()
+        Assert.Equal("2", Modules_Tests.Join(qw.windows))
+        Assert.Equal(1, qw.currentIndex)
+    }
+
+    static Test_QuickWindowAdoptAllContinuesPastRejectedWindow() {
+        qw := QuickWindowClaimStub([1, 2, 3], [2])
+        qw.AdoptExisting(true)
+        Assert.Equal("1,3", Modules_Tests.Join(qw.windows))
+    }
+
+    static Test_QuickWindowAdoptTriesRejectedActiveWindowOnce() {
+        qw := QuickWindowClaimStub([1, 2], [1], 1)
+        qw.AdoptExisting(true)
+        Assert.Equal("1,2", Modules_Tests.Join(qw.attempts))
+        Assert.Equal("2", Modules_Tests.Join(qw.windows))
+        qw := QuickWindowClaimStub([1, 2], [1], 1)
+        qw.AdoptExisting()
+        Assert.Equal("1,2", Modules_Tests.Join(qw.attempts))
+    }
+
+    static Join(items) {
+        text := ""
+        for item in items
+            text .= (text = "" ? "" : ",") item
+        return text
+    }
+
     static Test_QuickWindowRejectsBadMatch() {
         QuickWindowsModule.Definitions := Map("q", Map("exe", "x.exe", "launch", "x.exe", "match", Map("nope", 1)))
         QuickWindowsModule.Instances := Map()
@@ -339,3 +369,31 @@ class Modules_Tests {
     }
 }
 TestRunner.Add(Modules_Tests)
+
+; A quick window whose candidates and claim results are scripted, so adoption can
+; be tested without real windows. Claims of hwnds in `rejected` throw.
+class QuickWindowClaimStub extends QuickWindow {
+    __New(candidates, rejected, active := 0) {
+        this.candidates := candidates
+        this.rejected := rejected
+        this.active := active
+        this.attempts := []
+        super.__New("Stub", "stub.exe", (*) => 0, (*) => false, Map("claimExisting", true))
+    }
+
+    Recover() => 0
+    GetCandidates(includeHidden := false) => this.candidates
+    ActiveWindow() => this.active
+    Restore(hwnd) => 0
+
+    Claim(hwnd) {
+        this.attempts.Push(hwnd)
+        for rejectedHwnd in this.rejected {
+            if (rejectedHwnd = hwnd)
+                throw Error("Could not mark the window for recovery (error 5).")
+        }
+        this.windows.Push(hwnd)
+        this.currentIndex := this.windows.Length
+        return this.currentIndex
+    }
+}
