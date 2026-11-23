@@ -171,13 +171,6 @@ class Modules_Tests {
         Assert.Equal("1,2", Modules_Tests.Join(qw.attempts))
     }
 
-    static Join(items) {
-        text := ""
-        for item in items
-            text .= (text = "" ? "" : ",") item
-        return text
-    }
-
     static Test_QuickWindowRejectsBadMatch() {
         QuickWindowsModule.Definitions := Map("q", Map("exe", "x.exe", "launch", "x.exe", "match", Map("nope", 1)))
         QuickWindowsModule.Instances := Map()
