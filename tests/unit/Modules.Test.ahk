@@ -171,6 +171,19 @@ class Modules_Tests {
         Assert.Equal("1,2", Modules_Tests.Join(qw.attempts))
     }
 
+    static Test_QuickWindowFailedRestoreKeepsMarker() {
+        g := Gui()
+        qw := QuickWindowRevealFails()
+        try {
+            DllCall("SetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr", 0x100000, "int")
+            Assert.Throws(() => qw.Restore(g.Hwnd), "reveal failed")
+            Assert.True(DllCall("GetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr"), "marker kept for a later retry")
+        } finally {
+            DllCall("RemovePropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr")
+            g.Destroy()
+        }
+    }
+
     static Test_QuickWindowRejectsBadMatch() {
         QuickWindowsModule.Definitions := Map("q", Map("exe", "x.exe", "launch", "x.exe", "match", Map("nope", 1)))
         QuickWindowsModule.Instances := Map()
@@ -388,5 +401,14 @@ class QuickWindowClaimStub extends QuickWindow {
         this.windows.Push(hwnd)
         this.currentIndex := this.windows.Length
         return this.currentIndex
+    }
+}
+
+; A quick window whose restore fails on its first window operation.
+class QuickWindowRevealFails extends QuickWindow {
+    __New() => super.__New("RevealFails", "stub.exe", (*) => 0, (*) => false)
+    Recover() => 0
+    Reveal(hwnd) {
+        throw Error("reveal failed")
     }
 }

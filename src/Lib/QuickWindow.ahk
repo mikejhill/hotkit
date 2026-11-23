@@ -321,19 +321,17 @@ class QuickWindow {
         saved := DllCall("GetPropW", "ptr", hwnd, "str", this.propertyName, "ptr")
         if (!saved)
             return
-        try {
-            this.Reveal(hwnd)
-            WinSetExStyle((saved & QuickWindow.ToolWindow) ? ("+" QuickWindow.ToolWindow) : ("-" QuickWindow.ToolWindow), "ahk_id " hwnd)
-            WinSetExStyle((saved & QuickWindow.AppWindow) ? ("+" QuickWindow.AppWindow) : ("-" QuickWindow.AppWindow), "ahk_id " hwnd)
-            WinSetExStyle((saved & QuickWindow.ClickThrough) ? ("+" QuickWindow.ClickThrough) : ("-" QuickWindow.ClickThrough), "ahk_id " hwnd)
-            if (saved & 0x10000)
-                WinSetTransparent((saved >> 8) & 0xff, "ahk_id " hwnd)
-            else
-                WinSetTransparent("Off", "ahk_id " hwnd)
-            WinSetAlwaysOnTop(!!(saved & QuickWindow.Topmost), "ahk_id " hwnd)
-        } finally {
-            DllCall("RemovePropW", "ptr", hwnd, "str", this.propertyName, "ptr")
-        }
+        ; Keep the marker until the window is restored, so a later Recover() can retry.
+        this.Reveal(hwnd)
+        WinSetExStyle((saved & QuickWindow.ToolWindow) ? ("+" QuickWindow.ToolWindow) : ("-" QuickWindow.ToolWindow), "ahk_id " hwnd)
+        WinSetExStyle((saved & QuickWindow.AppWindow) ? ("+" QuickWindow.AppWindow) : ("-" QuickWindow.AppWindow), "ahk_id " hwnd)
+        WinSetExStyle((saved & QuickWindow.ClickThrough) ? ("+" QuickWindow.ClickThrough) : ("-" QuickWindow.ClickThrough), "ahk_id " hwnd)
+        if (saved & 0x10000)
+            WinSetTransparent((saved >> 8) & 0xff, "ahk_id " hwnd)
+        else
+            WinSetTransparent("Off", "ahk_id " hwnd)
+        WinSetAlwaysOnTop(!!(saved & QuickWindow.Topmost), "ahk_id " hwnd)
+        DllCall("RemovePropW", "ptr", hwnd, "str", this.propertyName, "ptr")
     }
 
     Recover() {
