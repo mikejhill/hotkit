@@ -186,9 +186,10 @@ class Modules_Tests {
 
     static Test_QuickWindowRollbackRestoreDoesNotReveal() {
         g := Gui()
-        g.Show("Minimize NoActivate")
+        g.Show("Minimize")
         qw := QuickWindowRevealFails()
         try {
+            Assert.Equal(-1, WinGetMinMax("ahk_id " g.Hwnd), "fixture window starts minimized")
             DllCall("SetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr", 0x100000, "int")
             qw.Restore(g.Hwnd, false)
             Assert.False(DllCall("GetPropW", "ptr", g.Hwnd, "str", qw.propertyName, "ptr"), "marker removed after restore")
