@@ -136,7 +136,7 @@ class DesktopModule {
         firedBy := Bindings.ThisHotkey()
         ; The focused app (a remote session client) took the Win press, so
         ; Windows never got it and that app would take Win+<n> too.
-        swallowed := Bindings.WinSwallowed()
+        swallowed := Bindings.InWinChord() || Bindings.WinSwallowed()
         ; Before focus moves: the binding's whenActive must still match.
         triggers := Bindings.WithRemoteKeys(DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, firedBy,
             (spec) => (fn := Bindings._Context(spec)) = "" || fn()))

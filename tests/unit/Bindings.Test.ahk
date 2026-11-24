@@ -814,30 +814,62 @@ class Bindings_Tests {
         Assert.False(Bindings.HasWinChords())
     }
 
+    static FakeChord(runs, keys, mods, wildcard, extra := "") {
+        c := { vk: 0x31, sc: 0x02, spec: { keys: keys, waitRelease: false }, context: "", mods: mods,
+            wildcard: wildcard, passThrough: false, winSide: "any", run: () => runs.Push(keys) }
+        if (extra != "") {
+            for k, v in extra.OwnProps()
+                c.%k% := v
+        }
+        return c
+    }
+
     static Test_InterceptKeyTakesWinChordsWhileWinIsSwallowed() {
         runs := []
         saved := SimulatedKeys.winDown
         try {
             SimulatedKeys.enabled := true
-            spec := { keys: "*#1" }
-            Bindings._winChords := [{ vk: 0x31, spec: spec, context: "", mods: ["Win"], wildcard: true,
-                winSide: "any", run: () => runs.Push(Bindings.ThisHotkey()) }]
+            chord := (keys, mods, wildcard, extra := "") => Bindings_Tests.FakeChord(runs, keys, mods, wildcard, extra)
+            Bindings._winChords := [chord("*#1", ["Win"], true)]
             SimulatedKeys.winDown := { L: 0, R: 0 }
-            Assert.False(Bindings.InterceptKey(0x31, false, false), "Win not held: AutoHotkey handles the key")
+            Assert.False(Bindings.InterceptKey(0x31, 0x02, false, false), "Win not held: AutoHotkey handles the key")
             SimulatedKeys.winDown := { L: A_TickCount, R: 0 }
-            Assert.False(Bindings.InterceptKey(0x32, false, false), "no chord on this key")
-            Assert.False(Bindings.InterceptKey(0x5B, false, false), "Win itself passes")
-            Assert.True(Bindings.InterceptKey(0x31, false, false), "the chord's key is taken")
-            Assert.True(Bindings.InterceptKey(0x31, false, false), "its auto-repeat is taken")
-            Assert.True(Bindings.InterceptKey(0x31, true, false), "its release is taken")
-            Assert.False(Bindings.InterceptKey(0x31, true, false), "a later release passes")
+            Assert.False(Bindings.InterceptKey(0x32, 0x03, false, false), "no chord on this key")
+            Assert.False(Bindings.InterceptKey(0x5B, 0x15B, false, false), "Win itself passes")
+            Assert.False(Bindings.InterceptKey(0x31, 0x02, false, true), "injected keys pass")
+            Assert.False(Bindings.InterceptKey(0x31, 0x4F, false, false), "same virtual key, other scan code")
+            Assert.True(Bindings.InterceptKey(0x31, 0x02, false, false), "the chord's key is taken")
+            Assert.False(Bindings.InterceptKey(0x31, 0x02, false, true), "the action's own output passes")
+            Assert.False(Bindings.InterceptKey(0x31, 0x02, true, true), "and its release")
+            Sleep(30)
+            Assert.True(Bindings.InterceptKey(0x31, 0x02, false, false), "auto-repeat is taken")
+            Assert.True(Bindings.InterceptKey(0x31, 0x02, true, false), "the typed release is taken")
+            Assert.False(Bindings.InterceptKey(0x31, 0x02, true, false), "a later release passes")
             Sleep(50)
-            Assert.Equal(1, runs.Length, "the binding runs once")
-            Bindings._winChords[1].run := () => (Bindings._thisHotkey := spec.keys, runs.Push(Bindings.ThisHotkey()), Bindings._thisHotkey := "")
-            Bindings._winChords[1].run.Call()
-            Assert.Equal("*#1", runs[2], "actions see the chord's keys as the hotkey")
-            Bindings._winChords[1].winSide := "R"
-            Assert.False(Bindings.InterceptKey(0x31, false, false), "a sided chord needs that Win key")
+            Assert.Equal(2, runs.Length, "the binding runs on the press and on auto-repeat")
+
+            runs := []
+            Bindings._winChords := [chord("*#1", ["Win"], true), chord("#1", ["Win"], false)]
+            Assert.True(Bindings.InterceptKey(0x31, 0x02, false, false))
+            Bindings.InterceptKey(0x31, 0x02, true, false)
+            Sleep(50)
+            Assert.Equal("#1", runs.Length ? runs[1] : "", "the exact chord beats the wildcard")
+
+            runs := []
+            Bindings._winChords := [chord("~#1", ["Win"], false, { passThrough: true })]
+            Assert.False(Bindings.InterceptKey(0x31, 0x02, false, false), "a pass-through chord leaves the key")
+            Assert.False(Bindings.InterceptKey(0x31, 0x02, true, false))
+            Sleep(50)
+            Assert.Equal(1, runs.Length, "a pass-through chord still runs")
+
+            Bindings._winChords := [chord("#1", ["Win"], false, { winSide: "R" })]
+            Assert.False(Bindings.InterceptKey(0x31, 0x02, false, false), "a sided chord needs that Win key")
+
+            Assert.False(Bindings.InWinChord())
+            seen := ""
+            Bindings._RunWinChord({ keys: "*#1" }, () => seen := Bindings.ThisHotkey() "|" Bindings.InWinChord())
+            Assert.Equal("*#1|1", seen, "actions see the chord's keys and that Win was swallowed")
+            Assert.False(Bindings.InWinChord())
         } finally {
             SimulatedKeys.enabled := false
             SimulatedKeys.winDown := saved

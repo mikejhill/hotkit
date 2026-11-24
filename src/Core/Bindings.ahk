@@ -548,27 +548,47 @@ class Bindings {
     static ThisHotkey() => Bindings._thisHotkey != "" ? Bindings._thisHotkey : A_ThisHotkey
 
     ; Runs inside the SimulatedKeys hook for every key event; true blocks it.
-    ; While Win is swallowed, AutoHotkey can't match Win chords, so a key
-    ; press that completes one is taken here, ahead of the other program's
-    ; hook, and the binding runs on a timer. Its auto-repeat and release
-    ; are taken too.
-    static InterceptKey(vk, up, injected) {
+    ; sc is the scan code, plus 0x100 for extended keys. While Win is
+    ; swallowed, AutoHotkey can't match Win chords, so a typed key press that
+    ; completes one is taken here, ahead of the other program's hook, and the
+    ; binding runs on a timer. Auto-repeat runs it again (unless it has
+    ; waitRelease), and the release is taken too. Pass-through (~) chords run
+    ; without taking the key. Injected keys, such as the action's own output,
+    ; always pass.
+    static InterceptKey(vk, sc, up, injected) {
+        if injected
+            return false
         if Bindings._winChordKeys.Has(vk) {
+            chord := Bindings._winChordKeys[vk]
             if up
                 Bindings._winChordKeys.Delete(vk)
+            else if !chord.spec.waitRelease
+                SetTimer(chord.run, -1)
             return true
         }
         if (up || !Bindings._winChords.Length || vk = 0x5B || vk = 0x5C || !Bindings.WinSwallowed())
             return false
+        best := "", bestRank := -1
         for chord in Bindings._winChords {
-            if (chord.vk != vk || !Bindings._WinChordEligible(chord))
+            if (chord.vk != vk || (chord.sc && sc && chord.sc != sc) || !Bindings._WinChordEligible(chord))
                 continue
-            Bindings._winChordKeys[vk] := true
-            SetTimer(chord.run, -1)
-            return true
+            rank := Bindings.ChordRank(chord.mods, chord.wildcard)
+            if (rank > bestRank)
+                best := chord, bestRank := rank
         }
-        return false
+        if (best = "")
+            return false
+        SetTimer(best.run, -1)
+        if best.passThrough
+            return false
+        Bindings._winChordKeys[vk] := best
+        return true
     }
+
+    ; Pure: how specific a chord is; among eligible chords the most specific
+    ; runs (earliest registered on a tie), as AutoHotkey prefers exact
+    ; modifiers over a wildcard.
+    static ChordRank(mods, wildcard) => (wildcard ? 0 : 100) + mods.Length
 
     static _WinChordEligible(chord) {
         if (chord.winSide = "any" ? !SimulatedKeys.WinHeld() : !SimulatedKeys.WinHeld(chord.winSide))
@@ -589,6 +609,10 @@ class Bindings {
         try handler()
         finally Bindings._thisHotkey := ""
     }
+
+    ; True while InterceptKey runs a Win chord: the program that had focus
+    ; swallowed Win, even if Win was released before the action started.
+    static InWinChord() => Bindings._thisHotkey != ""
 
     ; Pure: the hotkey modifiers (Ctrl, Shift, Alt, Win) that must be
     ; physically down for a binding on a held modifier key. That modifier is
@@ -705,8 +729,10 @@ class Bindings {
             if vk {
                 parsed := HotkeyText.Parse(spec.keys)
                 chordHandler := handler
-                Bindings._winChords.Push({ vk: vk, spec: spec, context: context, mods: parsed.mods,
-                    wildcard: parsed.wildcard, winSide: Bindings.WinSide(parsed.mods),
+                sc := 0
+                try sc := GetKeySC(parsed.key)
+                Bindings._winChords.Push({ vk: vk, sc: sc, spec: spec, context: context, mods: parsed.mods,
+                    wildcard: parsed.wildcard, passThrough: parsed.passThrough, winSide: Bindings.WinSide(parsed.mods),
                     run: () => Bindings._RunWinChord(spec, chordHandler) })
             }
         }

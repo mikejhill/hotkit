@@ -50,9 +50,10 @@ class SimulatedKeys {
     ; Typed Win keys as this hook saw them: A_TickCount of the latest key-down
     ; while held, 0 when up.
     static winDown := { L: 0, R: 0 }
-    ; Optional fn(vk, up, injected) called for every key event, inside the
-    ; hook, after `last` is updated; returning true blocks the event from
-    ; every later hook and from the system. It must return quickly.
+    ; Optional fn(vk, sc, up, injected) called for every key event, inside the
+    ; hook, after `last` is updated (sc is the scan code, plus 0x100 for an
+    ; extended key); returning true blocks the event from every later hook
+    ; and from the system. It must return quickly.
     static Intercept := ""
 
     ; mutate: off (Windows hook plumbing)
@@ -79,7 +80,7 @@ class SimulatedKeys {
     static _OnForeground() {
         ; One closure per delay: SetTimer on the same function would just move one timer.
         for delay in SimulatedKeys.ForegroundReinstallDelays
-            SetTimer((*) => SimulatedKeys._Reinstall(), -delay)
+            SetTimer(((d, *) => SimulatedKeys._Reinstall()).Bind(delay), -delay)
     }
 
     static Disable() {
@@ -144,7 +145,8 @@ class SimulatedKeys {
             }
             if (SimulatedKeys.Intercept != "") {
                 block := false
-                try block := SimulatedKeys.Intercept.Call(SimulatedKeys.last.vk, SimulatedKeys.last.up, SimulatedKeys.last.injected)
+                sc := (NumGet(lParam, 4, "uint") & 0xFF) | ((flags & 0x1) ? 0x100 : 0)
+                try block := SimulatedKeys.Intercept.Call(SimulatedKeys.last.vk, sc, SimulatedKeys.last.up, SimulatedKeys.last.injected)
                 if block
                     return 1
             }

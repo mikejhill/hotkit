@@ -206,7 +206,7 @@ class App {
         ; sessions also use its record of the latest key (see RemoteSessions).
         ; It also sees Win when a remote session client takes it first (see
         ; Bindings.InterceptKey).
-        SimulatedKeys.Intercept := (vk, up, injected) => Bindings.InterceptKey(vk, up, injected)
+        SimulatedKeys.Intercept := (vk, sc, up, injected) => Bindings.InterceptKey(vk, sc, up, injected)
         if (Bindings.ignoreSimulated || Bindings.remoteWindows.Length || Bindings.HasWinChords()) {
             try {
                 SimulatedKeys.Enable()
