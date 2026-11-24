@@ -4,7 +4,7 @@
 ; user plugins have been included.
 ;
 ; Command-line flags:
-;   --config <file>        use this config file instead of <config dir>\config.jsonc
+;   --config <file>        use this config file instead of <config dir>\config.json
 ;   --config-dir <dir>     override the config directory (plugins live under it)
 ;   --check                validate config + plugins, print a report, exit 0/1
 ;   --sync-plugins         regenerate the plugin include stub and exit (run before
@@ -126,12 +126,6 @@ class App {
             path := App.Bootstrap(path)
         }
         App.ConfigPath := path
-        SplitPath(path, &cfgName, &cfgDir)
-        if (App._explicitConfig = "" && cfgName = "config.jsonc") {
-            if (FileExist(cfgDir "\config.json"))
-                App.Problems.Push("Both config.jsonc and config.json exist in " cfgDir
-                    "; hotkit uses config.jsonc. Delete or rename config.json.")
-        }
         if (App.Mode = "run") {
             SplitPath(path, , &dir)
             if (dir = "")
@@ -264,7 +258,7 @@ class App {
         reg("app.reload", (*) => App.Restart(), "Reload scripts and config")
         reg("app.exit", (*) => ExitApp(), "Exit hotkit")
         reg("app.openConfigFolder", (*) => Run('explorer.exe "' Paths.ConfigDir() '"'), "Open the config folder")
-        reg("app.editConfig", (*) => App.EditConfig(), "Open the config file in the default editor")
+        reg("app.editConfig", (*) => App.EditConfig(), "Open config.json in the default editor")
         reg("app.showProblems", (*) => App.ShowProblems(), "List config problems")
         reg("app.checkForUpdates", (*) => Updates.Check(true), "Check GitHub for a newer hotkit release")
         reg("app.update", (*) => Updates.Install(), "Install the newer hotkit release and reload (checks first if none is known)")
@@ -373,14 +367,11 @@ class App {
         }
     }
 
-    ; Opens the file the watcher reloads from, which is config.jsonc as soon as it
-    ; exists, even while a config.jsonc that doesn't parse keeps the old bindings.
     static EditConfig() {
-        path := App._WatchedPath()
         try {
-            Run('"' path '"')
+            Run('"' App.ConfigPath '"')
         } catch {
-            Run('notepad.exe "' path '"')
+            Run('notepad.exe "' App.ConfigPath '"')
         }
     }
 
@@ -391,11 +382,10 @@ class App {
         MsgBox(text = "" ? "No problems found." : text, "hotkit: config problems", "Icon!")
     }
 
-    ; Reloads when the config file or the plugin folder changes. A change is applied
+    ; Reloads when config.json or the plugin folder changes. A change is applied
     ; only after it has stayed the same for one poll (so a save in progress is
-    ; not read half-written) and the config still parses; otherwise the running
-    ; config is kept and the error goes to a toast and the status log. Creating
-    ; config.jsonc beside a config.json (or removing it) switches to that file.
+    ; not read half-written) and config.json still parses; otherwise the running
+    ; config is kept and the error goes to a toast and the status log.
     static WatchConfig() {
         App._watchStamp := App._Stamp()
         SetTimer(() => App._CheckWatch(), 2000)
@@ -414,7 +404,7 @@ class App {
         App._pendingStamp := ""
         App._watchStamp := stamp
         try {
-            Config.FromFile(App._WatchedPath())
+            Config.FromFile(App.ConfigPath)
         } catch as e {
             StatusLog.Error("config change not applied, keeping the running config: " e.Message)
             Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Config not reloaded:", e.Message)
@@ -424,19 +414,8 @@ class App {
         App.Restart()
     }
 
-    ; The file a restart would load: config.jsonc can replace config.json while
-    ; the app runs.
-    static _WatchedPath() => App._explicitConfig != "" ? App.ConfigPath : Paths.ConfigFile()
-
     static _Stamp() {
-        path := App._WatchedPath()
-        stamp := path ":" (FileExist(path) ? FileGetTime(path, "M") ":" FileGetSize(path) : "")
-        ; A config.json appearing or disappearing beside config.jsonc changes the
-        ; "both files exist" problem, so it restarts too.
-        if (App._explicitConfig = "") {
-            SplitPath(path, , &dir)
-            stamp .= "|legacy:" (FileExist(dir "\config.json") ? 1 : 0)
-        }
+        stamp := FileExist(App.ConfigPath) ? FileGetTime(App.ConfigPath, "M") ":" FileGetSize(App.ConfigPath) : ""
         for f in Plugins.Discover()
             stamp .= "|" f ":" FileGetTime(f, "M") ":" FileGetSize(f)
         return stamp

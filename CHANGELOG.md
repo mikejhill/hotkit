@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The config file is `config.json` again; 1.16.0's switch to `config.jsonc` is reverted. The `"$schema"` link to `./config.schema.json` already keeps VS Code from flagging comments and trailing commas. If you renamed your config to `config.jsonc`, rename it back to `config.json`.
+
 ## [1.16.0] - 2026-11-24
 
 ### Changed

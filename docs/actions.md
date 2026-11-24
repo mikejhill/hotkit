@@ -25,7 +25,7 @@ pass `args` as a JSON array in the order listed under **Arguments**
 | Action | Arguments | Description |
 | --- | --- | --- |
 | `app.checkForUpdates` |  | Check GitHub for a newer hotkit release |
-| `app.editConfig` |  | Open the config file in the default editor |
+| `app.editConfig` |  | Open config.json in the default editor |
 | `app.exit` |  | Exit hotkit |
 | `app.openConfigFolder` |  | Open the config folder |
 | `app.reload` |  | Reload scripts and config |
