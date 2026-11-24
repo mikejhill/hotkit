@@ -328,6 +328,17 @@ class QuickWindow {
         if (!saved)
             return
         ; Keep the marker until the window is restored, so a later Recover() can retry.
+        ; The window may be hidden: closed to the tray, or hidden by the app on minimize.
+        previous := A_DetectHiddenWindows
+        DetectHiddenWindows(true)
+        try {
+            this.RestoreSaved(hwnd, saved, reveal, minimize)
+        } finally {
+            DetectHiddenWindows(previous)
+        }
+    }
+
+    RestoreSaved(hwnd, saved, reveal, minimize) {
         if (reveal)
             this.Reveal(hwnd)
         WinSetExStyle((saved & QuickWindow.ToolWindow) ? ("+" QuickWindow.ToolWindow) : ("-" QuickWindow.ToolWindow), "ahk_id " hwnd)
@@ -346,29 +357,41 @@ class QuickWindow {
     }
 
     ; Minimizes without activating another window and without the minimize
-    ; animation, which could show the transparent window's contents.
-    static MinimizeQuietly(hwnd) {
-        disable := Buffer(4, 0)
-        NumPut("int", 1, disable)
-        ; DWMWA_TRANSITIONS_FORCEDISABLED; fails harmlessly without DWM.
-        DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hwnd, "uint", 3, "ptr", disable, "uint", 4)
-        DllCall("ShowWindow", "ptr", hwnd, "int", 7) ; SW_SHOWMINNOACTIVE
-        NumPut("int", 0, disable)
-        DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hwnd, "uint", 3, "ptr", disable, "uint", 4)
+    ; animation, which could show the transparent window's contents. Asks
+    ; asynchronously and waits briefly, so an app that hangs can't block exit.
+    static MinimizeQuietly(hwnd, timeoutMs := 1000) {
+        flag := Buffer(4, 0)
+        NumPut("int", 1, flag)
+        ; DWMWA_TRANSITIONS_FORCEDISABLED; fails harmlessly without DWM. It can't
+        ; be read back, so it is reset to the default afterwards.
+        DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hwnd, "uint", 3, "ptr", flag, "uint", 4)
+        DllCall("ShowWindowAsync", "ptr", hwnd, "int", 7) ; SW_SHOWMINNOACTIVE
+        start := A_TickCount
+        while (!DllCall("IsIconic", "ptr", hwnd) && DllCall("IsWindowVisible", "ptr", hwnd)
+                && A_TickCount - start < timeoutMs)
+            Sleep(10)
+        NumPut("int", 0, flag)
+        DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hwnd, "uint", 3, "ptr", flag, "uint", 4)
     }
 
     ; Puts managed windows back to how they were before hotkit, on exit and after
     ; a crash or reload. A hidden window goes to the taskbar minimized instead of
     ; reappearing; other windows keep their minimized or normal state.
     Recover() {
-        for hwnd in this.GetCandidates(true) {
-            if (DllCall("GetPropW", "ptr", hwnd, "str", this.propertyName, "ptr")) {
-                ; An app that closed its window to the tray keeps it closed.
-                try this.Restore(hwnd, false, this.IsHidden(hwnd) && (WinGetStyle("ahk_id " hwnd) & QuickWindow.Visible))
-            } else if (this.claimExisting && this.IsOrphan(hwnd)) {
-                ; Repair styling left by a prior manager before adopting the window.
-                try this.RepairOrphan(hwnd)
+        previous := A_DetectHiddenWindows
+        DetectHiddenWindows(true)
+        try {
+            for hwnd in this.GetCandidates(true) {
+                if (DllCall("GetPropW", "ptr", hwnd, "str", this.propertyName, "ptr")) {
+                    ; An app that closed its window to the tray keeps it closed.
+                    try this.Restore(hwnd, false, this.IsHidden(hwnd) && DllCall("IsWindowVisible", "ptr", hwnd))
+                } else if (this.claimExisting && this.IsOrphan(hwnd)) {
+                    ; Repair styling left by a prior manager before adopting the window.
+                    try this.RepairOrphan(hwnd)
+                }
             }
+        } finally {
+            DetectHiddenWindows(previous)
         }
     }
 
