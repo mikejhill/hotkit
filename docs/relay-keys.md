@@ -161,7 +161,9 @@ only the ones in your relay table. Use a layer for this:
 
 On layer 2, every key without a binding passes through to the session. This
 frees keys, not the CapsLock modifier: when CapsLock is forced off it is
-still swallowed, so CapsLock+J reaches the session as a plain J. To trigger a
+still swallowed, so CapsLock+J reaches the session as a plain J (unless you
+use the automatic `remoteKey` forwarding described under
+[Remote sessions](configuration.md#remote-sessions)). To trigger a
 CapsLock binding on the inner machine, add a relay key for it.
 
 ## Deeper nesting
@@ -173,7 +175,8 @@ for the level below it:
 - The middle machine binds `F15` and, while its own nested session window is
   active, sends a different key instead of acting on it:
   `{ "keys": "F15", "allowSimulated": true, "whenActive": "<nested session window>", "action": "send", "args": ["^{F15}"] }`.
-- The innermost machine binds `^F15` (`"keys": "^F15"`).
+- The innermost machine binds `^F15`:
+  `{ "keys": "^F15", "allowSimulated": true, "action": "..." }`.
 
 In `send` arguments, key names such as F15 go in braces (`{F15}`, `^{F15}`).
 In `keys`, they don't (`F15`, `^F15`).
