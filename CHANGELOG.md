@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-24
+
 ### Changed
 - The config file is now `config.jsonc`, so editors open it as JSON with comments and stop flagging its comments and trailing commas as errors, whether or not they load the schema. An existing `config.json` keeps working while there is no `config.jsonc`; rename it to switch. The running app follows the rename, and lists a config problem if both files exist.
 
