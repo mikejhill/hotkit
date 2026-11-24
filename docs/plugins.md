@@ -35,7 +35,7 @@ class NotesPlugin {
 ```
 
 ```jsonc
-// config.json
+// config.jsonc
 "plugins": { "notes": { "folder": "~\\Documents\\Notes" } },
 "bindings": [ { "keys": "#n", "action": "notes.today" } ]
 ```

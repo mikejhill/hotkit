@@ -1,5 +1,5 @@
 // Settings and bindings for the example plugins. Merge these sections into
-// your own config.json (tray menu > Edit Config); keys (Ctrl+Win+Alt+letter)
+// your own config.jsonc (tray menu > Edit Config); keys (Ctrl+Win+Alt+letter)
 // are only suggestions.
 {
   "plugins": {

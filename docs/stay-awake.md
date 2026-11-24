@@ -71,7 +71,7 @@ PowerToys Awake timer.
 
 ## Reloads and restarts
 
-A config reload (saving `config.json`, `app.reload`, or tray › *Reload
+A config reload (saving the config, `app.reload`, or tray › *Reload
 Script*) keeps the toggles that were on, with their time limits. Exiting
 hotkit, or starting it fresh, starts with everything off.
 

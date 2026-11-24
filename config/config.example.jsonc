@@ -1,5 +1,5 @@
 // hotkit example configuration.
-// Copied to %USERPROFILE%\.config\hotkit\config.json on first run.
+// Copied to %USERPROFILE%\.config\hotkit\config.jsonc on first run.
 // Comments and trailing commas are allowed. Full reference: docs/configuration.md
 // Hotkey notation: ^ Ctrl, ! Alt, + Shift, # Win, < left, > right (e.g. ">^>!PgUp").
 {

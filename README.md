@@ -25,7 +25,7 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 
 | | |
 | --- | --- |
-| **Shortcuts in JSON** | Every hotkey is a line in `config.json`: keys, action, arguments, description. Validated at load, with conflict detection. |
+| **Shortcuts in JSON** | Every hotkey is a line in `config.jsonc`: keys, action, arguments, description. Validated at load, with conflict detection. |
 | **Shortcut overlay** | Searchable list of every active shortcut (tray › *Show Shortcuts*, or bind `osd.toggle`). |
 | **Layers, modifiers and gestures** | Switchable layers of bindings (with tray menu, toasts and overlay support), hold-a-key modifiers (e.g. CapsLock), tap / double-tap / hold on one key, press-and-release actions, per-app bindings, runtime-toggleable groups. |
 | **Quick windows** | Summon and dismiss any app as a floating window with one key. Generic; you define the instances. |
@@ -47,8 +47,8 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
    cd hotkit
    .\src\Main.ahk
    ```
-3. On first run, `config\config.example.json` is copied to
-   `%USERPROFILE%\.config\hotkit\config.json`. Edit it from the tray
+3. On first run, `config\config.example.jsonc` is copied to
+   `%USERPROFILE%\.config\hotkit\config.jsonc`. Edit it from the tray
    (*Edit Config*); the app restarts when you save.
 4. Press the overlay hotkey (`RCtrl+RAlt+/` in the example) to see every shortcut.
 
@@ -92,7 +92,7 @@ python tools\check.py
 ```
 src/         Main.ahk, Core/ (config, actions, bindings, plugins, tray), Modules/, Lib/, Ui/
 assets/      hotkit.ico (default tray icon), brand/ (README marks, social preview, fonts/)
-config/      config.example.json, config.schema.json
+config/      config.example.jsonc, config.schema.json
 examples/    plugins/ (copyable example plugins)
 tests/       unit/, integration/, e2e/ (AutoHotkey) + lib/TestRunner.ahk
 tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py, make_icon.py, make_brand.py
