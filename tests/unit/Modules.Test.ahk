@@ -14,6 +14,22 @@ class Modules_Tests {
         Assert.True(WindowsModule.IsSwitchable({ exStyle: 0, exe: "x.exe", title: "Shown" }, ignore))
     }
 
+    static Test_TaskViewNeedsTaskbarFromApps() {
+        Assert.True(WindowsModule.TaskViewNeedsTaskbar("msedge.exe", "Chrome_WidgetWin_1"))
+        Assert.True(WindowsModule.TaskViewNeedsTaskbar("Citrix.DesktopViewer.App.exe", "WindowsForms10.Window.8.app.0"))
+        Assert.True(WindowsModule.TaskViewNeedsTaskbar("", ""))
+        ; A shell class name in another process is not the shell.
+        Assert.True(WindowsModule.TaskViewNeedsTaskbar("other.exe", "Progman"))
+    }
+
+    static Test_TaskViewSkipsTaskbarFromShell() {
+        for cls in ["Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW"]
+            Assert.False(WindowsModule.TaskViewNeedsTaskbar("explorer.exe", cls), cls)
+        Assert.False(WindowsModule.TaskViewNeedsTaskbar("EXPLORER.EXE", "progman"))
+        Assert.False(WindowsModule.TaskViewNeedsTaskbar("StartMenuExperienceHost.exe", "Windows.UI.Core.CoreWindow"))
+        Assert.False(WindowsModule.TaskViewNeedsTaskbar("SearchHost.exe", "Windows.UI.Core.CoreWindow"))
+    }
+
     ; Front-to-back stack for ZOrderInsertAfter. Spec: "hwnd[:flags]" where
     ; flags hold "t" (topmost) and/or "n" (not a peer); every window overlaps
     ; the 0..100 square unless its spec is "hwnd:far".
