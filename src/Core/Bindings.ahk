@@ -67,7 +67,11 @@ class Bindings {
     static _winChords := []
     ; "vk|sc" -> chord: keys whose press ran a Win chord, until released
     static _winChordKeys := Map()
-    static _winChordQueue := []
+    ; Replaced in tests: physical key state, and the Start mask.
+    static PhysicalKeyDown := (k) => GetKeyState(k, "P")
+    static SendWinMask := (*) => (DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 0, "uptr", 0),
+        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 2, "uptr", 0))
+    static WinChordRepeatGapMs := 1500
     ; The hotkey of the Win chord being run, for actions that read A_ThisHotkey.
     static _thisHotkey := ""
     static _thisHotkeyBase := ""
@@ -569,17 +573,24 @@ class Bindings {
         id := vk "|" sc
         if Bindings._winChordKeys.Has(id) {
             taken := Bindings._winChordKeys[id]
-            if up
+            ; Auto-repeat comes well within this; a longer gap means the
+            ; release was missed (secure desktop), so this is a new press.
+            if (A_TickCount - taken.seen > Bindings.WinChordRepeatGapMs) {
                 Bindings._winChordKeys.Delete(id)
-            else if (!taken.spec.waitRelease && Bindings._WinChordLive(taken))
-                Bindings._QueueWinChord(taken)
-            return !taken.passThrough
+            } else {
+                taken.seen := A_TickCount
+                if up
+                    Bindings._winChordKeys.Delete(id)
+                else if (!taken.chord.spec.waitRelease && Bindings._WinChordLive(taken.chord))
+                    Bindings._QueueWinChord(taken.chord)
+                return !taken.chord.passThrough
+            }
         }
         if (up || !Bindings._winChords.Length || vk = 0x5B || vk = 0x5C || A_IsSuspended || !Bindings.WinSwallowed())
             return false
         best := "", bestRank := -1
         for chord in Bindings._winChords {
-            if (chord.vk != vk || (chord.sc && sc && chord.sc != sc) || !Bindings._WinChordEligible(chord))
+            if ((chord.matchVk && chord.vk != vk) || (chord.sc && sc && chord.sc != sc) || !Bindings._WinChordEligible(chord))
                 continue
             rank := Bindings.ChordRank(chord.mods, chord.wildcard)
             if (rank > bestRank)
@@ -589,25 +600,26 @@ class Bindings {
             return false
         ; The other program got Win alone; vkE8 (unassigned) keeps Win's
         ; release from opening Start there. Sent now, while Win is down.
-        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 0, "uptr", 0)
-        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 2, "uptr", 0)
+        Bindings.SendWinMask.Call()
         Bindings._QueueWinChord(best)
         ; Tracked until released, so auto-repeat follows waitRelease.
-        Bindings._winChordKeys[id] := best
+        Bindings._winChordKeys[id] := { chord: best, seen: A_TickCount }
         return !best.passThrough
     }
 
-    ; Accepted presses run in arrival order from one timer, each once.
+    ; Each accepted press runs in its own timer thread, in arrival order, so
+    ; a slow action doesn't hold up others. Like a hotkey, a chord whose
+    ; action is still running ignores further presses.
     static _QueueWinChord(chord) {
-        Bindings._winChordQueue.Push(chord)
-        SetTimer(Bindings._winChordTimer, -1)
+        if chord.HasOwnProp("running") && chord.running
+            return
+        SetTimer(Bindings._RunQueuedWinChord.Bind(Bindings, chord), -1)
     }
 
-    static _winChordTimer := (*) => Bindings._DrainWinChords()
-
-    static _DrainWinChords() {
-        while Bindings._winChordQueue.Length
-            Bindings._winChordQueue.RemoveAt(1).run.Call()
+    static _RunQueuedWinChord(chord) {
+        chord.running := true
+        try chord.run.Call()
+        finally chord.running := false
     }
 
     ; Whether a taken key's auto-repeat may run its chord again.
@@ -625,7 +637,7 @@ class Bindings {
         ; whenActive, and simulated keys (it accepts the Win we saw).
         if (chord.context != "" && !chord.context.Call(chord.spec.keys))
             return false
-        return Bindings.ExactMods(chord.mods, chord.wildcard, (k) => GetKeyState(k, "P"))
+        return Bindings.ExactMods(chord.mods, chord.wildcard, Bindings.PhysicalKeyDown)
     }
 
     static _RunWinChord(spec, handler) {
@@ -692,7 +704,6 @@ class Bindings {
         Bindings._upWatchers := Bindings._CaseMap()
         Bindings._winChords := []
         Bindings._winChordKeys := Map()
-        Bindings._winChordQueue := []
     }
 
     static GroupEnabled(name) => Bindings.groups.Has(name) && Bindings.groups[name].enabled
@@ -759,9 +770,10 @@ class Bindings {
                 sc := 0
                 try sc := GetKeySC(parsed.key)
                 ; A key given by virtual key alone (vk0D) matches any scan code.
+                ; A key given by scan code alone (sc04F) matches any virtual key.
                 if (RegExMatch(parsed.key, "i)^vk[0-9a-f]+$"))
                     sc := 0
-                Bindings._winChords.Push({ vk: vk, sc: sc, spec: spec, context: context, mods: parsed.mods,
+                Bindings._winChords.Push({ vk: vk, matchVk: !RegExMatch(parsed.key, "i)^sc[0-9a-f]+$"), sc: sc, spec: spec, context: context, mods: parsed.mods,
                     wildcard: parsed.wildcard, passThrough: parsed.passThrough, winSide: Bindings.WinSide(parsed.mods),
                     run: () => Bindings._RunWinChord(spec, chordHandler) })
             }

@@ -151,9 +151,13 @@ class SimulatedKeys {
                     SimulatedKeys.winDown.%(SimulatedKeys.last.vk = 0x5B ? "L" : "R")% := SimulatedKeys.last.up ? 0 : A_TickCount
                 else if !SimulatedKeys.last.up {
                     ; Typing with Win held keeps it held (Win stops repeating).
-                    for side in ["L", "R"]
-                        if SimulatedKeys.winDown.%side%
-                            SimulatedKeys.winDown.%side% := A_TickCount
+                    now := A_TickCount
+                    for side in ["L", "R"] {
+                        downAt := SimulatedKeys.winDown.%side%
+                        ; An expired Win (missed release) stays released.
+                        if downAt
+                            SimulatedKeys.winDown.%side% := SimulatedKeys.IsHeld(downAt, now, SimulatedKeys.WinMaxQuietMs) ? now : 0
+                    }
                 }
                 if (SimulatedKeys.OnTyped != "")
                     try SimulatedKeys.OnTyped.Call(SimulatedKeys.last.vk, SimulatedKeys.last.up)
