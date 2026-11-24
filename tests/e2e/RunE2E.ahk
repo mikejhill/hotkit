@@ -29,7 +29,25 @@ class E2E_Tests {
         f.Close()
     }
 
-    static Marks() => FileExist(E2E_Tests.Probe) ? StrSplit(Trim(FileRead(E2E_Tests.Probe), "`n"), "`n") : []
+    static Marks() => FileExist(E2E_Tests.Probe) ? StrSplit(Trim(E2E_Tests.ReadShared(E2E_Tests.Probe), "`n"), "`n") : []
+
+    ; Reads a file the app may be writing at that moment. FileRead can fail
+    ; with a sharing violation while the app has it open, so this opens it
+    ; sharing read, write and delete access, and retries briefly.
+    static ReadShared(path, encoding := "UTF-8-RAW") {
+        loop 50 {
+            try {
+                f := FileOpen(path, "r", encoding)
+                text := f.Read()
+                f.Close()
+                return text
+            } catch OSError as e {
+                if (A_Index = 50)
+                    throw e
+                Sleep(20)
+            }
+        }
+    }
 
     static Count(name) {
         n := 0
@@ -422,7 +440,7 @@ class E2E_Tests {
         f.Close()
     }
 
-    static LogText() => FileExist(E2E_Tests.Dir "\hotkit.log") ? FileRead(E2E_Tests.Dir "\hotkit.log", "UTF-8") : ""
+    static LogText() => FileExist(E2E_Tests.Dir "\hotkit.log") ? E2E_Tests.ReadShared(E2E_Tests.Dir "\hotkit.log", "UTF-8") : ""
 
     static Test_07_HalfWrittenConfigWaits() {
         ; A save in progress must not be read: start a write, finish it shortly after.

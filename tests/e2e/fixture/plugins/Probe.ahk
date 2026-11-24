@@ -12,5 +12,20 @@ class ProbePlugin {
         App.OnReady(() => (ProbePlugin.Mark("pid:" ProcessExist()), ProbePlugin.Mark("icon:" A_IconFile), ProbePlugin.Mark("iconHidden:" A_IconHidden), ProbePlugin.Mark("ready")))
     }
 
-    static Mark(name) => FileAppend(name "`n", ProbePlugin.File, "UTF-8-RAW")
+    ; The e2e driver reads this file while marks are written: open it sharing
+    ; all access, and retry briefly if the driver holds it at that moment.
+    static Mark(name) {
+        loop 50 {
+            try {
+                f := FileOpen(ProbePlugin.File, "a", "UTF-8-RAW")
+                f.Write(name "`n")
+                f.Close()
+                return
+            } catch OSError as e {
+                if (A_Index = 50)
+                    throw e
+                Sleep(20)
+            }
+        }
+    }
 }
