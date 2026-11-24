@@ -33,8 +33,8 @@ class Paths_Tests {
 
     static Test_DefaultConfigDir() {
         Assert.Equal(EnvGet("USERPROFILE") "\.config\hotkit", Paths.ConfigDir())
-        file := Paths.ConfigFile()
-        Assert.True(file = Paths.ConfigDir() "\config.jsonc" || file = Paths.ConfigDir() "\config.json", file)
+        configPath := Paths.ConfigFile()
+        Assert.True(configPath = Paths.ConfigDir() "\config.jsonc" || configPath = Paths.ConfigDir() "\config.json", configPath)
         Assert.Equal(Paths.ConfigDir() "\plugins", Paths.PluginDir())
     }
 

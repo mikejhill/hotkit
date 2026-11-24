@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-TEXT_SUFFIXES = {".ahk", ".py", ".json", ".md", ".yml", ".yaml", ".txt", ".ps1", ".cfg", ".toml", ""}
+TEXT_SUFFIXES = {".ahk", ".py", ".json", ".jsonc", ".md", ".yml", ".yaml", ".txt", ".ps1", ".cfg", ".toml", ""}
 SKIP_DIRS = {".git", "local", "__pycache__", ".venv", "node_modules"}
 
 HOTKEY_LABEL = re.compile(r"""^\s*[^\s;"'(][^"'(]*?::\s*(\{|$|[A-Za-z_(])""")
@@ -87,7 +87,7 @@ def lint_file(path: Path, terms: list[str]) -> list[str]:
     for n, line in enumerate(lines, 1):
         if line != line.rstrip():
             problems.append(f"{rel}:{n}: TXT002 trailing whitespace")
-        if path.suffix in {".ahk", ".py", ".json", ".md"} and line.startswith("\t"):
+        if path.suffix in {".ahk", ".py", ".json", ".jsonc", ".md"} and line.startswith("\t"):
             problems.append(f"{rel}:{n}: TXT003 tab indentation")
         if rel != "tools/lint.py" and PERSONAL_PATH.search(line):
             problems.append(f"{rel}:{n}: PRV001 personal path: {PERSONAL_PATH.search(line).group(0)}")

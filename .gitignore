@@ -6,6 +6,7 @@
 
 # Personal config must live in %USERPROFILE%\.config\hotkit
 /config/config.json
+/config/config.jsonc
 
 __pycache__/
 *.pyc

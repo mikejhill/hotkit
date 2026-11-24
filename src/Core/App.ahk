@@ -373,11 +373,14 @@ class App {
         }
     }
 
+    ; Opens the file the watcher reloads from, which is config.jsonc as soon as it
+    ; exists, even while a config.jsonc that doesn't parse keeps the old bindings.
     static EditConfig() {
+        path := App._WatchedPath()
         try {
-            Run('"' App.ConfigPath '"')
+            Run('"' path '"')
         } catch {
-            Run('notepad.exe "' App.ConfigPath '"')
+            Run('notepad.exe "' path '"')
         }
     }
 
@@ -428,6 +431,12 @@ class App {
     static _Stamp() {
         path := App._WatchedPath()
         stamp := path ":" (FileExist(path) ? FileGetTime(path, "M") ":" FileGetSize(path) : "")
+        ; A config.json appearing or disappearing beside config.jsonc changes the
+        ; "both files exist" problem, so it restarts too.
+        if (App._explicitConfig = "") {
+            SplitPath(path, , &dir)
+            stamp .= "|legacy:" (FileExist(dir "\config.json") ? 1 : 0)
+        }
         for f in Plugins.Discover()
             stamp .= "|" f ":" FileGetTime(f, "M") ":" FileGetSize(f)
         return stamp
