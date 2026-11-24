@@ -144,7 +144,7 @@ class WindowsModule {
         session := WindowsModule._cycle
         if (!session) {
             session := WindowUtil.CycleSnapshot()
-            session.keys := Bindings.WithRemoteKeys(WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
+            session.keys := Bindings.WithRemoteKeys(WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, Bindings.ThisHotkey(),
                 WindowsModule._ContextActive))
         }
         WindowUtil.CycleStep(session, direction)

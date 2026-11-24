@@ -16,14 +16,26 @@
 ; Fails open: if the hook isn't running, was skipped (Windows skips a hook
 ; whose thread is busy) or the recorded event is not the one being checked,
 ; the key counts as typed. It is re-installed periodically, which keeps it
-; ahead of AutoHotkey's hook and replaces a hook Windows has removed.
+; ahead of AutoHotkey's hook and replaces a hook Windows has removed, and
+; shortly after each change of the active window, which keeps it ahead of
+; clients that install their own hook when they get focus.
+;
+; It also tracks the Windows keys. A remote session client's hook may take
+; Win for the remote machine before AutoHotkey's hook sees it; this hook,
+; ahead of the client's, still does (see Bindings.WinSwallowed).
 class SimulatedKeys {
     static enabled := false
     static MaxAgeMs := 1000
     static ReinstallMs := 30000
+    static ForegroundReinstallDelays := [50, 300]
+    ; A held Win key that sent no key-down (press or auto-repeat) for this long
+    ; counts as released, in case its release was missed.
+    static WinMaxQuietMs := 10000
     static _hook := 0
     static _callback := 0
     static _timer := ""
+    static _winEventHook := 0
+    static _winEventCallback := 0
     ; The latest keyboard event: virtual key, injected flag, key up, event time
     ; (GetTickCount milliseconds).
     static last := { vk: 0, injected: false, up: false, time: 0 }
@@ -35,6 +47,13 @@ class SimulatedKeys {
     static OnTyped := ""
     ; A_TickCount when the last typed key in `down` was released.
     static emptyAt := 0
+    ; Typed Win keys as this hook saw them: A_TickCount of the latest key-down
+    ; while held, 0 when up.
+    static winDown := { L: 0, R: 0 }
+    ; Optional fn(vk, up, injected) called for every key event, inside the
+    ; hook, after `last` is updated; returning true blocks the event from
+    ; every later hook and from the system. It must return quickly.
+    static Intercept := ""
 
     ; mutate: off (Windows hook plumbing)
     static Enable() {
@@ -51,6 +70,16 @@ class SimulatedKeys {
         SimulatedKeys.enabled := true
         SimulatedKeys._timer := () => SimulatedKeys._Reinstall()
         SetTimer(SimulatedKeys._timer, SimulatedKeys.ReinstallMs)
+        ; EVENT_SYSTEM_FOREGROUND, out of context: delivered through this thread's message loop.
+        SimulatedKeys._winEventCallback := CallbackCreate((args*) => SimulatedKeys._OnForeground(), "F", 7)
+        SimulatedKeys._winEventHook := DllCall("SetWinEventHook", "uint", 3, "uint", 3, "ptr", 0,
+            "ptr", SimulatedKeys._winEventCallback, "uint", 0, "uint", 0, "uint", 0, "ptr")
+    }
+
+    static _OnForeground() {
+        ; One closure per delay: SetTimer on the same function would just move one timer.
+        for delay in SimulatedKeys.ForegroundReinstallDelays
+            SetTimer((*) => SimulatedKeys._Reinstall(), -delay)
     }
 
     static Disable() {
@@ -58,6 +87,13 @@ class SimulatedKeys {
             return
         SimulatedKeys.enabled := false
         SetTimer(SimulatedKeys._timer, 0)
+        if (SimulatedKeys._winEventHook)
+            DllCall("UnhookWinEvent", "ptr", SimulatedKeys._winEventHook)
+        SimulatedKeys._winEventHook := 0
+        if (SimulatedKeys._winEventCallback)
+            CallbackFree(SimulatedKeys._winEventCallback)
+        SimulatedKeys._winEventCallback := 0
+        SimulatedKeys.winDown := { L: 0, R: 0 }
         if (SimulatedKeys._hook)
             DllCall("UnhookWindowsHookEx", "ptr", SimulatedKeys._hook)
         SimulatedKeys._hook := 0
@@ -78,7 +114,8 @@ class SimulatedKeys {
     }
 
     static _Reinstall() {
-        try SimulatedKeys._Install()
+        if SimulatedKeys.enabled
+            try SimulatedKeys._Install()
     }
 
     static _Proc(nCode, wParam, lParam) {
@@ -100,13 +137,36 @@ class SimulatedKeys {
                     if !SimulatedKeys.down.Count
                         SimulatedKeys.emptyAt := A_TickCount
                 }
+                if (SimulatedKeys.last.vk = 0x5B || SimulatedKeys.last.vk = 0x5C)
+                    SimulatedKeys.winDown.%(SimulatedKeys.last.vk = 0x5B ? "L" : "R")% := SimulatedKeys.last.up ? 0 : A_TickCount
                 if (SimulatedKeys.OnTyped != "")
                     try SimulatedKeys.OnTyped.Call(SimulatedKeys.last.vk, SimulatedKeys.last.up)
+            }
+            if (SimulatedKeys.Intercept != "") {
+                block := false
+                try block := SimulatedKeys.Intercept.Call(SimulatedKeys.last.vk, SimulatedKeys.last.up, SimulatedKeys.last.injected)
+                if block
+                    return 1
             }
         }
         return DllCall("CallNextHookEx", "ptr", 0, "int", nCode, "ptr", wParam, "ptr", lParam, "ptr")
     }
     ; mutate: on
+
+    ; Whether this hook saw a Win key go down and not up: side "L", "R", or ""
+    ; for either. False while the hook isn't running.
+    static WinHeld(side := "") {
+        if !SimulatedKeys.enabled
+            return false
+        w := SimulatedKeys.winDown, now := A_TickCount, quiet := SimulatedKeys.WinMaxQuietMs
+        if (side = "L" || side = "R")
+            return SimulatedKeys.IsHeld(w.%side%, now, quiet)
+        return SimulatedKeys.IsHeld(w.L, now, quiet) || SimulatedKeys.IsHeld(w.R, now, quiet)
+    }
+
+    ; Pure: whether a key last seen going down at `downAt` (0 = up) still
+    ; counts as held at `now`.
+    static IsHeld(downAt, now, maxQuietMs) => downAt != 0 && now - downAt <= maxQuietMs
 
     ; Whether a hotkey may fire on the event being processed. `hotkeyName` is
     ; the hotkey AutoHotkey passes to #HotIf callbacks.

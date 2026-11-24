@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Win chords on a modifier, such as CapsLock+Win+1 for `taskbar.activate`, now work while a remote session or virtual desktop window has focus. Before, the client took the Win key first, so hotkit saw CapsLock+1 and switched layers instead.
+
 ## [1.17.0] - 2026-11-24
 
 ### Changed

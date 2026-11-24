@@ -204,7 +204,10 @@ class App {
         Bindings.Apply()
         ; After Apply: AutoHotkey's keyboard hook must exist before ours. Remote
         ; sessions also use its record of the latest key (see RemoteSessions).
-        if (Bindings.ignoreSimulated || Bindings.remoteWindows.Length) {
+        ; It also sees Win when a remote session client takes it first (see
+        ; Bindings.InterceptKey).
+        SimulatedKeys.Intercept := (vk, up, injected) => Bindings.InterceptKey(vk, up, injected)
+        if (Bindings.ignoreSimulated || Bindings.remoteWindows.Length || Bindings.HasWinChords()) {
             try {
                 SimulatedKeys.Enable()
             } catch as e {

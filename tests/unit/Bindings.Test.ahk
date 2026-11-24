@@ -775,6 +775,77 @@ class Bindings_Tests {
         Assert.True(rows[2].onLayer && rows[2].active)
     }
 
+    static Test_WinChordHelpers() {
+        Assert.Equal("any", Bindings.WinSide(["Win"]))
+        Assert.Equal("L", Bindings.WinSide(["LAlt", "LWin"]))
+        Assert.Equal("", Bindings.WinSide(["Ctrl", "Shift"]))
+        Assert.True(Bindings.ExactMods(["Win"], true, (k) => true), "a wildcard accepts extra modifiers")
+        Assert.False(Bindings.ExactMods(["Win"], false, (k) => k = "Shift"), "Shift is extra")
+        Assert.True(Bindings.ExactMods(["Win", "LAlt"], false, (k) => k = "Alt"), "LAlt covers Alt")
+        Assert.True(Bindings.ExactMods(["Win"], false, (k) => false))
+        Assert.True(SimulatedKeys.IsHeld(1000, 1500, 10000))
+        Assert.False(SimulatedKeys.IsHeld(0, 1500, 10000), "0 means up")
+        Assert.False(SimulatedKeys.IsHeld(1000, 20000, 10000), "a long-quiet Win counts as released")
+    }
+
+    static Test_WinChordsAreModifierBindingsWithWin() {
+        Bindings_Tests.Load('{ "modifiers": { "caps": { "key": "CapsLock" } }, "bindings": [',
+            '{ "modifier": "caps", "keys": "*#1", "action": "t.a" },',
+            '{ "modifier": "caps", "keys": "1", "action": "t.a" },',
+            '{ "modifier": "caps", "keys": "*2", "action": "t.a" },',
+            '{ "modifier": "caps", "keys": "#3 up", "action": "t.a" },',
+            '{ "keys": "#4", "action": "t.a" } ] }')
+        Assert.True(Bindings.IsWinChord(Bindings.specs[1]))
+        Assert.False(Bindings.IsWinChord(Bindings.specs[2]), "no Win")
+        Assert.False(Bindings.IsWinChord(Bindings.specs[4]), "release hotkeys stay with AutoHotkey")
+        Assert.False(Bindings.IsWinChord(Bindings.specs[5]), "no held modifier")
+        Assert.False(Bindings.RefusesSwallowedWin(Bindings.specs[1]), "Win chords run through InterceptKey")
+        Assert.True(Bindings.RefusesSwallowedWin(Bindings.specs[2]), "CapsLock+1 must not fire for CapsLock+Win+1")
+        Assert.False(Bindings.RefusesSwallowedWin(Bindings.specs[3]), "wildcards accept Win anyway")
+        Assert.False(Bindings.RefusesSwallowedWin(Bindings.specs[5]), "only bindings on a held modifier")
+        Assert.False(Bindings._Context(Bindings.specs[2]) == Bindings._Context(Bindings.specs[3]),
+            "a binding that refuses a swallowed Win gets its own context")
+        problems := Bindings.Apply()
+        Assert.Equal(0, problems.Length, problems.Length ? problems[1] : "")
+        Assert.Equal(1, Bindings._winChords.Length)
+        Assert.Equal(GetKeyVK("1"), Bindings._winChords[1].vk)
+        Assert.True(Bindings.HasWinChords())
+        Bindings.UnregisterAll()
+        Assert.False(Bindings.HasWinChords())
+    }
+
+    static Test_InterceptKeyTakesWinChordsWhileWinIsSwallowed() {
+        runs := []
+        saved := SimulatedKeys.winDown
+        try {
+            SimulatedKeys.enabled := true
+            spec := { keys: "*#1" }
+            Bindings._winChords := [{ vk: 0x31, spec: spec, context: "", mods: ["Win"], wildcard: true,
+                winSide: "any", run: () => runs.Push(Bindings.ThisHotkey()) }]
+            SimulatedKeys.winDown := { L: 0, R: 0 }
+            Assert.False(Bindings.InterceptKey(0x31, false, false), "Win not held: AutoHotkey handles the key")
+            SimulatedKeys.winDown := { L: A_TickCount, R: 0 }
+            Assert.False(Bindings.InterceptKey(0x32, false, false), "no chord on this key")
+            Assert.False(Bindings.InterceptKey(0x5B, false, false), "Win itself passes")
+            Assert.True(Bindings.InterceptKey(0x31, false, false), "the chord's key is taken")
+            Assert.True(Bindings.InterceptKey(0x31, false, false), "its auto-repeat is taken")
+            Assert.True(Bindings.InterceptKey(0x31, true, false), "its release is taken")
+            Assert.False(Bindings.InterceptKey(0x31, true, false), "a later release passes")
+            Sleep(50)
+            Assert.Equal(1, runs.Length, "the binding runs once")
+            Bindings._winChords[1].run := () => (Bindings._thisHotkey := spec.keys, runs.Push(Bindings.ThisHotkey()), Bindings._thisHotkey := "")
+            Bindings._winChords[1].run.Call()
+            Assert.Equal("*#1", runs[2], "actions see the chord's keys as the hotkey")
+            Bindings._winChords[1].winSide := "R"
+            Assert.False(Bindings.InterceptKey(0x31, false, false), "a sided chord needs that Win key")
+        } finally {
+            SimulatedKeys.enabled := false
+            SimulatedKeys.winDown := saved
+            Bindings._winChords := []
+            Bindings._winChordKeys := Map()
+        }
+    }
+
     static Test_UnknownModifierIsReported() {
         problems := Bindings_Tests.Load('{ "bindings": [ { "keys": "F13", "modifier": "x", "action": "t.a" } ] }')
         Assert.Contains(problems[1], "unknown modifier 'x'")

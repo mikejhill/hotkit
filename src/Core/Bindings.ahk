@@ -62,6 +62,13 @@ class Bindings {
     static LatchHookFactory := (*) => InputHook("L0 I V")
     ; Keys that never end a latch (they pass through to the focused app).
     static LatchIgnoredKeys := "{LCtrl}{RCtrl}{LShift}{RShift}{LAlt}{RAlt}{LWin}{RWin}"
+    ; Win chords on a held modifier, run from the SimulatedKeys hook while
+    ; another program's hook swallows Win (see InterceptKey).
+    static _winChords := []
+    ; virtual key -> true: keys whose press a Win chord took, until released
+    static _winChordKeys := Map()
+    ; The hotkey of the Win chord being run, for actions that read A_ThisHotkey.
+    static _thisHotkey := ""
 
     static _CaseMap() {
         m := Map()
@@ -83,6 +90,7 @@ class Bindings {
         Bindings._rearmKey := ""
         Bindings.ignoreSimulated := false
         Bindings.remoteWindows := []
+        Bindings._thisHotkey := ""
     }
 
     ; Loads modifiers, layers, groups, and bindings from a Config. Returns
@@ -178,6 +186,8 @@ class Bindings {
     static HeldKey(k) {
         if GetKeyState(k, "P")
             return true
+        if (k = "LWin" || k = "RWin")
+            return SimulatedKeys.WinHeld(SubStr(k, 1, 1))
         for name, modifier in Bindings.modifiers {
             if (modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "" && modifier.remoteKey = k)
                 return GetKeyState(k) && !RemoteSessions.IsActive()
@@ -458,10 +468,12 @@ class Bindings {
         for name in spec.layers
             layerText .= StrLen(name) ":" name
         key := spec.modifier "|" layerText "|" spec.group "|" spec.whenActive
-        for mod in Bindings.PhysicalMods(spec)
-            key .= "|" mod
+        for physical in Bindings.PhysicalMods(spec)
+            key .= "|" physical
         if Bindings.ChecksSimulated(spec)
             key .= "|real"
+        if Bindings.RefusesSwallowedWin(spec)
+            key .= "|nowin"
         if (spec.HasOwnProp("yieldToRemote") && spec.yieldToRemote)
             key .= "|yield"
         return key
@@ -469,6 +481,114 @@ class Bindings {
 
     ; Pure: whether a binding refuses keys that programs inject.
     static ChecksSimulated(spec) => Bindings.ignoreSimulated && !spec.allowSimulated
+
+    ; Win swallowed: our SimulatedKeys hook saw a Win key go down, but
+    ; AutoHotkey's hook, behind another program's, did not. Remote session
+    ; clients take Win for the remote machine that way while focused, so
+    ; AutoHotkey sees CapsLock+Win+1 as CapsLock+1.
+    static WinSwallowed() => SimulatedKeys.WinHeld()
+        && !GetKeyState("LWin", "P") && !GetKeyState("RWin", "P")
+
+    ; Pure: whether a binding on a held modifier must stand aside while Win is
+    ; swallowed: AutoHotkey would match it on a Win chord it can't see,
+    ; such as CapsLock+1 for CapsLock+Win+1. Bindings with Win in their keys
+    ; run through InterceptKey instead; wildcard (*) bindings accept extra
+    ; modifiers anyway.
+    static RefusesSwallowedWin(spec) {
+        if (spec.modifier = "" || InStr(spec.keys, " & "))
+            return false
+        parsed := HotkeyText.Parse(spec.keys)
+        return !parsed.wildcard && !parsed.up && Bindings.WinSide(parsed.mods) = ""
+    }
+
+    ; Pure: for a list of hotkey modifier names, "L" or "R" for a sided Win,
+    ; "any" for Win, "" for none.
+    static WinSide(mods) {
+        for name in mods {
+            if (name = "Win")
+                return "any"
+            if (name = "LWin" || name = "RWin")
+                return SubStr(name, 1, 1)
+        }
+        return ""
+    }
+
+    ; Pure: whether a simple (action) binding on a held modifier has Win in
+    ; its keys, so it can run as a Win chord while Win is swallowed.
+    static IsWinChord(spec) {
+        if (spec.modifier = "" || spec.kind != "action" || InStr(spec.keys, " & "))
+            return false
+        parsed := HotkeyText.Parse(spec.keys)
+        return !parsed.up && Bindings.WinSide(parsed.mods) != ""
+    }
+
+    ; Pure: whether held Ctrl/Shift/Alt match a binding's modifiers exactly:
+    ; each family the keys name is held (checked by its context), and no
+    ; other family is, unless the binding is a wildcard.
+    static ExactMods(mods, wildcard, isDown) {
+        if wildcard
+            return true
+        for family in ["Ctrl", "Shift", "Alt"] {
+            named := false
+            for name in mods {
+                if (name = family || name = "L" family || name = "R" family)
+                    named := true
+            }
+            if (!named && isDown(family))
+                return false
+        }
+        return true
+    }
+
+    ; Whether Win chords are registered (they need the SimulatedKeys hook).
+    static HasWinChords() => Bindings._winChords.Length > 0
+
+    ; The hotkey that ran the current action: A_ThisHotkey, or the keys of
+    ; the Win chord InterceptKey is running.
+    static ThisHotkey() => Bindings._thisHotkey != "" ? Bindings._thisHotkey : A_ThisHotkey
+
+    ; Runs inside the SimulatedKeys hook for every key event; true blocks it.
+    ; While Win is swallowed, AutoHotkey can't match Win chords, so a key
+    ; press that completes one is taken here, ahead of the other program's
+    ; hook, and the binding runs on a timer. Its auto-repeat and release
+    ; are taken too.
+    static InterceptKey(vk, up, injected) {
+        if Bindings._winChordKeys.Has(vk) {
+            if up
+                Bindings._winChordKeys.Delete(vk)
+            return true
+        }
+        if (up || !Bindings._winChords.Length || vk = 0x5B || vk = 0x5C || !Bindings.WinSwallowed())
+            return false
+        for chord in Bindings._winChords {
+            if (chord.vk != vk || !Bindings._WinChordEligible(chord))
+                continue
+            Bindings._winChordKeys[vk] := true
+            SetTimer(chord.run, -1)
+            return true
+        }
+        return false
+    }
+
+    static _WinChordEligible(chord) {
+        if (chord.winSide = "any" ? !SimulatedKeys.WinHeld() : !SimulatedKeys.WinHeld(chord.winSide))
+            return false
+        ; The context checks the modifier key, Ctrl/Shift/Alt, layers, groups,
+        ; whenActive, and simulated keys (it accepts the Win we saw).
+        if (chord.context != "" && !chord.context.Call(chord.spec.keys))
+            return false
+        return Bindings.ExactMods(chord.mods, chord.wildcard, (k) => GetKeyState(k, "P"))
+    }
+
+    static _RunWinChord(spec, handler) {
+        ; Before the chord's key the other program got Win alone; vkE8
+        ; (unassigned) keeps Win's release from opening Start where it went.
+        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 0, "uptr", 0)
+        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 2, "uptr", 0)
+        Bindings._thisHotkey := spec.keys
+        try handler()
+        finally Bindings._thisHotkey := ""
+    }
 
     ; Pure: the hotkey modifiers (Ctrl, Shift, Alt, Win) that must be
     ; physically down for a binding on a held modifier key. That modifier is
@@ -520,6 +640,8 @@ class Bindings {
         Bindings._rearmHook := ""
         Bindings._downWatchers := Bindings._CaseMap()
         Bindings._upWatchers := Bindings._CaseMap()
+        Bindings._winChords := []
+        Bindings._winChordKeys := Map()
     }
 
     static GroupEnabled(name) => Bindings.groups.Has(name) && Bindings.groups[name].enabled
@@ -578,6 +700,16 @@ class Bindings {
         ; release it there before the local binding takes over.
         if (modifierKey != "")
             handler := Bindings._ReleasingRemote(handler, modifierKey)
+        if Bindings.IsWinChord(spec) {
+            vk := GetKeyVK(HotkeyText.BaseKey(spec.keys))
+            if vk {
+                parsed := HotkeyText.Parse(spec.keys)
+                chordHandler := handler
+                Bindings._winChords.Push({ vk: vk, spec: spec, context: context, mods: parsed.mods,
+                    wildcard: parsed.wildcard, winSide: Bindings.WinSide(parsed.mods),
+                    run: () => Bindings._RunWinChord(spec, chordHandler) })
+            }
+        }
         HotIf(context)
         try {
             Hotkey(spec.keys, handler, "On")
@@ -613,7 +745,9 @@ class Bindings {
         group := spec.group
         winTitle := spec.whenActive
         yieldToRemote := spec.HasOwnProp("yieldToRemote") && spec.yieldToRemote
+        refusesSwallowedWin := Bindings.RefusesSwallowedWin(spec)
         fn := (hotkeyName := "", *) => (!checkSimulated || SimulatedKeys.Allows(hotkeyName))
+            && (!refusesSwallowedWin || !Bindings.WinSwallowed())
             && (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
             && (modifierKey = "" || (Bindings.ModifierDown(modifier) && !Bindings.ModifierSuspended(modifier)
                 && Bindings.AllPhysicallyDown(physicalMods)))
@@ -938,9 +1072,16 @@ class Bindings {
         return true
     }
 
+    ; Win counts as down when the SimulatedKeys hook saw it, too (see
+    ; WinSwallowed).
     static AllPhysicallyDown(keys) {
         for key in keys {
-            down := key = "Win" ? GetKeyState("LWin", "P") || GetKeyState("RWin", "P") : GetKeyState(key, "P")
+            if (key = "Win")
+                down := GetKeyState("LWin", "P") || GetKeyState("RWin", "P") || SimulatedKeys.WinHeld()
+            else if (key = "LWin" || key = "RWin")
+                down := GetKeyState(key, "P") || SimulatedKeys.WinHeld(SubStr(key, 1, 1))
+            else
+                down := GetKeyState(key, "P")
             if !down
                 return false
         }
