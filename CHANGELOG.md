@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.15.5] - 2026-11-24
+
 ### Fixed
 - `taskView.open` now opens Task View from any app. Before, it worked only while the desktop, taskbar or Start menu had focus, because Windows ignored the request from the background.
 
