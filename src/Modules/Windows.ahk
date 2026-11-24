@@ -53,13 +53,17 @@ class WindowsModule {
     ; Explorer opens Task View only while the shell is in the foreground: from
     ; any other app, Windows' foreground lock leaves the request unanswered. So
     ; activate the taskbar first (AutoHotkey can force that), as if the user had
-    ; clicked it.
+    ; clicked it. Throws when the taskbar can't be activated, since Task View
+    ; would not open either.
     static OpenTaskView() {
         if !WinActive("ahk_class Shell_TrayWnd") {
+            activated := false
             try {
                 WinActivate("ahk_class Shell_TrayWnd")
-                WinWaitActive("ahk_class Shell_TrayWnd", , 0.5)
+                activated := WinWaitActive("ahk_class Shell_TrayWnd", , 0.5)
             }
+            if !activated
+                throw Error("Could not focus the taskbar to open Task View.")
         }
         Run("shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}")
     }
