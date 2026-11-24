@@ -6,6 +6,11 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-11-24
+
+### Fixed
+- A quick window that is hidden when hotkit exits or reloads now goes to the taskbar minimized instead of reappearing on screen. It does not take focus, and a tool window gets its taskbar button back. Quick windows that were showing keep their state.
+
 ## [1.17.1] - 2026-11-24
 
 ### Fixed

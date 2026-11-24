@@ -420,9 +420,26 @@ class E2E_Tests {
     }
 
     static Test_06_ConfigReload() {
+        ; A quick window hidden when the app restarts must stay out of view:
+        ; minimized to the taskbar, not shown again, and not focused.
+        qw := WinExist("hotkit-e2e-qw")
+        Assert.True(qw, "quick window fixture is not open")
+        if (WinGetMinMax(qw) = -1)
+            WinRestore(qw)
+        WinActivate(qw)
+        WinWaitActive(qw, , 5)
+        Sleep(300)
+        E2E_Tests.Press(">^>!F12")
+        Sleep(800)
+        Assert.Equal(0, WinGetTransparent(qw), "toggle should hide the quick window before the restart")
         E2E_Tests.WriteConfig(', { "keys": ">^>!F14", "action": "probe.mark", "args": ["reloaded"] }')
         ; The watcher polls every 2s and reloads; the probe logs ready again.
         E2E_Tests.WaitFor("ready", 2)
+        Assert.Equal(-1, WinGetMinMax(qw), "hidden quick window should be minimized after the restart")
+        alpha := WinGetTransparent(qw)
+        Assert.True(alpha = "" || alpha = 255, "minimized quick window should be opaque again, alpha=" alpha)
+        Assert.Equal(0, WinGetExStyle(qw) & 0x20, "minimized quick window should accept clicks again")
+        Assert.NotEqual(qw, WinExist("A"), "the restart must not focus the hidden quick window")
         E2E_Tests.Press(">^>!F14")
         E2E_Tests.WaitFor("reloaded")
         E2E_Tests.Press(">^>!F5")
