@@ -226,6 +226,10 @@ re-installed every 30 seconds so it keeps running ahead of AutoHotkey's.
 
 ### Remote sessions
 
+For shortcuts on the machine inside a session, see
+[Hotkeys inside remote and virtual sessions](relay-keys.md): relay keys are
+more predictable than the automatic handling described here.
+
 Remote Desktop, virtual desktop viewers, and similar clients forward keys to
 another machine, which may run hotkit too. List their windows and both
 machines share the keyboard: your local bindings keep working in the session,

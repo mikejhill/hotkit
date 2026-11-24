@@ -76,6 +76,7 @@ To start at sign-in, put a shortcut to `src\Main.ahk` in `shell:startup`.
 - [Configuration reference](docs/configuration.md)
 - [Action reference](docs/actions.md) (generated)
 - [Stay awake and monitors off](docs/stay-awake.md) (read the security notes before using Keep Unlocked)
+- [Hotkeys inside remote and virtual sessions](docs/relay-keys.md): relay keys for shortcuts on nested machines
 - [Writing plugins](docs/plugins.md) and [example plugins](examples/plugins/README.md)
 
 Validate a config without starting anything, and see what the running app
@@ -95,7 +96,7 @@ config/      config.example.json, config.schema.json
 examples/    plugins/ (copyable example plugins)
 tests/       unit/, integration/, e2e/ (AutoHotkey) + lib/TestRunner.ahk
 tools/       test.py, check.py, lint.py, mutate.py, gen_docs.py, make_icon.py, make_brand.py
-docs/        philosophy, architecture, configuration, actions, plugins, testing
+docs/        philosophy, architecture, configuration, actions, plugins, testing, relay keys
 local/       generated, git-ignored
 ```
 
