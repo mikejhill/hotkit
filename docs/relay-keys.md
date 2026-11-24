@@ -65,18 +65,20 @@ assignments down in one table and keep it the same in both configs:
 
 Bindings on the local machine only send relay keys while the session window
 is active. Find a WinTitle that matches it, for example with AutoHotkey's
-Window Spy:
+Window Spy. Some examples:
 
-```text
-ahk_class TscShellContainerClass ahk_exe mstsc.exe   (Remote Desktop)
-ahk_exe vmconnect.exe                                (Hyper-V console)
-ahk_exe vncviewer.exe                                (VNC viewer)
-```
+| Client | WinTitle |
+| --- | --- |
+| Remote Desktop | `ahk_class TscShellContainerClass ahk_exe mstsc.exe` |
+| Hyper-V console | `ahk_exe vmconnect.exe` |
+| VNC viewer | `ahk_exe vncviewer.exe` |
 
 ### 3. Send relay keys from the local machine
 
 Add one `send` binding per shortcut, limited to the session window with
-`whenActive`:
+`whenActive`. The examples use the `caps` modifier and layer `1` from the
+example config. Use your own names, or leave out `layer` if you don't use
+layers:
 
 ```jsonc
 { "layer": "1", "modifier": "caps", "keys": "K", "whenActive": "ahk_exe vncviewer.exe",
@@ -88,13 +90,13 @@ Add one `send` binding per shortcut, limited to the session window with
 Outside the session window these bindings do nothing, and CapsLock+K keeps
 its normal local meaning, if it has one.
 
-To reuse a shortcut that already has a local binding, give the session
-version the same `layer` setting as the local one and list it above it.
-Bindings that differ only in `whenActive` don't conflict, and when both
-match, the one listed first wins, so the session version takes over only
-while the session window is active. Order only breaks ties between bindings
-with the same `layer` setting: a binding limited to layers always beats one
-that applies on every layer, wherever it is listed.
+To reuse a shortcut that already has a local binding, list the session
+version above the local one. Bindings that differ only in `whenActive` don't
+conflict, and when both match, the one listed first wins, so the session
+version takes over only while the session window is active. Order decides
+only between bindings of the same kind: all bindings limited to layers come
+before bindings that apply on every layer, wherever they are listed. So if
+the local binding has a `layer`, give the session version a `layer` too.
 
 ### 4. Bind the relay keys on the inner machine
 
@@ -120,15 +122,18 @@ forwarded keys as simulated input, so allow them on every relay binding.
 
 Before you add more, check each hop on its own:
 
-1. **The local binding fires.** Temporarily change the local relay binding's
-   `whenActive` to a local text editor and its `args` to `["relay ok"]` with
-   `"action": "sendText"`. Press the shortcut in that editor: the text should
-   appear. Then put the binding back.
+1. **The local binding fires in the session window.** Temporarily change
+   only the local relay binding's action to `"sendText"` with
+   `["relay ok"]`, keeping its `whenActive`. Focus a text editor in the
+   session and press the shortcut: "relay ok" should appear there. If it
+   doesn't, fix the WinTitle. Then put the `send` action back.
 2. **The inner binding fires.** On the inner machine, change only the action
    of the `F15` binding to `"sendText"` with `["relay ok"]`, keeping
-   `allowSimulated`. Focus a text editor in the session.
-3. **The key arrives.** Focus the session window on the local machine and
-   press the shortcut. If the text appears, restore the inner action and add
+   `allowSimulated`. Press F15 on the inner machine itself, for example with
+   an on-screen keyboard or a temporary binding that sends `{F15}`, while a
+   text editor is focused: "relay ok" should appear.
+3. **The key arrives.** Focus the text editor in the session and press the
+   local shortcut. If "relay ok" appears, restore the inner action and add
    the rest of the table.
 
 If steps 1 and 2 work but nothing arrives in step 3, the client drops that
