@@ -123,14 +123,15 @@ forwarded keys as simulated input, so allow them on every relay binding.
 Before you add more, check each hop on its own:
 
 1. **The local binding fires in the session window.** Temporarily change
-   only the local relay binding's action to `"sendText"` with
-   `["relay ok"]`, keeping its `whenActive`. Focus a text editor in the
-   session and press the shortcut: "relay ok" should appear there. If it
-   doesn't, fix the WinTitle. Then put the `send` action back.
+   only the local relay binding's action to `"osd.toggle"` (no `args`),
+   keeping its `whenActive`. Focus the session window and press the
+   shortcut: the local shortcut overlay should open. If it doesn't, fix the
+   WinTitle. Then put the `send` action back.
 2. **The inner binding fires.** On the inner machine, change only the action
    of the `F15` binding to `"sendText"` with `["relay ok"]`, keeping
-   `allowSimulated`. Press F15 on the inner machine itself, for example with
-   an on-screen keyboard or a temporary binding that sends `{F15}`, while a
+   `allowSimulated`. Trigger F15 on the inner machine itself with a temporary
+   binding such as
+   `{ "keys": "F9", "action": "hotkey.trigger", "args": ["F15"] }` while a
    text editor is focused: "relay ok" should appear.
 3. **The key arrives.** Focus the text editor in the session and press the
    local shortcut. If "relay ok" appears, restore the inner action and add
@@ -158,9 +159,10 @@ only the ones in your relay table. Use a layer for this:
 5. Switch to layer 2 (CapsLock+2) before working in the session, and back to
    layer 1 (CapsLock+1) when you leave.
 
-On layer 2, every key without a binding passes through to the session.
-CapsLock itself is still swallowed when it's forced off, so the relay keys
-remain the way to reach the inner machine's CapsLock bindings.
+On layer 2, every key without a binding passes through to the session. This
+frees keys, not the CapsLock modifier: when CapsLock is forced off it is
+still swallowed, so CapsLock+J reaches the session as a plain J. To trigger a
+CapsLock binding on the inner machine, add a relay key for it.
 
 ## Deeper nesting
 
@@ -169,8 +171,12 @@ for the level below it:
 
 - The outer machine sends `F15` while the first session is active.
 - The middle machine binds `F15` and, while its own nested session window is
-  active, sends a different key, such as `^F15`, instead of acting on it.
-- The innermost machine binds `^F15`.
+  active, sends a different key instead of acting on it:
+  `{ "keys": "F15", "allowSimulated": true, "whenActive": "<nested session window>", "action": "send", "args": ["^{F15}"] }`.
+- The innermost machine binds `^F15` (`"keys": "^F15"`).
+
+In `send` arguments, key names such as F15 go in braces (`{F15}`, `^{F15}`).
+In `keys`, they don't (`F15`, `^F15`).
 
 Give each level its own relay keys, for example plain F13 to F24 for the
 first level and Ctrl+F13 to Ctrl+F24 for the second. That way a key that
