@@ -149,6 +149,15 @@ A binding on a modifier fires only when the Ctrl, Shift, Alt, or Win keys in its
 `keys` are physically pressed, so keystrokes another program injects while the
 modifier key is held (a dictation tool pasting with Ctrl+V, say) reach the app.
 
+Win chords on a modifier, such as CapsLock+Win+1, also work while a remote
+session or virtual desktop window has focus. Those clients often take the Win key
+for the remote machine before hotkit's main keyboard hook sees it, so hotkit
+would see CapsLock+1 instead. hotkit's own hook (see [Simulated keys](#simulated-keys))
+still sees Win. While Win is held this way, hotkit runs the matching Win binding
+itself and keeps the key from the client, and a binding without Win, such as
+CapsLock+1, doesn't fire. This covers simple action bindings, not
+`gestures`, `onRelease`, `onNextKey`, or release (`up`) hotkeys.
+
 The modifier key keeps its normal function unless you disable it (as above for
 Caps Lock). `keyboard.toggleCapsLock` still toggles it on demand.
 
@@ -222,7 +231,10 @@ maps buttons to F13, or a remote machine that sends F24. Mark those bindings:
 doubt, the check lets the key through: if Windows skipped the hook because
 hotkit was busy, or hotkit couldn't install it (listed under *Show Config
 Problems*), shortcuts behave as if the setting were off. The hook is
-re-installed every 30 seconds so it keeps running ahead of AutoHotkey's.
+re-installed every 30 seconds so it keeps running ahead of AutoHotkey's, and
+shortly after the active window changes, so it stays ahead of clients that
+install their own hook when they get focus. The hook also runs, even with the
+setting off, when a binding on a modifier uses Win (see [Modifiers](#modifiers)).
 
 ### Remote sessions
 

@@ -133,11 +133,15 @@ class DesktopModule {
             Send("{Blind}" key)
             return
         }
+        firedBy := Bindings.ThisHotkey()
+        ; The focused app (a remote session client) took the Win press, so
+        ; Windows never got it and that app would take Win+<n> too.
+        swallowed := Bindings.InWinChord() || Bindings.WinSwallowed()
         ; Before focus moves: the binding's whenActive must still match.
-        triggers := Bindings.WithRemoteKeys(DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, A_ThisHotkey,
+        triggers := Bindings.WithRemoteKeys(DesktopModule.TaskbarTriggerKeys(Bindings.specs, Bindings.modifiers, firedBy,
             (spec) => (fn := Bindings._Context(spec)) = "" || fn()))
         movedFocus := false
-        if (DesktopModule.ForegroundIsFullScreen()) {
+        if (swallowed || DesktopModule.ForegroundIsFullScreen()) {
             hwnd := DesktopModule.FocusDesktop()
             if (!hwnd)
                 return
@@ -148,7 +152,12 @@ class DesktopModule {
         }
         isDown := (k) => Bindings.HeldKey(k)
         held := DesktopModule.TaskbarHoldKeys(triggers, isDown)
-        win := DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
+        ; A swallowed Win is held for Windows here, and let go when the Win
+        ; key is released (Windows may or may not get that release itself).
+        ; Win already up: a single press.
+        if swallowed
+            held := DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
+        win := swallowed ? [] : DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
         if (win.Length) {
             ; Win is already down. A full-screen app that had focus when it was
             ; pressed (remote desktop) may have kept that press from Windows,
@@ -170,7 +179,7 @@ class DesktopModule {
             OnExit((*) => DesktopModule.ReleaseTaskbarHold())
             DesktopModule._TaskbarReleaseRegistered := true
         }
-        repeat := DesktopModule.TaskbarRepeatKey(A_ThisHotkey)
+        repeat := DesktopModule.TaskbarRepeatKey(firedBy)
         DesktopModule._TaskbarHold := { keys: held, started: A_TickCount, repeat: repeat }
         Send("{Blind}{LWin down}" key)
         if (repeat != "") {
