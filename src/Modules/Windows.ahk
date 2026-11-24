@@ -56,16 +56,33 @@ class WindowsModule {
     ; clicked it. Throws when the taskbar can't be activated, since Task View
     ; would not open either.
     static OpenTaskView() {
-        if !WinActive("ahk_class Shell_TrayWnd") {
-            activated := false
+        static shellClasses := ["Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW"]
+        prev := WinExist("A")
+        moved := false
+        cls := ""
+        try cls := WinGetClass("ahk_id " prev)
+        if !WindowsModule._InList(shellClasses, cls) {
             try {
                 WinActivate("ahk_class Shell_TrayWnd")
-                activated := WinWaitActive("ahk_class Shell_TrayWnd", , 0.5)
+                moved := WinWaitActive("ahk_class Shell_TrayWnd", , 0.5)
             }
-            if !activated
+            if !moved
                 throw Error("Could not focus the taskbar to open Task View.")
         }
-        Run("shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}")
+        try {
+            Run("shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}")
+        } catch as e {
+            if (moved && prev && WinActive("ahk_class Shell_TrayWnd"))
+                try WinActivate("ahk_id " prev)
+            throw e
+        }
+    }
+
+    static _InList(list, value) {
+        for item in list
+            if (item = value)
+                return true
+        return false
     }
 
     static Start(cfg) {
