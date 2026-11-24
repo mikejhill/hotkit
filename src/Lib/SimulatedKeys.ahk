@@ -28,8 +28,9 @@ class SimulatedKeys {
     static MaxAgeMs := 1000
     static ReinstallMs := 30000
     static ForegroundReinstallDelays := [50, 300]
-    ; A held Win key that sent no key-down (press or auto-repeat) for this long
-    ; counts as released, in case its release was missed.
+    ; A held Win key counts as released after this long without a key-down
+    ; (its own, or of a key typed while it is held), in case its release
+    ; was missed.
     static WinMaxQuietMs := 10000
     static _hook := 0
     static _callback := 0
@@ -148,6 +149,12 @@ class SimulatedKeys {
                 }
                 if (SimulatedKeys.last.vk = 0x5B || SimulatedKeys.last.vk = 0x5C)
                     SimulatedKeys.winDown.%(SimulatedKeys.last.vk = 0x5B ? "L" : "R")% := SimulatedKeys.last.up ? 0 : A_TickCount
+                else if !SimulatedKeys.last.up {
+                    ; Typing with Win held keeps it held (Win stops repeating).
+                    for side in ["L", "R"]
+                        if SimulatedKeys.winDown.%side%
+                            SimulatedKeys.winDown.%side% := A_TickCount
+                }
                 if (SimulatedKeys.OnTyped != "")
                     try SimulatedKeys.OnTyped.Call(SimulatedKeys.last.vk, SimulatedKeys.last.up)
             }

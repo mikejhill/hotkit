@@ -815,7 +815,7 @@ class Bindings_Tests {
     }
 
     static FakeChord(runs, keys, mods, wildcard, extra := "") {
-        c := { vk: 0x31, sc: 0x02, spec: { keys: keys, waitRelease: false }, context: "", mods: mods, pending: 0,
+        c := { vk: 0x31, sc: 0x02, spec: { keys: keys, waitRelease: false }, context: "", mods: mods,
             wildcard: wildcard, passThrough: false, winSide: "any", run: () => runs.Push(keys) }
         if (extra != "") {
             for k, v in extra.OwnProps()
@@ -875,6 +875,7 @@ class Bindings_Tests {
             SimulatedKeys.winDown := saved
             Bindings._winChords := []
             Bindings._winChordKeys := Map()
+            Bindings._winChordQueue := []
         }
     }
 

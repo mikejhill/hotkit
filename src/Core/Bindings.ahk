@@ -65,8 +65,9 @@ class Bindings {
     ; Win chords on a held modifier, run from the SimulatedKeys hook while
     ; another program's hook swallows Win (see InterceptKey).
     static _winChords := []
-    ; virtual key -> true: keys whose press a Win chord took, until released
+    ; "vk|sc" -> chord: keys whose press ran a Win chord, until released
     static _winChordKeys := Map()
+    static _winChordQueue := []
     ; The hotkey of the Win chord being run, for actions that read A_ThisHotkey.
     static _thisHotkey := ""
     static _thisHotkeyBase := ""
@@ -525,7 +526,8 @@ class Bindings {
         ; A modifier as the chord's key (#Ctrl) is left to AutoHotkey.
         vk := 0
         try vk := GetKeyVK(parsed.key)
-        return vk && !(vk >= 0x10 && vk <= 0x12) && !(vk >= 0xA0 && vk <= 0xA5) && vk != 0x5B && vk != 0x5C
+        ; Mouse buttons never reach the keyboard hook.
+        return vk && Bindings._KeyboardKey(parsed.key) && !(vk >= 0x10 && vk <= 0x12) && !(vk >= 0xA0 && vk <= 0xA5) && vk != 0x5B && vk != 0x5C
     }
 
     ; Pure: whether held Ctrl/Shift/Alt match a binding's modifiers exactly:
@@ -564,16 +566,14 @@ class Bindings {
     static InterceptKey(vk, sc, up, injected) {
         if injected
             return false
-        if Bindings._winChordKeys.Has(vk) {
-            taken := Bindings._winChordKeys[vk]
-            ; Another key with the same virtual key (Enter, NumpadEnter).
-            if (!taken.sc || !sc || taken.sc = sc) {
-                if up
-                    Bindings._winChordKeys.Delete(vk)
-                else if (!taken.chord.spec.waitRelease && Bindings._WinChordLive(taken.chord))
-                    Bindings._QueueWinChord(taken.chord)
-                return true
-            }
+        id := vk "|" sc
+        if Bindings._winChordKeys.Has(id) {
+            taken := Bindings._winChordKeys[id]
+            if up
+                Bindings._winChordKeys.Delete(id)
+            else if (!taken.spec.waitRelease && Bindings._WinChordLive(taken))
+                Bindings._QueueWinChord(taken)
+            return !taken.passThrough
         }
         if (up || !Bindings._winChords.Length || vk = 0x5B || vk = 0x5C || A_IsSuspended || !Bindings.WinSwallowed())
             return false
@@ -592,26 +592,22 @@ class Bindings {
         DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 0, "uptr", 0)
         DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 2, "uptr", 0)
         Bindings._QueueWinChord(best)
-        if best.passThrough
-            return false
-        Bindings._winChordKeys[vk] := { chord: best, sc: sc }
-        return true
+        ; Tracked until released, so auto-repeat follows waitRelease.
+        Bindings._winChordKeys[id] := best
+        return !best.passThrough
     }
 
-    ; Each accepted press runs once, even if several arrive before the timer.
+    ; Accepted presses run in arrival order from one timer, each once.
     static _QueueWinChord(chord) {
-        chord.pending += 1
-        SetTimer(chord.run, -1)
+        Bindings._winChordQueue.Push(chord)
+        SetTimer(Bindings._winChordTimer, -1)
     }
 
-    static _WinChordRunner(chord, handler) {
-        return run
-        run() {
-            while (chord.pending > 0) {
-                chord.pending -= 1
-                Bindings._RunWinChord(chord.spec, handler)
-            }
-        }
+    static _winChordTimer := (*) => Bindings._DrainWinChords()
+
+    static _DrainWinChords() {
+        while Bindings._winChordQueue.Length
+            Bindings._winChordQueue.RemoveAt(1).run.Call()
     }
 
     ; Whether a taken key's auto-repeat may run its chord again.
@@ -696,6 +692,7 @@ class Bindings {
         Bindings._upWatchers := Bindings._CaseMap()
         Bindings._winChords := []
         Bindings._winChordKeys := Map()
+        Bindings._winChordQueue := []
     }
 
     static GroupEnabled(name) => Bindings.groups.Has(name) && Bindings.groups[name].enabled
@@ -761,10 +758,12 @@ class Bindings {
                 chordHandler := handler
                 sc := 0
                 try sc := GetKeySC(parsed.key)
-                chord := { vk: vk, sc: sc, spec: spec, context: context, mods: parsed.mods, pending: 0,
-                    wildcard: parsed.wildcard, passThrough: parsed.passThrough, winSide: Bindings.WinSide(parsed.mods) }
-                chord.run := Bindings._WinChordRunner(chord, chordHandler)
-                Bindings._winChords.Push(chord)
+                ; A key given by virtual key alone (vk0D) matches any scan code.
+                if (RegExMatch(parsed.key, "i)^vk[0-9a-f]+$"))
+                    sc := 0
+                Bindings._winChords.Push({ vk: vk, sc: sc, spec: spec, context: context, mods: parsed.mods,
+                    wildcard: parsed.wildcard, passThrough: parsed.passThrough, winSide: Bindings.WinSide(parsed.mods),
+                    run: () => Bindings._RunWinChord(spec, chordHandler) })
             }
         }
         HotIf(context)
