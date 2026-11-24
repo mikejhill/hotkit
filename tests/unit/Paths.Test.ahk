@@ -33,8 +33,24 @@ class Paths_Tests {
 
     static Test_DefaultConfigDir() {
         Assert.Equal(EnvGet("USERPROFILE") "\.config\hotkit", Paths.ConfigDir())
-        Assert.Equal(Paths.ConfigDir() "\config.json", Paths.ConfigFile())
+        file := Paths.ConfigFile()
+        Assert.True(file = Paths.ConfigDir() "\config.jsonc" || file = Paths.ConfigDir() "\config.json", file)
         Assert.Equal(Paths.ConfigDir() "\plugins", Paths.PluginDir())
+    }
+
+    static Test_ConfigFilePrefersJsoncAndKeepsAnExistingJson() {
+        dir := A_Temp "\hotkit-configfile-" A_TickCount
+        DirCreate(dir)
+        try {
+            Paths.Override := dir
+            Assert.Equal(dir "\config.jsonc", Paths.ConfigFile(), "a new config is config.jsonc")
+            FileAppend("{}", dir "\config.json", "UTF-8")
+            Assert.Equal(dir "\config.json", Paths.ConfigFile(), "an existing config.json is still used")
+            FileAppend("{}", dir "\config.jsonc", "UTF-8")
+            Assert.Equal(dir "\config.jsonc", Paths.ConfigFile(), "config.jsonc wins when both exist")
+        } finally {
+            DirDelete(dir, true)
+        }
     }
 
     static Test_XdgThenEnvThenOverride() {

@@ -11,12 +11,18 @@ All personal settings live in one folder:
 
 ```
 hotkit\
-  config.json        bindings, apps, quick windows, module settings
+  config.jsonc       bindings, apps, quick windows, module settings
   plugins\*.ahk      optional private plugins (see plugins.md)
 ```
 
-`config.json` is JSON with comments (`//`, `/* */`) and trailing commas allowed.
-hotkit keeps a copy of the schema next to `config.json`, as `config.schema.json`,
+`config.jsonc` is JSON with comments (`//`, `/* */`) and trailing commas allowed.
+The `.jsonc` name makes editors (VS Code, JetBrains IDEs, Zed, Sublime Text and
+others) open it as JSON with comments, so comments are never flagged as errors.
+An existing `config.json` keeps working when there is no `config.jsonc`; rename
+it to `config.jsonc` to switch. hotkit picks up the rename without a restart, and
+lists a config problem if both files exist.
+
+hotkit keeps a copy of the schema next to the config, as `config.schema.json`,
 and refreshes it when hotkit starts with a different version. It leaves an
 existing `config.schema.json` alone unless it is a hotkit schema. Point the
 config at it so editors offer completion and validation:
@@ -26,25 +32,28 @@ config at it so editors offer completion and validation:
 ```
 
 A local file loads without network access or a trust prompt (VS Code asks
-before loading a schema from a web domain it doesn't trust). The schema also
-tells VS Code, and other editors built on its JSON support, to accept comments
-and trailing commas, so the file isn't flagged even though it is named `.json`.
+before loading a schema from a web domain it doesn't trust). hotkit itself
+ignores the `"$schema"` key. The schema also tells VS Code to accept comments
+and trailing commas in a config still named `config.json`, but only once VS Code
+has loaded the schema; other editors ignore that hint, so prefer `config.jsonc`.
 
 If the config folder is synced between machines running different hotkit
 versions, the copy matches whichever machine started hotkit last.
+Versions before 1.16 read only `config.json`, so rename the config to
+`config.jsonc` once every machine sharing the folder runs 1.16 or later.
 Paths accept `%VAR%` and a leading `~`.
 
 With `settings.watchConfig` on (the default), saving the file or adding/removing
 a plugin restarts the app. The restart waits until the files have stopped
 changing for one poll (about two seconds), so a save in progress is never read
-half-written. If `config.json` then doesn't parse, the app keeps running with
+half-written. If the config then doesn't parse, the app keeps running with
 the previous config and shows a toast instead of restarting. Problems are listed
 under tray › *Show Config Problems*; everything else keeps working. To check
 from a terminal:
 
 ```powershell
-AutoHotkey64.exe src\Main.ahk --check [--config path\to\config.json]
-python tools\check.py [--config path\to\config.json]
+AutoHotkey64.exe src\Main.ahk --check [--config path\to\config.jsonc]
+python tools\check.py [--config path\to\config.jsonc]
 ```
 
 `tools\check.py` finds AutoHotkey (or `AHK_EXE`), refreshes the plugin list,
@@ -413,9 +422,9 @@ another one:
 | Value | Meaning |
 | --- | --- |
 | *(omitted)*, `""` or `null` | The bundled hotkit icon |
-| `"icons/my-icon.ico"` | A relative path, looked up next to `config.json` |
+| `"icons/my-icon.ico"` | A relative path, looked up next to the config file |
 | `"C:/Icons/work.ico"`, `"%OneDrive%/icons/x.ico"`, `"~/icons/x.ico"` | An absolute path; `%VAR%` and `~` are expanded |
-| `"shell32.dll"` | A bare file name not found next to `config.json` is looked up in `System32` |
+| `"shell32.dll"` | A bare file name not found next to the config file is looked up in `System32` |
 | `{ "file": "imageres.dll", "index": 77 }` | Icon number `index` (1-based) in a multi-icon `.dll`, `.exe` or `.icl`; a negative number is a resource ID |
 
 If the file is missing, the object form has no `file`, `index` isn't a
