@@ -26,9 +26,13 @@ installed hook first.
   where Windows key combinations apply. Check it if local shortcuts stop
   working only while the client is full screen.
 
-Relay keys avoid all of this. The local machine never has to guess which side
-a key is meant for. You decide per shortcut and send an unambiguous key into
-the session.
+Relay keys avoid the first two problems. The local machine never has to guess
+which side a key is meant for: you decide per shortcut and send an
+unambiguous key into the session. They don't help with the third, because the
+local shortcut that sends the relay key must reach hotkit first. Before you
+start, focus the session window and press a local shortcut that does
+something visible. If it doesn't fire, change the client's keyboard setting
+or use the client in a window, then try again.
 
 ## How relay keys work
 
@@ -46,8 +50,9 @@ keyboards rarely have them, so nothing else reacts to them.
 
 ### 1. Choose relay keys
 
-Pick keys that no binding on either machine already uses. F13 to F24 give 12
-keys, and each combines with Ctrl, Shift, and Alt for 96 in total. Write the
+Pick keys that nothing on either machine already uses: no binding, and no
+modifier's `remoteKey`. F13 to F24 give 12 keys, and each combines with Ctrl,
+Shift, and Alt for 96 in total. Write the
 assignments down in one table and keep it the same in both configs:
 
 | Shortcut you press (local) | Relay key | Action on the inner machine |
@@ -83,18 +88,28 @@ Add one `send` binding per shortcut, limited to the session window with
 Outside the session window these bindings do nothing, and CapsLock+K keeps
 its normal local meaning, if it has one.
 
-To reuse a shortcut that already has a local binding, add the session
-version above the local one in your config. Bindings that differ only in
-`whenActive` don't conflict. When both match, the one listed first wins, so
-the session version takes over only while the session window is active.
+To reuse a shortcut that already has a local binding, give the session
+version the same `layer` setting as the local one and list it above it.
+Bindings that differ only in `whenActive` don't conflict, and when both
+match, the one listed first wins, so the session version takes over only
+while the session window is active. Order only breaks ties between bindings
+with the same `layer` setting: a binding limited to layers always beats one
+that applies on every layer, wherever it is listed.
 
 ### 4. Bind the relay keys on the inner machine
 
-In the inner machine's config, bind each relay key and set `allowSimulated`:
+In the inner machine's config, bind each relay key and set `allowSimulated`.
+The actions are ordinary hotkit actions. This example toggles an app defined
+under `apps`:
 
 ```jsonc
-{ "keys": "F15", "allowSimulated": true, "action": "app.toggle", "args": ["browser"] },
-{ "keys": "+F15", "allowSimulated": true, "action": "app.cycle", "args": ["browser"] },
+"apps": {
+  "browser": { "name": "Browser", "run": "msedge.exe", "match": "ahk_exe msedge.exe" }
+},
+"bindings": [
+  { "keys": "F15", "allowSimulated": true, "action": "app.toggle", "args": ["browser"] },
+  { "keys": "+F15", "allowSimulated": true, "action": "app.cycle", "args": ["browser"] }
+]
 ```
 
 hotkit ignores keys that programs simulate unless the binding allows them
@@ -103,14 +118,21 @@ forwarded keys as simulated input, so allow them on every relay binding.
 
 ### 5. Test one key end to end
 
-Before you add more, check that the client forwards the relay key:
+Before you add more, check each hop on its own:
 
-1. On the inner machine, bind `F15` to something visible, such as
-   `{ "action": "sendText", "args": ["relay ok"] }`, and focus a text editor.
-2. On the local machine, focus the session window and press the shortcut.
-3. If the text appears, add the rest of the table.
+1. **The local binding fires.** Temporarily change the local relay binding's
+   `whenActive` to a local text editor and its `args` to `["relay ok"]` with
+   `"action": "sendText"`. Press the shortcut in that editor: the text should
+   appear. Then put the binding back.
+2. **The inner binding fires.** On the inner machine, change only the action
+   of the `F15` binding to `"sendText"` with `["relay ok"]`, keeping
+   `allowSimulated`. Focus a text editor in the session.
+3. **The key arrives.** Focus the session window on the local machine and
+   press the shortcut. If the text appears, restore the inner action and add
+   the rest of the table.
 
-If nothing arrives, the client drops that key. Use a combination of normal
+If steps 1 and 2 work but nothing arrives in step 3, the client drops that
+key. Use a combination of normal
 keys instead, such as Ctrl+Shift+Alt plus a letter. Send it with
 `{Ctrl down}{Shift down}{Alt down}k{Alt up}{Shift up}{Ctrl up}` and bind
 `^+!k` on the inner machine.
@@ -120,9 +142,15 @@ keys instead, such as Ctrl+Shift+Alt plus a letter. Send it with
 Sometimes you want every CapsLock shortcut to go to the inner machine, not
 only the ones in your relay table. Use a layer for this:
 
-1. Define a layer, for example `"layers": ["1", "2"]`, and keep only the
-   layer keys and the relay bindings on layer 2.
-2. Switch to layer 2 (CapsLock+2) before working in the session, and back to
+1. Define a second layer: `"layers": ["1", "2"]`.
+2. Keep the layer keys on every layer by leaving out `layer`:
+   `{ "modifier": "caps", "keys": "1", "action": "layer.activate", "args": ["1"] }`
+   and the same for `2`.
+3. Limit the local shortcuts that should yield to the session to layer 1 with
+   `"layer": "1"`. Any binding without `layer` still fires on layer 2.
+4. Put the relay bindings on both layers, `"layer": ["1", "2"]`, or on layer 2
+   only if you want them just there.
+5. Switch to layer 2 (CapsLock+2) before working in the session, and back to
    layer 1 (CapsLock+1) when you leave.
 
 On layer 2, every key without a binding passes through to the session.
@@ -147,8 +175,8 @@ passes through a level by mistake can't trigger the wrong action.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| Nothing happens on the inner machine | The client drops the relay key, or the binding lacks `allowSimulated` | Run the end-to-end test in step 5. Add `allowSimulated`. |
-| The local action runs instead | The local binding is listed above the session binding | Move the `whenActive` binding above it. |
+| Nothing happens on the inner machine | The client drops the relay key, or the binding lacks `allowSimulated` | Run the hop-by-hop test in step 5. Add `allowSimulated`. |
+| The local action runs instead | The local binding is listed above the session binding, or is limited to layers while the session binding isn't | Give both the same `layer` setting and list the `whenActive` binding first. |
 | The relay key fires outside the session | `whenActive` is missing or matches other windows | Narrow the WinTitle, for example with `ahk_class`. |
 | Local shortcuts stop working only in full screen | The client's keyboard hook takes keys first | Check the client's setting for where Windows key combinations apply, or work in a window. |
 | A modifier seems stuck after switching into the session | The client took over the keyboard while the key was held and kept its release | Press and release the modifier again. |
