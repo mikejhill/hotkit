@@ -61,10 +61,14 @@ class WindowsModule {
         exe := "", cls := ""
         try exe := WinGetProcessName("ahk_id " prev)
         try cls := WinGetClass("ahk_id " prev)
+        taskbar := 0
         if WindowsModule.TaskViewNeedsTaskbar(exe, cls) {
             try {
-                WinActivate("ahk_class Shell_TrayWnd")
-                moved := WinWaitActive("ahk_class Shell_TrayWnd", , 0.5)
+                taskbar := WinExist("ahk_class Shell_TrayWnd ahk_exe explorer.exe")
+                if taskbar {
+                    WinActivate("ahk_id " taskbar)
+                    moved := WinWaitActive("ahk_id " taskbar, , 0.5)
+                }
             }
             if !moved
                 throw Error("Could not focus the taskbar to open Task View.")
@@ -72,7 +76,7 @@ class WindowsModule {
         try {
             Run("shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}")
         } catch as e {
-            if (moved && prev && WinActive("ahk_class Shell_TrayWnd"))
+            if (moved && prev && WinActive("ahk_id " taskbar))
                 try WinActivate("ahk_id " prev)
             throw e
         }
