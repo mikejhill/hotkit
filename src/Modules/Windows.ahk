@@ -56,12 +56,12 @@ class WindowsModule {
     ; clicked it. Throws when the taskbar can't be activated, since Task View
     ; would not open either.
     static OpenTaskView() {
-        static shellClasses := ["Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW"]
         prev := WinExist("A")
         moved := false
-        cls := ""
+        exe := "", cls := ""
+        try exe := WinGetProcessName("ahk_id " prev)
         try cls := WinGetClass("ahk_id " prev)
-        if !WindowsModule._InList(shellClasses, cls) {
+        if WindowsModule.TaskViewNeedsTaskbar(exe, cls) {
             try {
                 WinActivate("ahk_class Shell_TrayWnd")
                 moved := WinWaitActive("ahk_class Shell_TrayWnd", , 0.5)
@@ -76,6 +76,18 @@ class WindowsModule {
                 try WinActivate("ahk_id " prev)
             throw e
         }
+    }
+
+    ; Pure: whether the taskbar must take focus before Task View can open, given
+    ; the foreground window's process and class. Not for the shell itself: the
+    ; desktop, a taskbar, or the Start menu or search, which run in their own
+    ; shell host processes.
+    static TaskViewNeedsTaskbar(exe, cls) {
+        static shellClasses := ["Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW"]
+        static shellHosts := ["StartMenuExperienceHost.exe", "SearchHost.exe", "ShellExperienceHost.exe"]
+        if (exe = "explorer.exe" && WindowsModule._InList(shellClasses, cls))
+            return false
+        return !WindowsModule._InList(shellHosts, exe)
     }
 
     static _InList(list, value) {
