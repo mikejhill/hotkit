@@ -815,7 +815,7 @@ class Bindings_Tests {
     }
 
     static FakeChord(runs, keys, mods, wildcard, extra := "") {
-        c := { vk: 0x31, sc: 0x02, spec: { keys: keys, waitRelease: false }, context: "", mods: mods,
+        c := { vk: 0x31, sc: 0x02, spec: { keys: keys, waitRelease: false }, context: "", mods: mods, pending: 0,
             wildcard: wildcard, passThrough: false, winSide: "any", run: () => runs.Push(keys) }
         if (extra != "") {
             for k, v in extra.OwnProps()

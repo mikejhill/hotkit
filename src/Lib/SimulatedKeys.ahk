@@ -36,6 +36,8 @@ class SimulatedKeys {
     static _timer := ""
     static _winEventHook := 0
     static _winEventCallback := 0
+    ; A problem Enable() hit without failing, or "".
+    static problem := ""
     ; The latest keyboard event: virtual key, injected flag, key up, event time
     ; (GetTickCount milliseconds).
     static last := { vk: 0, injected: false, up: false, time: 0 }
@@ -75,6 +77,12 @@ class SimulatedKeys {
         SimulatedKeys._winEventCallback := CallbackCreate((args*) => SimulatedKeys._OnForeground(), "F", 7)
         SimulatedKeys._winEventHook := DllCall("SetWinEventHook", "uint", 3, "uint", 3, "ptr", 0,
             "ptr", SimulatedKeys._winEventCallback, "uint", 0, "uint", 0, "uint", 0, "ptr")
+        if !SimulatedKeys._winEventHook {
+            ; Not fatal: the periodic re-install still catches up.
+            CallbackFree(SimulatedKeys._winEventCallback)
+            SimulatedKeys._winEventCallback := 0
+            SimulatedKeys.problem := "Couldn't watch for focus changes, so a remote session client may take keys first for up to 30 seconds (error " A_LastError ")."
+        }
     }
 
     static _OnForeground() {

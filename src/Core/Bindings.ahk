@@ -69,6 +69,7 @@ class Bindings {
     static _winChordKeys := Map()
     ; The hotkey of the Win chord being run, for actions that read A_ThisHotkey.
     static _thisHotkey := ""
+    static _thisHotkeyBase := ""
 
     static _CaseMap() {
         m := Map()
@@ -186,8 +187,8 @@ class Bindings {
     static HeldKey(k) {
         if GetKeyState(k, "P")
             return true
-        if (k = "LWin" || k = "RWin")
-            return SimulatedKeys.WinHeld(SubStr(k, 1, 1))
+        if ((k = "LWin" || k = "RWin") && SimulatedKeys.WinHeld(SubStr(k, 1, 1)))
+            return true
         for name, modifier in Bindings.modifiers {
             if (modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "" && modifier.remoteKey = k)
                 return GetKeyState(k) && !RemoteSessions.IsActive()
@@ -519,7 +520,12 @@ class Bindings {
         if (spec.modifier = "" || spec.kind != "action" || InStr(spec.keys, " & "))
             return false
         parsed := HotkeyText.Parse(spec.keys)
-        return !parsed.up && Bindings.WinSide(parsed.mods) != ""
+        if (parsed.up || Bindings.WinSide(parsed.mods) = "")
+            return false
+        ; A modifier as the chord's key (#Ctrl) is left to AutoHotkey.
+        vk := 0
+        try vk := GetKeyVK(parsed.key)
+        return vk && !(vk >= 0x10 && vk <= 0x12) && !(vk >= 0xA0 && vk <= 0xA5) && vk != 0x5B && vk != 0x5C
     }
 
     ; Pure: whether held Ctrl/Shift/Alt match a binding's modifiers exactly:
@@ -545,7 +551,7 @@ class Bindings {
 
     ; The hotkey that ran the current action: A_ThisHotkey, or the keys of
     ; the Win chord InterceptKey is running.
-    static ThisHotkey() => Bindings._thisHotkey != "" ? Bindings._thisHotkey : A_ThisHotkey
+    static ThisHotkey() => Bindings.InWinChord() ? Bindings._thisHotkey : A_ThisHotkey
 
     ; Runs inside the SimulatedKeys hook for every key event; true blocks it.
     ; sc is the scan code, plus 0x100 for extended keys. While Win is
@@ -559,14 +565,17 @@ class Bindings {
         if injected
             return false
         if Bindings._winChordKeys.Has(vk) {
-            chord := Bindings._winChordKeys[vk]
-            if up
-                Bindings._winChordKeys.Delete(vk)
-            else if !chord.spec.waitRelease
-                SetTimer(chord.run, -1)
-            return true
+            taken := Bindings._winChordKeys[vk]
+            ; Another key with the same virtual key (Enter, NumpadEnter).
+            if (!taken.sc || !sc || taken.sc = sc) {
+                if up
+                    Bindings._winChordKeys.Delete(vk)
+                else if (!taken.chord.spec.waitRelease && Bindings._WinChordLive(taken.chord))
+                    Bindings._QueueWinChord(taken.chord)
+                return true
+            }
         }
-        if (up || !Bindings._winChords.Length || vk = 0x5B || vk = 0x5C || !Bindings.WinSwallowed())
+        if (up || !Bindings._winChords.Length || vk = 0x5B || vk = 0x5C || A_IsSuspended || !Bindings.WinSwallowed())
             return false
         best := "", bestRank := -1
         for chord in Bindings._winChords {
@@ -578,12 +587,35 @@ class Bindings {
         }
         if (best = "")
             return false
-        SetTimer(best.run, -1)
+        ; The other program got Win alone; vkE8 (unassigned) keeps Win's
+        ; release from opening Start there. Sent now, while Win is down.
+        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 0, "uptr", 0)
+        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 2, "uptr", 0)
+        Bindings._QueueWinChord(best)
         if best.passThrough
             return false
-        Bindings._winChordKeys[vk] := best
+        Bindings._winChordKeys[vk] := { chord: best, sc: sc }
         return true
     }
+
+    ; Each accepted press runs once, even if several arrive before the timer.
+    static _QueueWinChord(chord) {
+        chord.pending += 1
+        SetTimer(chord.run, -1)
+    }
+
+    static _WinChordRunner(chord, handler) {
+        return run
+        run() {
+            while (chord.pending > 0) {
+                chord.pending -= 1
+                Bindings._RunWinChord(chord.spec, handler)
+            }
+        }
+    }
+
+    ; Whether a taken key's auto-repeat may run its chord again.
+    static _WinChordLive(chord) => !A_IsSuspended && Bindings.WinSwallowed() && Bindings._WinChordEligible(chord)
 
     ; Pure: how specific a chord is; among eligible chords the most specific
     ; runs (earliest registered on a tie), as AutoHotkey prefers exact
@@ -601,18 +633,16 @@ class Bindings {
     }
 
     static _RunWinChord(spec, handler) {
-        ; Before the chord's key the other program got Win alone; vkE8
-        ; (unassigned) keeps Win's release from opening Start where it went.
-        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 0, "uptr", 0)
-        DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 2, "uptr", 0)
         Bindings._thisHotkey := spec.keys
+        Bindings._thisHotkeyBase := A_ThisHotkey
         try handler()
         finally Bindings._thisHotkey := ""
     }
 
     ; True while InterceptKey runs a Win chord: the program that had focus
     ; swallowed Win, even if Win was released before the action started.
-    static InWinChord() => Bindings._thisHotkey != ""
+    ; A hotkey that interrupts the chord's action doesn't count.
+    static InWinChord() => Bindings._thisHotkey != "" && A_ThisHotkey = Bindings._thisHotkeyBase
 
     ; Pure: the hotkey modifiers (Ctrl, Shift, Alt, Win) that must be
     ; physically down for a binding on a held modifier key. That modifier is
@@ -731,9 +761,10 @@ class Bindings {
                 chordHandler := handler
                 sc := 0
                 try sc := GetKeySC(parsed.key)
-                Bindings._winChords.Push({ vk: vk, sc: sc, spec: spec, context: context, mods: parsed.mods,
-                    wildcard: parsed.wildcard, passThrough: parsed.passThrough, winSide: Bindings.WinSide(parsed.mods),
-                    run: () => Bindings._RunWinChord(spec, chordHandler) })
+                chord := { vk: vk, sc: sc, spec: spec, context: context, mods: parsed.mods, pending: 0,
+                    wildcard: parsed.wildcard, passThrough: parsed.passThrough, winSide: Bindings.WinSide(parsed.mods) }
+                chord.run := Bindings._WinChordRunner(chord, chordHandler)
+                Bindings._winChords.Push(chord)
             }
         }
         HotIf(context)

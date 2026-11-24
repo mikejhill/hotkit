@@ -210,6 +210,8 @@ class App {
         if (Bindings.ignoreSimulated || Bindings.remoteWindows.Length || Bindings.HasWinChords()) {
             try {
                 SimulatedKeys.Enable()
+                if (SimulatedKeys.problem != "")
+                    Bindings.problems.Push(SimulatedKeys.problem)
             } catch as e {
                 Bindings.problems.Push("Couldn't watch for simulated keys, so programs can trigger shortcuts: " e.Message)
             }

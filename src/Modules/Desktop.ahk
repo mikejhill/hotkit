@@ -151,11 +151,14 @@ class DesktopModule {
             movedFocus := true
         }
         isDown := (k) => Bindings.HeldKey(k)
-        ; A swallowed Win is held for Windows here like the modifier key, and
-        ; let go once both are released (the app may keep Win's release too).
-        if swallowed
-            triggers.Push("LWin", "RWin")
         held := DesktopModule.TaskbarHoldKeys(triggers, isDown)
+        ; A swallowed Win is held for Windows here, and let go when the Win
+        ; key is released (Windows may or may not get that release itself).
+        if swallowed {
+            winHeld := DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
+            if winHeld.Length
+                held := winHeld
+        }
         win := swallowed ? [] : DesktopModule.TaskbarHoldKeys(["LWin", "RWin"], isDown)
         if (win.Length) {
             ; Win is already down. A full-screen app that had focus when it was
