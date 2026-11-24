@@ -60,7 +60,7 @@ def stage_integration() -> bool:
     ok = True
     fixtures = REPO / "tests/integration/fixtures"
     expectations = json.loads((REPO / "tests/integration/expectations.json").read_text())
-    cases = [(REPO / "config/config.example.jsonc", {"exit": 0, "contains": ["OK"]})]
+    cases = [(REPO / "config/config.example.json", {"exit": 0, "contains": ["OK"]})]
     cases += [(fixtures / name, exp) for name, exp in expectations.items()]
     with tempfile.TemporaryDirectory() as empty_dir:
         for path, exp in cases:
@@ -145,7 +145,7 @@ def check_plugin_sync() -> bool:
             (plugins / "Hello.ahk").write_text('App.AddPlugin("hello", (s) => ActionRegistry.Register('
                                                '"hello.world", (*) => 0))\n', encoding="utf-8")
             config = ["--config-dir", ahk.to_ahk_path(cfg_dir), "--config",
-                      ahk.to_ahk_path(REPO / "config/config.example.jsonc")]
+                      ahk.to_ahk_path(REPO / "config/config.example.json")]
             steps = [
                 (["--check"], 1, "Plugin list changed"),
                 (["--sync-plugins"], 0, "plugins: 1 (stub updated)"),
@@ -168,7 +168,7 @@ def check_plugin_sync() -> bool:
 
 def list_actions(config_dir: str) -> list[dict]:
     r = ahk.run(MAIN, "--list-actions", "--no-plugin-sync", "--config-dir", ahk.to_ahk_path(config_dir),
-                "--config", ahk.to_ahk_path(REPO / "config/config.example.jsonc"))
+                "--config", ahk.to_ahk_path(REPO / "config/config.example.json"))
     if r.code != 0:
         raise RuntimeError("--list-actions failed:\n" + r.out)
     start = r.out.index("[")

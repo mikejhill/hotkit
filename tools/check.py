@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks your real hotkit setup and reports what the running app logged.
 
-  python tools/check.py                    sync the plugin stub, --check the config + plugins
+  python tools/check.py                    sync the plugin stub, --check config.json + plugins
   python tools/check.py --config FILE      check FILE instead (e.g. an edited copy before swapping it in)
   python tools/check.py --no-log           skip the running app's status log
 
@@ -12,7 +12,7 @@ the running app showed as a dialog or toast). Exit status: the --check code
 passed but the latest run logged a WARN or ERROR (e.g. a module that failed to
 start, which --check cannot see).
 
-Run this after every edit to the config or a plugin. Never start the app
+Run this after every edit to config.json or a plugin. Never start the app
 itself from an automated shell; this only runs the non-interactive modes.
 """
 from __future__ import annotations
@@ -71,7 +71,7 @@ def latest_run(log: Path) -> list[str]:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--config", help="config file to check instead of <config dir>\\config.jsonc (or config.json)")
+    parser.add_argument("--config", help="config file to check instead of <config dir>\\config.json")
     parser.add_argument("--no-log", action="store_true", help="do not read the running app's status log")
     args = parser.parse_args(argv)
 

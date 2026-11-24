@@ -13,7 +13,7 @@ Rules (ids shown in output):
   PRV001  no personal paths (C:\\Users\\<name>, /home/<name>) in tracked files
   PRV002  no denylisted private terms (.private-terms file or PRIVATE_TERMS env)
   TST001  every tests/unit/*.Test.ahk is included by tests/unit/RunUnit.ahk
-  CFG001  config/config.example.jsonc parses and matches config/config.schema.json
+  CFG001  config/config.example.json parses and matches config/config.schema.json
   REL001  App.Version, CHANGELOG.md and version tags agree (tools/release.py check)
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-TEXT_SUFFIXES = {".ahk", ".py", ".json", ".jsonc", ".md", ".yml", ".yaml", ".txt", ".ps1", ".cfg", ".toml", ""}
+TEXT_SUFFIXES = {".ahk", ".py", ".json", ".md", ".yml", ".yaml", ".txt", ".ps1", ".cfg", ".toml", ""}
 SKIP_DIRS = {".git", "local", "__pycache__", ".venv", "node_modules"}
 
 HOTKEY_LABEL = re.compile(r"""^\s*[^\s;"'(][^"'(]*?::\s*(\{|$|[A-Za-z_(])""")
@@ -87,7 +87,7 @@ def lint_file(path: Path, terms: list[str]) -> list[str]:
     for n, line in enumerate(lines, 1):
         if line != line.rstrip():
             problems.append(f"{rel}:{n}: TXT002 trailing whitespace")
-        if path.suffix in {".ahk", ".py", ".json", ".jsonc", ".md"} and line.startswith("\t"):
+        if path.suffix in {".ahk", ".py", ".json", ".md"} and line.startswith("\t"):
             problems.append(f"{rel}:{n}: TXT003 tab indentation")
         if rel != "tools/lint.py" and PERSONAL_PATH.search(line):
             problems.append(f"{rel}:{n}: PRV001 personal path: {PERSONAL_PATH.search(line).group(0)}")
@@ -164,7 +164,7 @@ def strip_jsonc(text: str) -> str:
 def lint_config() -> list[str]:
     problems = []
     try:
-        data = json.loads(strip_jsonc((REPO / "config/config.example.jsonc").read_text(encoding="utf-8")))
+        data = json.loads(strip_jsonc((REPO / "config/config.example.json").read_text(encoding="utf-8")))
         schema = json.loads((REPO / "config/config.schema.json").read_text(encoding="utf-8"))
     except (ValueError, OSError) as e:
         return [f"config: CFG001 {e}"]
@@ -175,7 +175,7 @@ def lint_config() -> list[str]:
         return problems
     validator = jsonschema.Draft202012Validator(schema)
     for err in validator.iter_errors(data):
-        problems.append(f"config/config.example.jsonc: CFG001 {'/'.join(map(str, err.path))}: {err.message}")
+        problems.append(f"config/config.example.json: CFG001 {'/'.join(map(str, err.path))}: {err.message}")
     # Documented tray.icon forms must stay valid (and bad ones invalid).
     for icon, valid in [
         (None, True), ("", True), ("icons/my.ico", True), ({"file": "shell32.dll", "index": -3}, True),

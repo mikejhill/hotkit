@@ -26,14 +26,7 @@ class Paths {
         return Paths.Normalize(EnvGet("USERPROFILE") "\.config\" Paths.AppName)
     }
 
-    ; config.jsonc, which editors open as JSON with comments without any setup.
-    ; An existing config.json is still used when there is no config.jsonc.
-    static ConfigFile() {
-        dir := Paths.ConfigDir()
-        if (!FileExist(dir "\config.jsonc") && FileExist(dir "\config.json"))
-            return dir "\config.json"
-        return dir "\config.jsonc"
-    }
+    static ConfigFile() => Paths.ConfigDir() "\config.json"
     static PluginDir() => Paths.ConfigDir() "\plugins"
 
     ; Status log. Machine-local (%LOCALAPPDATA%\hotkit) so a config directory
@@ -55,7 +48,7 @@ class Paths {
 
     ; Repository root (parent of src\).
     static RepoRoot() => Paths.Normalize(A_LineFile "\..\..\..")
-    static ExampleConfig() => Paths.RepoRoot() "\config\config.example.jsonc"
+    static ExampleConfig() => Paths.RepoRoot() "\config\config.example.json"
     static Schema() => Paths.RepoRoot() "\config\config.schema.json"
 
     ; Whether a file is a copy of the hotkit config schema (any version): its

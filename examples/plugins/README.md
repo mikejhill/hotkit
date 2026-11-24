@@ -16,7 +16,7 @@ it can be unit tested. See [docs/plugins.md](../../docs/plugins.md) for the API.
    (default `%USERPROFILE%\.config\hotkit\plugins\`), for example
    `Stopwatch.ahk` and `Stopwatch\`.
 2. Merge its section of [config.example.jsonc](config.example.jsonc) into
-   your `config.jsonc`.
+   your `config.json`.
 3. The running app picks up the new file and restarts. To check without
    running:
 
