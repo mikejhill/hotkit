@@ -359,6 +359,8 @@ class QuickWindow {
     ; Minimizes without activating another window and without the minimize
     ; animation, which could show the transparent window's contents. Asks
     ; asynchronously and waits briefly, so an app that hangs can't block exit.
+    ; If it doesn't minimize in time, the caller still makes it opaque: a visible
+    ; window is better than one left invisible and click-through.
     static MinimizeQuietly(hwnd, timeoutMs := 1000) {
         flag := Buffer(4, 0)
         NumPut("int", 1, flag)
@@ -385,7 +387,7 @@ class QuickWindow {
                 if (DllCall("GetPropW", "ptr", hwnd, "str", this.propertyName, "ptr")) {
                     ; An app that closed its window to the tray keeps it closed.
                     try this.Restore(hwnd, false, this.IsHidden(hwnd) && DllCall("IsWindowVisible", "ptr", hwnd))
-                } else if (this.claimExisting && this.IsOrphan(hwnd)) {
+                } else if (this.claimExisting && DllCall("IsWindowVisible", "ptr", hwnd) && this.IsOrphan(hwnd)) {
                     ; Repair styling left by a prior manager before adopting the window.
                     try this.RepairOrphan(hwnd)
                 }
