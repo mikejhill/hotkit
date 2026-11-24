@@ -47,7 +47,21 @@ class WindowsModule {
         reg("window.focusNext", (*) => WindowUtil.FocusNextWindow(), "Focus the next window in z-order")
         reg("window.activateLast", (winTitle := "") => WindowsModule.ActivateLast(winTitle),
             "Activate the most recent other window (optionally matching a WinTitle)", "[winTitle]")
-        reg("taskView.open", (*) => Run("shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}"), "Open Windows Task View")
+        reg("taskView.open", (*) => WindowsModule.OpenTaskView(), "Open Windows Task View")
+    }
+
+    ; Explorer opens Task View only while the shell is in the foreground: from
+    ; any other app, Windows' foreground lock leaves the request unanswered. So
+    ; activate the taskbar first (AutoHotkey can force that), as if the user had
+    ; clicked it.
+    static OpenTaskView() {
+        if !WinActive("ahk_class Shell_TrayWnd") {
+            try {
+                WinActivate("ahk_class Shell_TrayWnd")
+                WinWaitActive("ahk_class Shell_TrayWnd", , 0.5)
+            }
+        }
+        Run("shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}")
     }
 
     static Start(cfg) {
