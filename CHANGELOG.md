@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A binding on a modifier that sets `allowSimulated` now also fires when another program holds the modifier key and Ctrl, Shift, Alt, or Win, as a remote client does with forwarded keys. A relay key such as F13 can then serve as the modifier on the inner machine of a remote session, with its own Ctrl, Shift, and Alt variants. See [Relay keys as a modifier](docs/relay-keys.md#relay-keys-as-a-modifier).
+
 ## [1.17.2] - 2026-11-24
 
 ### Fixed

@@ -67,8 +67,9 @@ class Bindings {
     static _winChords := []
     ; "vk|sc" -> chord: keys whose press ran a Win chord, until released
     static _winChordKeys := Map()
-    ; Replaced in tests: physical key state, and the Start mask.
+    ; Replaced in tests: physical and logical key state, and the Start mask.
     static PhysicalKeyDown := (k) => GetKeyState(k, "P")
+    static LogicalKeyDown := (k) => GetKeyState(k)
     static SendWinMask := (*) => (DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 0, "uptr", 0),
         DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 2, "uptr", 0))
     static WinChordRepeatGapMs := 1500
@@ -206,8 +207,14 @@ class Bindings {
     ; whose remote session we are in) counts too, by logical state since a
     ; remote client may inject it, but never while we are the one forwarding,
     ; that is, while one of our own remote session windows is active.
-    static ModifierDown(modifier) {
+    ; With simulated (a binding that sets allowSimulated), the key counts by
+    ; logical state too, so a key another program holds down, such as a relay
+    ; key forwarded by a remote client, works as the modifier.
+    static ModifierDown(modifier, simulated := false) {
         if GetKeyState(modifier.key, "P")
+            return true
+        logicalDown := Bindings.LogicalKeyDown
+        if (simulated && logicalDown(modifier.key))
             return true
         return modifier.HasOwnProp("remoteKey") && modifier.remoteKey != ""
             && GetKeyState(modifier.remoteKey) && !RemoteSessions.IsActive()
@@ -478,6 +485,8 @@ class Bindings {
             key .= "|" physical
         if Bindings.ChecksSimulated(spec)
             key .= "|real"
+        if (spec.modifier != "" && Bindings.AllowsSimulated(spec))
+            key .= "|simmod"
         if Bindings.RefusesSwallowedWin(spec)
             key .= "|nowin"
         if (spec.HasOwnProp("yieldToRemote") && spec.yieldToRemote)
@@ -486,7 +495,10 @@ class Bindings {
     }
 
     ; Pure: whether a binding refuses keys that programs inject.
-    static ChecksSimulated(spec) => Bindings.ignoreSimulated && !spec.allowSimulated
+    static ChecksSimulated(spec) => Bindings.ignoreSimulated && !Bindings.AllowsSimulated(spec)
+
+    ; Pure: whether a binding sets allowSimulated.
+    static AllowsSimulated(spec) => spec.HasOwnProp("allowSimulated") && spec.allowSimulated
 
     ; Win swallowed: our SimulatedKeys hook saw a Win key go down, but
     ; AutoHotkey's hook, behind another program's, did not. Remote session
@@ -657,8 +669,10 @@ class Bindings {
     ; always a real key press, so a chord on it is too: this keeps keys that
     ; another program injects while it is held, such as a dictation tool's
     ; Ctrl+V paste with CapsLock still down, from firing Caps+Ctrl+V.
+    ; A binding that sets allowSimulated accepts injected chords, so none are
+    ; required.
     static PhysicalMods(spec) {
-        if (spec.modifier = "" || InStr(spec.keys, " & "))
+        if (spec.modifier = "" || InStr(spec.keys, " & ") || Bindings.AllowsSimulated(spec))
             return []
         return HotkeyText.Parse(spec.keys).mods
     }
@@ -809,6 +823,7 @@ class Bindings {
         modifier := spec.modifier != "" ? Bindings.modifiers[spec.modifier] : ""
         modifierKey := modifier ? modifier.key : ""
         physicalMods := Bindings.PhysicalMods(spec)
+        simulatedModifier := Bindings.AllowsSimulated(spec)
         layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
@@ -817,7 +832,7 @@ class Bindings {
         fn := (hotkeyName := "", *) => (!checkSimulated || SimulatedKeys.Allows(hotkeyName))
             && (!refusesSwallowedWin || !Bindings.WinSwallowed())
             && (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
-            && (modifierKey = "" || (Bindings.ModifierDown(modifier) && !Bindings.ModifierSuspended(modifier)
+            && (modifierKey = "" || (Bindings.ModifierDown(modifier, simulatedModifier) && !Bindings.ModifierSuspended(modifier)
                 && Bindings.AllPhysicallyDown(physicalMods)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))

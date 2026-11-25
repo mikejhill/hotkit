@@ -148,6 +148,10 @@ dictation tool's start/stop toggle. Key repeat never starts it twice.
 A binding on a modifier fires only when the Ctrl, Shift, Alt, or Win keys in its
 `keys` are physically pressed, so keystrokes another program injects while the
 modifier key is held (a dictation tool pasting with Ctrl+V, say) reach the app.
+A binding that sets `allowSimulated` drops that check, and also counts the
+modifier key as held when another program holds it. Use it when a remote
+client forwards the modifier, as in
+[Relay keys as a modifier](relay-keys.md#relay-keys-as-a-modifier).
 
 Win chords on a modifier, such as CapsLock+Win+1, also work while a remote
 session or virtual desktop window has focus. Those clients often take the Win key

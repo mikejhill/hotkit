@@ -166,6 +166,42 @@ use the automatic `remoteKey` forwarding described under
 [Remote sessions](configuration.md#remote-sessions)). To trigger a
 CapsLock binding on the inner machine, add a relay key for it.
 
+## Relay keys as a modifier
+
+Instead of one relay key per shortcut, one relay key can stand in for the
+CapsLock modifier. The local machine holds it down around the key you
+pressed, and the inner machine treats it as a modifier, like CapsLock. The
+inner config then reads like the local one, and Ctrl, Shift, and Alt
+variants carry over.
+
+On the local machine, send the relay key with the chord inside it. Here
+layer 2 hands CapsLock shortcuts to the session:
+
+```jsonc
+{ "layer": "2", "modifier": "caps", "keys": "Q", "action": "send", "args": ["{F13 down}q{F13 up}"], "description": "Session: browser" },
+{ "layer": "2", "modifier": "caps", "keys": "<^Q", "action": "send", "args": ["{F13 down}^q{F13 up}"], "description": "Session: new browser window" },
+```
+
+On the inner machine, define the relay key as a modifier and set
+`allowSimulated` on its bindings:
+
+```jsonc
+"modifiers": { "relay": { "key": "F13", "label": "F13" } },
+"bindings": [
+  { "modifier": "relay", "keys": "Q", "allowSimulated": true, "action": "app.toggle", "args": ["browser"] },
+  { "modifier": "relay", "keys": "<^Q", "allowSimulated": true, "action": "app.launch", "args": ["browser"] }
+]
+```
+
+With `allowSimulated`, a modifier binding accepts a relay key and Ctrl,
+Shift, or Alt that the client injects, not just keys typed on the inner
+machine's keyboard. Leave Win out of relayed chords: clients often keep it
+for themselves.
+
+For a machine nested one level deeper, use another relay key, such as F14,
+on another local layer. The middle machine has no binding on F14, so the
+chord passes through it to the nested session.
+
 ## Deeper nesting
 
 The same technique works at every level. Each machine relays the keys meant
