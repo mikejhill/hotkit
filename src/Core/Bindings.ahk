@@ -193,11 +193,25 @@ class Bindings {
     static HeldKey(k) {
         if GetKeyState(k, "P")
             return true
+        if (Bindings.SimulatedModifierKey(k) && Bindings.LogicalKeyDown.Call(k))
+            return true
         if ((k = "LWin" || k = "RWin") && SimulatedKeys.WinHeld(SubStr(k, 1, 1)))
             return true
         for name, modifier in Bindings.modifiers {
             if (modifier.HasOwnProp("remoteKey") && modifier.remoteKey != "" && modifier.remoteKey = k)
                 return GetKeyState(k) && !RemoteSessions.IsActive()
+        }
+        return false
+    }
+
+    ; Whether k is the key of a modifier that has a binding with
+    ; allowSimulated: actions that last while it is held (window cycling,
+    ; taskbar holds) then count it by logical state, as the binding did.
+    static SimulatedModifierKey(k) {
+        for spec in Bindings.specs {
+            if (spec.modifier != "" && Bindings.AllowsSimulated(spec) && Bindings.modifiers.Has(spec.modifier)
+                && Bindings.modifiers[spec.modifier].key = k)
+                return true
         }
         return false
     }
@@ -669,10 +683,10 @@ class Bindings {
     ; always a real key press, so a chord on it is too: this keeps keys that
     ; another program injects while it is held, such as a dictation tool's
     ; Ctrl+V paste with CapsLock still down, from firing Caps+Ctrl+V.
-    ; A binding that sets allowSimulated accepts injected chords, so none are
-    ; required.
+    ; A binding that sets allowSimulated also accepts them held by another
+    ; program (see AllPhysicallyDown).
     static PhysicalMods(spec) {
-        if (spec.modifier = "" || InStr(spec.keys, " & ") || Bindings.AllowsSimulated(spec))
+        if (spec.modifier = "" || InStr(spec.keys, " & "))
             return []
         return HotkeyText.Parse(spec.keys).mods
     }
@@ -833,7 +847,7 @@ class Bindings {
             && (!refusesSwallowedWin || !Bindings.WinSwallowed())
             && (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
             && (modifierKey = "" || (Bindings.ModifierDown(modifier, simulatedModifier) && !Bindings.ModifierSuspended(modifier)
-                && Bindings.AllPhysicallyDown(physicalMods)))
+                && Bindings.AllPhysicallyDown(physicalMods, simulatedModifier)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
@@ -1156,8 +1170,10 @@ class Bindings {
     }
 
     ; Win counts as down when the SimulatedKeys hook saw it, too (see
-    ; WinSwallowed).
-    static AllPhysicallyDown(keys) {
+    ; WinSwallowed). With simulated, a key held by another program (logical
+    ; state) counts as well.
+    static AllPhysicallyDown(keys, simulated := false) {
+        logicalDown := Bindings.LogicalKeyDown
         for key in keys {
             if (key = "Win")
                 down := GetKeyState("LWin", "P") || GetKeyState("RWin", "P") || SimulatedKeys.WinHeld()
@@ -1165,6 +1181,8 @@ class Bindings {
                 down := GetKeyState(key, "P") || SimulatedKeys.WinHeld(SubStr(key, 1, 1))
             else
                 down := GetKeyState(key, "P")
+            if (!down && simulated)
+                down := key = "Win" ? logicalDown("LWin") || logicalDown("RWin") : logicalDown(key)
             if !down
                 return false
         }

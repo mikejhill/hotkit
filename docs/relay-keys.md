@@ -175,11 +175,15 @@ inner config then reads like the local one, and Ctrl, Shift, and Alt
 variants carry over.
 
 On the local machine, send the relay key with the chord inside it. Here
-layer 2 hands CapsLock shortcuts to the session:
+layer 2 hands CapsLock shortcuts to the session. Keep `whenActive`: a layer
+stays active when focus leaves the session window, and Ctrl+Q sent to a
+local app may quit it.
 
 ```jsonc
-{ "layer": "2", "modifier": "caps", "keys": "Q", "action": "send", "args": ["{F13 down}q{F13 up}"], "description": "Session: browser" },
-{ "layer": "2", "modifier": "caps", "keys": "<^Q", "action": "send", "args": ["{F13 down}^q{F13 up}"], "description": "Session: new browser window" },
+{ "layer": "2", "modifier": "caps", "keys": "Q", "whenActive": "ahk_exe vncviewer.exe",
+  "action": "send", "args": ["{F13 down}q{F13 up}"], "description": "Session: browser" },
+{ "layer": "2", "modifier": "caps", "keys": "<^Q", "whenActive": "ahk_exe vncviewer.exe",
+  "action": "send", "args": ["{F13 down}^q{F13 up}"], "description": "Session: new browser window" },
 ```
 
 On the inner machine, define the relay key as a modifier and set
@@ -199,8 +203,10 @@ machine's keyboard. Leave Win out of relayed chords: clients often keep it
 for themselves.
 
 For a machine nested one level deeper, use another relay key, such as F14,
-on another local layer. The middle machine has no binding on F14, so the
-chord passes through it to the nested session.
+on another local layer. The middle machine must leave both F14 and the keys
+inside the chord free: with no binding on F14, and its own bindings on those
+keys limited to its F13 modifier, the chord passes through it to the nested
+session.
 
 ## Deeper nesting
 
