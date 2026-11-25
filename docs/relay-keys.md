@@ -202,6 +202,11 @@ Shift, or Alt that the client injects, not just keys typed on the inner
 machine's keyboard. Leave Win out of relayed chords: clients often keep it
 for themselves.
 
+Each chord holds the relay key only while it is sent, so actions that last
+while the modifier is held, such as `window.cycleNext` sessions, end after
+each press. Relayed modifiers suit single-press actions; leave `gestures`,
+`waitRelease`, and taskbar holds to keys typed on that machine.
+
 For a machine nested one level deeper, use another relay key, such as F14,
 on another local layer. The middle machine must leave both F14 and the keys
 inside the chord free: with no binding on F14, and its own bindings on those
