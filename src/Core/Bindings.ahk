@@ -67,8 +67,9 @@ class Bindings {
     static _winChords := []
     ; "vk|sc" -> chord: keys whose press ran a Win chord, until released
     static _winChordKeys := Map()
-    ; Replaced in tests: physical key state, and the Start mask.
+    ; Replaced in tests: physical and logical key state, and the Start mask.
     static PhysicalKeyDown := (k) => GetKeyState(k, "P")
+    static LogicalKeyDown := (k) => GetKeyState(k)
     static SendWinMask := (*) => (DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 0, "uptr", 0),
         DllCall("keybd_event", "uchar", 0xE8, "uchar", 0, "uint", 2, "uptr", 0))
     static WinChordRepeatGapMs := 1500
@@ -192,6 +193,8 @@ class Bindings {
     static HeldKey(k) {
         if GetKeyState(k, "P")
             return true
+        if (Bindings.SimulatedModifierKey(k) && Bindings.LogicalKeyDown.Call(k))
+            return true
         if ((k = "LWin" || k = "RWin") && SimulatedKeys.WinHeld(SubStr(k, 1, 1)))
             return true
         for name, modifier in Bindings.modifiers {
@@ -201,13 +204,31 @@ class Bindings {
         return false
     }
 
+    ; Whether k is the key of a modifier that has a binding with
+    ; allowSimulated: actions that last while it is held (window cycling,
+    ; taskbar holds) then count it by logical state, as the binding did.
+    static SimulatedModifierKey(k) {
+        for spec in Bindings.specs {
+            if (spec.modifier != "" && Bindings.AllowsSimulated(spec) && Bindings.modifiers.Has(spec.modifier)
+                && Bindings.modifiers[spec.modifier].key = k)
+                return true
+        }
+        return false
+    }
+
     ; Pure-ish: whether a held modifier counts as down. The key itself must be
     ; physically down. Its remoteKey (pressed for us by the hotkit of a machine
     ; whose remote session we are in) counts too, by logical state since a
     ; remote client may inject it, but never while we are the one forwarding,
     ; that is, while one of our own remote session windows is active.
-    static ModifierDown(modifier) {
+    ; With simulated (a binding that sets allowSimulated), the key counts by
+    ; logical state too, so a key another program holds down, such as a relay
+    ; key forwarded by a remote client, works as the modifier.
+    static ModifierDown(modifier, simulated := false) {
         if GetKeyState(modifier.key, "P")
+            return true
+        logicalDown := Bindings.LogicalKeyDown
+        if (simulated && logicalDown(modifier.key))
             return true
         return modifier.HasOwnProp("remoteKey") && modifier.remoteKey != ""
             && GetKeyState(modifier.remoteKey) && !RemoteSessions.IsActive()
@@ -478,6 +499,8 @@ class Bindings {
             key .= "|" physical
         if Bindings.ChecksSimulated(spec)
             key .= "|real"
+        if (spec.modifier != "" && Bindings.AllowsSimulated(spec))
+            key .= "|simmod"
         if Bindings.RefusesSwallowedWin(spec)
             key .= "|nowin"
         if (spec.HasOwnProp("yieldToRemote") && spec.yieldToRemote)
@@ -486,7 +509,10 @@ class Bindings {
     }
 
     ; Pure: whether a binding refuses keys that programs inject.
-    static ChecksSimulated(spec) => Bindings.ignoreSimulated && !spec.allowSimulated
+    static ChecksSimulated(spec) => Bindings.ignoreSimulated && !Bindings.AllowsSimulated(spec)
+
+    ; Pure: whether a binding sets allowSimulated.
+    static AllowsSimulated(spec) => spec.HasOwnProp("allowSimulated") && spec.allowSimulated
 
     ; Win swallowed: our SimulatedKeys hook saw a Win key go down, but
     ; AutoHotkey's hook, behind another program's, did not. Remote session
@@ -657,6 +683,8 @@ class Bindings {
     ; always a real key press, so a chord on it is too: this keeps keys that
     ; another program injects while it is held, such as a dictation tool's
     ; Ctrl+V paste with CapsLock still down, from firing Caps+Ctrl+V.
+    ; A binding that sets allowSimulated also accepts them held by another
+    ; program (see AllPhysicallyDown).
     static PhysicalMods(spec) {
         if (spec.modifier = "" || InStr(spec.keys, " & "))
             return []
@@ -809,6 +837,7 @@ class Bindings {
         modifier := spec.modifier != "" ? Bindings.modifiers[spec.modifier] : ""
         modifierKey := modifier ? modifier.key : ""
         physicalMods := Bindings.PhysicalMods(spec)
+        simulatedModifier := Bindings.AllowsSimulated(spec)
         layerNames := spec.layers
         group := spec.group
         winTitle := spec.whenActive
@@ -817,8 +846,8 @@ class Bindings {
         fn := (hotkeyName := "", *) => (!checkSimulated || SimulatedKeys.Allows(hotkeyName))
             && (!refusesSwallowedWin || !Bindings.WinSwallowed())
             && (!gated || (!Bindings.LatchWaiting() && !Bindings.RearmGate()))
-            && (modifierKey = "" || (Bindings.ModifierDown(modifier) && !Bindings.ModifierSuspended(modifier)
-                && Bindings.AllPhysicallyDown(physicalMods)))
+            && (modifierKey = "" || (Bindings.ModifierDown(modifier, simulatedModifier) && !Bindings.ModifierSuspended(modifier)
+                && Bindings.AllPhysicallyDown(physicalMods, simulatedModifier)))
             && (!layerNames.Length || Bindings._Includes(layerNames, Bindings.activeLayer))
             && (group = "" || Bindings.GroupEnabled(group))
             && (winTitle = "" || WinActive(winTitle))
@@ -1141,8 +1170,10 @@ class Bindings {
     }
 
     ; Win counts as down when the SimulatedKeys hook saw it, too (see
-    ; WinSwallowed).
-    static AllPhysicallyDown(keys) {
+    ; WinSwallowed). With simulated, a key held by another program (logical
+    ; state) counts as well.
+    static AllPhysicallyDown(keys, simulated := false) {
+        logicalDown := Bindings.LogicalKeyDown
         for key in keys {
             if (key = "Win")
                 down := GetKeyState("LWin", "P") || GetKeyState("RWin", "P") || SimulatedKeys.WinHeld()
@@ -1150,6 +1181,8 @@ class Bindings {
                 down := GetKeyState(key, "P") || SimulatedKeys.WinHeld(SubStr(key, 1, 1))
             else
                 down := GetKeyState(key, "P")
+            if (!down && simulated)
+                down := key = "Win" ? logicalDown("LWin") || logicalDown("RWin") : logicalDown(key)
             if !down
                 return false
         }

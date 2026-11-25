@@ -362,6 +362,30 @@ class Bindings_Tests {
         Assert.True(Bindings.AllPhysicallyDown([]))
     }
 
+    static Test_AllowSimulatedModifierChordsAcceptInjectedKeys() {
+        Bindings_Tests.Load('{ "modifiers": { "relay": { "key": "F17" } }, "bindings": [',
+            '{ "keys": "<^V", "modifier": "relay", "allowSimulated": true, "action": "t.a" },',
+            '{ "keys": "<^V", "modifier": "relay", "action": "t.b", "whenActive": "x" } ] }')
+        Assert.Equal("LCtrl", Bindings_Tests.Joined(Bindings.PhysicalMods(Bindings.specs[1])), "Ctrl is still required")
+        Assert.True(InStr(Bindings.ContextKey(Bindings.specs[1]), "|simmod") > 0)
+        Assert.False(InStr(Bindings.ContextKey(Bindings.specs[2]), "|simmod") > 0)
+        saved := Bindings.LogicalKeyDown
+        try {
+            Bindings.LogicalKeyDown := (k) => k = "F17" || k = "LCtrl"
+            modifier := { key: "F17", remoteKey: "" }
+            Assert.True(Bindings.ModifierDown(modifier, true), "a held injected modifier key counts")
+            Assert.False(Bindings.ModifierDown(modifier), "only for bindings that allow simulated keys")
+            Assert.True(Bindings.AllPhysicallyDown(["LCtrl"], true), "an injected Ctrl counts")
+            Assert.False(Bindings.AllPhysicallyDown(["LCtrl"]))
+            Assert.False(Bindings.AllPhysicallyDown(["LShift"], true), "a key nobody holds never counts")
+            Assert.True(Bindings.SimulatedModifierKey("F17"))
+            Assert.True(Bindings.HeldKey("F17"), "holds last while the injected modifier key is down")
+            Assert.False(Bindings.HeldKey("LCtrl"), "only modifier keys with simulated bindings")
+        } finally {
+            Bindings.LogicalKeyDown := saved
+        }
+    }
+
     static Test_SimulatedKeysDecide() {
         Assert.True(SimulatedKeys.Decide(false, 0x56, 0x56, 0, 1000), "typed keys fire")
         Assert.False(SimulatedKeys.Decide(true, 0x56, 0x56, 5, 1000), "a fresh injected event for the key is blocked")
