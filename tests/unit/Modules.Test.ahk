@@ -129,6 +129,11 @@ class Modules_Tests {
         Assert.False(WindowsModule.ContinuesCycle(session, 0), "nothing was selected")
     }
 
+    static Test_ListedOwnerFindsWindowsInTheCycle() {
+        Assert.Equal(102, WindowsModule.ListedOwner([101, 102], 102))
+        Assert.Equal(0, WindowsModule.ListedOwner([101, 102], 0))
+    }
+
     static Test_CycleHoldKeysFromModifierBindingsOnHotkey() {
         modifiers := Map()
         modifiers.CaseSense := "Off"

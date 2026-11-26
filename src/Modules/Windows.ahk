@@ -148,22 +148,40 @@ class WindowsModule {
 
     static Cycle(direction) {
         session := WindowsModule._cycle
-        ; A lingering cycle continues only if its selection still has focus.
-        if (session && !WindowsModule.ContinuesCycle(session, WinExist("A")))
+        ; A lingering cycle continues only if its selection (or a dialog it
+        ; owns) has focus on this press.
+        if (session && !WindowsModule.ContinuesCycle(session, WindowsModule.ListedOwner(session.list, WinExist("A"))))
             session := ""
-        if (!session) {
+        if (!session)
             session := WindowUtil.CycleSnapshot()
-            session.keys := Bindings.WithRemoteKeys(WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, Bindings.ThisHotkey(),
-                WindowsModule._ContextActive))
-        }
+        ; The binding that fired decides which keys hold the cycle open.
+        session.keys := Bindings.WithRemoteKeys(WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, Bindings.ThisHotkey(),
+            WindowsModule._ContextActive))
         SetTimer(WindowsModule._cycleEnd, 0)
         session.lingering := false
-        WindowUtil.CycleStep(session, direction)
+        try {
+            WindowUtil.CycleStep(session, direction)
+        } catch as e {
+            WindowsModule.EndCycle()
+            throw e
+        }
         WindowsModule._cycle := session
         if (WindowsModule.AnyDown(session.keys))
             SetTimer(WindowsModule._cyclePoll, 30)
         else
             WindowsModule.ReleaseCycle(session)
+    }
+
+    ; hwnd, or the first of its owners that is in list (a focused dialog
+    ; counts as its owner, as in WindowUtil.CycleSnapshot); 0 if none.
+    static ListedOwner(list, hwnd) {
+        while (hwnd) {
+            for h in list
+                if (h = hwnd)
+                    return hwnd
+            hwnd := DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr") ; GW_OWNER
+        }
+        return 0
     }
 
     static PollCycle() {
