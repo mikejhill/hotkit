@@ -288,6 +288,17 @@
             }
           }
         },
+        "windowCycle": {
+          "type": "object",
+          "properties": {
+            "continueMs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Keep a window.cycleNext/cyclePrevious cycle open this long after its keys are released, so the next press continues it. 0 ends it on release."
+            }
+          },
+          "additionalProperties": false
+        },
         "windowRules": {
           "type": "object",
           "properties": {

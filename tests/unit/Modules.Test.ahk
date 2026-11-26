@@ -117,6 +117,18 @@ class Modules_Tests {
         Assert.Equal("0", Modules_Tests.Join(WindowUtil.CycleRestoreAnchors([11, 12, 13], 1)))
     }
 
+    static Test_LingeringCycleContinuesOnlyOnItsSelection() {
+        session := { list: [101, 102, 103], index: 2 }
+        Assert.True(WindowsModule.ContinuesCycle(session, 999), "a held cycle always continues")
+        session.lingering := false
+        Assert.True(WindowsModule.ContinuesCycle(session, 999))
+        session.lingering := true
+        Assert.True(WindowsModule.ContinuesCycle(session, 102), "its selection still has focus")
+        Assert.False(WindowsModule.ContinuesCycle(session, 101), "another window was focused")
+        session.index := 0
+        Assert.False(WindowsModule.ContinuesCycle(session, 0), "nothing was selected")
+    }
+
     static Test_CycleHoldKeysFromModifierBindingsOnHotkey() {
         modifiers := Map()
         modifiers.CaseSense := "Off"
