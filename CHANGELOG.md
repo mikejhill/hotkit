@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-11-26
+
 ### Added
 - `modules.windowCycle.continueMs` keeps a `window.cycleNext` or `window.cyclePrevious` cycle open for that long after its keys are released, so the next press continues the same cycle instead of starting over. Use it on a machine that receives relayed modifier chords, where the modifier is released after every press. If a different window has focus at the next press, a new cycle starts.
 
