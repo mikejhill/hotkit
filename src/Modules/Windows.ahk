@@ -10,6 +10,7 @@
 ;     "taskSwitcher": {
 ;       "ignore": [ { "exe": "SomeWrapper.exe", "emptyTitle": true } ]
 ;     },
+;     "windowCycle": { "continueMs": 0 },               // keep a cycle open after release
 ;     "windowRules": {
 ;       "pollMs": 250,
 ;       "rules": [ { "match": "ahk_exe SomeApp.exe", "alwaysOnTop": false } ]
@@ -21,11 +22,15 @@ class WindowsModule {
     static Ignore := []
     static Rules := []
     static _ruleTimer := 0
+    ; How long a window cycle stays open after its keys are released, so a
+    ; press within that time continues it (for modifiers relayed per press).
+    static CycleContinueMs := 0
 
     static Register(cfg) {
         WindowsModule.IndicatorColor := cfg.Get("modules.alwaysOnTop.indicatorColor", "4F8CC9")
         WindowsModule.Ignore := cfg.List("modules.taskSwitcher.ignore")
         WindowsModule.Rules := cfg.List("modules.windowRules.rules")
+        WindowsModule.CycleContinueMs := Min(60000, Max(0, Integer(cfg.Get("modules.windowCycle.continueMs", 0))))
         reg := (id, fn, desc, params := "") => ActionRegistry.Register(id, fn,
             { module: WindowsModule.Name, description: desc, params: params })
 
@@ -139,32 +144,79 @@ class WindowsModule {
     ; Without a modifier every press is its own session.
     static _cycle := ""
     static _cyclePoll := (*) => WindowsModule.PollCycle()
+    static _cycleEnd := (*) => WindowsModule.EndCycle()
 
     static Cycle(direction) {
         session := WindowsModule._cycle
-        if (!session) {
+        ; A lingering cycle continues only if its selection (or a dialog it
+        ; owns) has focus on this press.
+        if (session && !WindowsModule.ContinuesCycle(session, WindowsModule.ListedOwner(session.list, WinExist("A"))))
+            session := ""
+        if (!session)
             session := WindowUtil.CycleSnapshot()
-            session.keys := Bindings.WithRemoteKeys(WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, Bindings.ThisHotkey(),
-                WindowsModule._ContextActive))
-        }
-        WindowUtil.CycleStep(session, direction)
-        if (WindowsModule.AnyDown(session.keys)) {
-            WindowsModule._cycle := session
-            SetTimer(WindowsModule._cyclePoll, 30)
-        } else {
+        ; The binding that fired decides which keys hold the cycle open.
+        session.keys := Bindings.WithRemoteKeys(WindowsModule.CycleHoldKeys(Bindings.specs, Bindings.modifiers, Bindings.ThisHotkey(),
+            WindowsModule._ContextActive))
+        SetTimer(WindowsModule._cycleEnd, 0)
+        session.lingering := false
+        try {
+            selected := WindowUtil.CycleStep(session, direction)
+        } catch as e {
             WindowsModule.EndCycle()
+            throw e
         }
+        WindowsModule._cycle := session
+        if (WindowsModule.AnyDown(session.keys))
+            SetTimer(WindowsModule._cyclePoll, 30)
+        else if (!selected)
+            WindowsModule.EndCycle()  ; nothing to continue; the next press looks again
+        else
+            WindowsModule.ReleaseCycle(session)
+    }
+
+    ; hwnd, or the first of its owners that is in list (a focused dialog
+    ; counts as its owner, as in WindowUtil.CycleSnapshot); 0 if none.
+    static ListedOwner(list, hwnd) {
+        while (hwnd) {
+            for h in list
+                if (h = hwnd)
+                    return hwnd
+            hwnd := DllCall("user32\GetWindow", "ptr", hwnd, "uint", 4, "ptr") ; GW_OWNER
+        }
+        return 0
     }
 
     static PollCycle() {
         session := WindowsModule._cycle
-        if (!session || !WindowsModule.AnyDown(session.keys))
+        if (!session)
             WindowsModule.EndCycle()
+        else if (!session.lingering && !WindowsModule.AnyDown(session.keys))
+            WindowsModule.ReleaseCycle(session)
+    }
+
+    ; The cycle's keys were released: end it, or with CycleContinueMs keep it
+    ; open that long for the next press.
+    static ReleaseCycle(session) {
+        SetTimer(WindowsModule._cyclePoll, 0)
+        if (WindowsModule.CycleContinueMs <= 0)
+            return WindowsModule.EndCycle()
+        session.lingering := true
+        SetTimer(WindowsModule._cycleEnd, -WindowsModule.CycleContinueMs)
     }
 
     static EndCycle() {
         SetTimer(WindowsModule._cyclePoll, 0)
+        SetTimer(WindowsModule._cycleEnd, 0)
         WindowsModule._cycle := ""
+    }
+
+    ; Pure: whether a press continues session: always while its keys are
+    ; held; once released (lingering), only while the window it selected is
+    ; still active, since a window focused another way starts a new order.
+    static ContinuesCycle(session, active) {
+        if !(session.HasOwnProp("lingering") && session.lingering)
+            return true
+        return session.index >= 1 && session.index <= session.list.Length && session.list[session.index] = active
     }
 
     ; True when the binding's modifier/layer/group/window conditions hold now,
