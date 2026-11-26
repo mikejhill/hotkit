@@ -294,6 +294,7 @@
             "continueMs": {
               "type": "integer",
               "minimum": 0,
+              "maximum": 60000,
               "description": "Keep a window.cycleNext/cyclePrevious cycle open this long after its keys are released, so the next press continues it. 0 ends it on release."
             }
           },

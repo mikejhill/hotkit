@@ -30,7 +30,7 @@ class WindowsModule {
         WindowsModule.IndicatorColor := cfg.Get("modules.alwaysOnTop.indicatorColor", "4F8CC9")
         WindowsModule.Ignore := cfg.List("modules.taskSwitcher.ignore")
         WindowsModule.Rules := cfg.List("modules.windowRules.rules")
-        WindowsModule.CycleContinueMs := Max(0, Integer(cfg.Get("modules.windowCycle.continueMs", 0)))
+        WindowsModule.CycleContinueMs := Min(60000, Max(0, Integer(cfg.Get("modules.windowCycle.continueMs", 0))))
         reg := (id, fn, desc, params := "") => ActionRegistry.Register(id, fn,
             { module: WindowsModule.Name, description: desc, params: params })
 
@@ -160,7 +160,7 @@ class WindowsModule {
         SetTimer(WindowsModule._cycleEnd, 0)
         session.lingering := false
         try {
-            WindowUtil.CycleStep(session, direction)
+            selected := WindowUtil.CycleStep(session, direction)
         } catch as e {
             WindowsModule.EndCycle()
             throw e
@@ -168,6 +168,8 @@ class WindowsModule {
         WindowsModule._cycle := session
         if (WindowsModule.AnyDown(session.keys))
             SetTimer(WindowsModule._cyclePoll, 30)
+        else if (!selected)
+            WindowsModule.EndCycle()  ; nothing to continue; the next press looks again
         else
             WindowsModule.ReleaseCycle(session)
     }
