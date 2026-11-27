@@ -31,6 +31,13 @@
           "type": "boolean",
           "description": "Shortcuts ignore keystrokes that programs simulate (default true); set allowSimulated on bindings fed by such programs."
         },
+        "suspendWhenActive": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          ],
+          "description": "WinTitle(s) that get the keyboard to themselves: while one is active, every shortcut (layer keys included) is suspended and a forced capsLock/numLock state is lifted, so the window sees those keys as typed."
+        },
         "remoteWindows": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },

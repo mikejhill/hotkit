@@ -362,6 +362,23 @@ class Bindings_Tests {
         Assert.True(Bindings.AllPhysicallyDown([]))
     }
 
+    static Test_SuspendWhenActiveIsParsed() {
+        Bindings_Tests.Load('{ "settings": { "suspendWhenActive": ["ahk_exe a.exe", "ahk_exe b.exe"] }, "bindings": [] }')
+        Assert.Equal("ahk_exe a.exe,ahk_exe b.exe", Bindings_Tests.Joined(Bindings.suspendWindows))
+        Bindings_Tests.Load('{ "settings": { "suspendWhenActive": "ahk_exe a.exe" }, "bindings": [] }')
+        Assert.Equal(1, Bindings.suspendWindows.Length, "a single WinTitle")
+        Bindings_Tests.Load('{ "settings": { "suspendWhenActive": [""] }, "bindings": [] }')
+        Assert.Equal(0, Bindings.suspendWindows.Length)
+        Assert.True(Bindings.problems.Length > 0, "empty entries are reported")
+    }
+
+    static Test_SuspendLiftsOnlyForcedLockStates() {
+        locks := SuspendWindows.ForcedLocks(Map("CapsLock", "AlwaysOff", "NumLock", "On", "ScrollLock", ""))
+        Assert.Equal(1, locks.Count)
+        Assert.Equal("AlwaysOff", locks["CapsLock"])
+        Assert.Equal(0, SuspendWindows.ForcedLocks(Map()).Count)
+    }
+
     static Test_AllowSimulatedModifierChordsAcceptInjectedKeys() {
         Bindings_Tests.Load('{ "modifiers": { "relay": { "key": "F17" } }, "bindings": [',
             '{ "keys": "<^V", "modifier": "relay", "allowSimulated": true, "action": "t.a" },',

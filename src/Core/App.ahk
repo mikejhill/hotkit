@@ -222,6 +222,14 @@ class App {
         } catch as e {
             Bindings.problems.Push("Couldn't watch for remote session windows, so their clients may take keys first: " e.Message)
         }
+        try {
+            SuspendWindows.OnChange := (*) => Tray.RefreshTip()
+            SuspendWindows.Start(Bindings.suspendWindows, Map(
+                "CapsLock", cfg.Get("settings.keyboard.capsLock", ""),
+                "NumLock", cfg.Get("settings.keyboard.numLock", "")))
+        } catch as e {
+            Bindings.problems.Push("Couldn't watch for settings.suspendWhenActive windows: " e.Message)
+        }
         menus := []
         for m in App.Modules {
             if HasMethod(m, "TrayMenus") {
@@ -233,6 +241,7 @@ class App {
         Tray.Build(cfg, menus)
         Tray.Version := App.Version
         Tray.AddStatus(() => Bindings.activeLayer != "" ? Bindings.layers[Bindings.activeLayer].label : "")
+        Tray.AddStatus(() => SuspendWindows.active ? "Paused while this window is active" : "")
         Tray.AddStatus(() => Updates.Status(Updates.Available))
         Updates.Version := App.Version
         Updates.RepoDir := Paths.RepoRoot()
