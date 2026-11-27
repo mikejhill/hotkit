@@ -93,10 +93,12 @@ class SuspendWindows {
     }
 
     static _Enter() {
-        if HasMethod(SuspendWindows.EndPending)
-            try SuspendWindows.EndPending.Call()
+        ; Mark the transition first: the actions EndPending runs may take long
+        ; enough for the poll to call Update again.
         SuspendWindows.active := true
         SuspendWindows._wasSuspended := A_IsSuspended
+        if HasMethod(SuspendWindows.EndPending)
+            try SuspendWindows.EndPending.Call()
         Suspend(true)
         ; Lift forced states and keep the current one, so the key toggles as usual.
         for name in SuspendWindows.locks
