@@ -254,6 +254,12 @@ you were at that machine. Focusing another window brings everything back; the
 tray tooltip says when Hotkit is paused. Keep a way out of the window that
 doesn't need Hotkit, such as the client's own shortcut or the mouse.
 
+With `"keyboard": { "keepWhileSuspended": true }`, a forced lock state also
+holds while suspended: CapsLock still reaches the window, and Hotkit sets the
+local toggle back once you release it. The correction reaches the window as a
+simulated CapsLock press, so use this when the machine inside the session
+forces CapsLock too, as its Hotkit does with `"capsLock": "AlwaysOff"`.
+
 ### Remote Sessions
 
 For shortcuts on the machine inside a session, see

@@ -46,9 +46,16 @@ class SuspendWindows {
         return out
     }
 
-    static Start(titles, locks := Map()) {
+    ; With keepLocks, forced lock states also hold while suspended: the keys
+    ; still reach the window, and a toggle they cause here is set back once
+    ; the key is released (see _KeepLocks).
+    static keepLocks := false
+    static _keep := (*) => SuspendWindows._KeepLocks()
+
+    static Start(titles, locks := Map(), keepLocks := false) {
         SuspendWindows.titles := titles
         SuspendWindows.locks := SuspendWindows.ForcedLocks(locks)
+        SuspendWindows.keepLocks := keepLocks
         if (!titles.Length || SuspendWindows._hook)
             return
         ; EVENT_SYSTEM_FOREGROUND, out of context: delivered through this thread's message loop.
@@ -100,6 +107,8 @@ class SuspendWindows {
         if HasMethod(SuspendWindows.EndPending)
             try SuspendWindows.EndPending.Call()
         Suspend(true)
+        if SuspendWindows.keepLocks
+            SetTimer(SuspendWindows._keep, 100)
         ; Lift forced states and keep the current one, so the key toggles as usual.
         for name in SuspendWindows.locks
             SuspendWindows._SetLock(name, GetKeyState(name, "T") ? "On" : "Off")
@@ -110,6 +119,7 @@ class SuspendWindows {
         if !SuspendWindows.active
             return
         SuspendWindows.active := false
+        SetTimer(SuspendWindows._keep, 0)
         SuspendWindows._Restore()
         ; A remote client may sync its session's lock state back to this
         ; machine after it loses focus, so enforce the policy again shortly.
@@ -124,6 +134,45 @@ class SuspendWindows {
     }
 
     static ReassertMs := [250, 1000, 2500]
+
+    ; While suspended with keepLocks: a forced key toggled by a press in the
+    ; window is set back after release. That correction reaches the window
+    ; too, as a simulated press of the key.
+    static _KeepLocks() {
+        if !SuspendWindows.active
+            return SetTimer(SuspendWindows._keep, 0)
+        modsHeld := false
+        for mod in ["Ctrl", "Alt", "Shift", "LWin", "RWin"]
+            modsHeld := modsHeld || GetKeyState(mod, "P")
+        for name, state in SuspendWindows.locks {
+            want := SuspendWindows.ForcedToggle(state)
+            toggle := SuspendWindows.ToggleOf(name), held := GetKeyState(name, "P")
+            ; A new press, or the toggle back where it belongs, allows new attempts.
+            if (held || toggle = want)
+                SuspendWindows._attempts[name] := 0
+            tries := SuspendWindows._attempts.Has(name) ? SuspendWindows._attempts[name] : 0
+            ; Give a correction time to land before trying again, or two could cancel out.
+            if (tries && A_TickCount - SuspendWindows._lastAttempt < 600)
+                continue
+            if SuspendWindows.NeedsCorrection(toggle, want, held, modsHeld, tries) {
+                SuspendWindows._attempts[name] := tries + 1
+                SuspendWindows._lastAttempt := A_TickCount
+                SuspendWindows._SetLock(name, want ? "On" : "Off")
+            }
+        }
+    }
+
+    static _attempts := Map()
+    static _lastAttempt := 0
+    static MaxCorrections := 3
+
+    ; Pure: whether a lock key's toggle must be set back now: it differs from
+    ; the forced side, the key isn't held (it may be a modifier in use), no
+    ; Ctrl/Alt/Shift/Win is held (the simulated press would join a shortcut),
+    ; and earlier attempts for this mismatch haven't run out (a client may
+    ; take the press without the toggle changing here).
+    static NeedsCorrection(toggle, want, held, modsHeld := false, tries := 0)
+        => toggle != want && !held && !modsHeld && tries < SuspendWindows.MaxCorrections
 
     static _Reassert() {
         ; Focus may be back on a listed window before Update has seen it.

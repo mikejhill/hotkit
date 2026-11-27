@@ -13,7 +13,7 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.21.1"
+    static Version := "1.22.0"
     static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
@@ -227,7 +227,8 @@ class App {
             SuspendWindows.EndPending := () => Bindings.EndPending()
             SuspendWindows.Start(Bindings.suspendWindows, Map(
                 "CapsLock", cfg.Get("settings.keyboard.capsLock", ""),
-                "NumLock", cfg.Get("settings.keyboard.numLock", "")))
+                "NumLock", cfg.Get("settings.keyboard.numLock", "")),
+                !!cfg.Get("settings.keyboard.keepWhileSuspended", false))
         } catch as e {
             Bindings.problems.Push("Couldn't watch for settings.suspendWhenActive windows: " e.Message)
         }
