@@ -222,14 +222,20 @@ class Updates_Tests {
             [Map("rev-parse", { exit: 128, out: "fatal: not a git repository" }),
                 "Git can't use the hotkit folder C:\hotkit: fatal: not a git repository", 1],
             [Map("rev-parse", { exit: 128, out: "" }), "Git can't use the hotkit folder C:\hotkit (exit code 128).", 1],
-            [Map("rev-parse", { exit: 128, out: "fatal: detected dubious ownership in repository at 'C:/hotkit'`n"
+            [Map("rev-parse", { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/hotkit'`n"
                 "'C:/hotkit' is owned by:`n`tBUILTIN/Administrators (S-1-5-32-544)" }),
-                "another Windows account owns it (often a clone made from an elevated prompt). To trust it, run: "
-                "git config --global --add safe.directory C:/hotkit", 1],
+                "another Windows account owns it (often a clone made from an elevated prompt). To trust it, run in PowerShell: "
+                "git config --global --add safe.directory 'C:/hotkit'", 1],
+            [Map("rev-parse", { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/Their Code'" }),
+                "hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/Their Code, "
+                "which another Windows account owns.", 1],
+            [Map("rev-parse", { exit: 128, out: "", err: "warning: x`nfatal: not a git repository" }),
+                "Git can't use the hotkit folder C:\hotkit: fatal: not a git repository", 1],
             [Map("rev-parse", { exit: 0, out: "C:/elsewhere" }),
                 "hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/elsewhere.", 1],
             [Map("rev-parse", { exit: 9009, out: "'git' is not recognized" }), "Git isn't installed", 1],
             [Map("status", { exit: 0, out: " M src/Main.ahk" }), "uncommitted changes", 2],
+            [Map("status", { exit: 128, out: "", err: "fatal: index file corrupt" }), "git status failed: fatal: index file corrupt", 2],
             [Map("symbolic-ref", { exit: 1, out: "" }), "isn't on a branch", 3],
             [Map("fetch", { exit: 128, out: "remote: Not Found`nfatal: couldn't find remote ref" }),
                 "Couldn't download v1.5.0: fatal: couldn't find remote ref", 4],
@@ -262,8 +268,8 @@ class Updates_Tests {
         Assert.Equal("", EnvGet("HOTKIT_UPDATED_FROM"))
     }
 
-    static Test_CheckoutAcceptsWarningsBeforeTheRoot() {
-        r := { exit: 0, out: "warning: unable to access 'X:/gitconfig': Invalid argument`nC:/hotkit" }
+    static Test_CheckoutIgnoresGitWarnings() {
+        r := { exit: 0, out: "C:/hotkit", err: "warning: unable to access 'X:/gitconfig': Invalid argument" }
         Assert.Equal("", Updates.CheckoutProblem(r, "C:\hotkit"))
         Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: "c:/HOTKIT/" }, "C:\hotkit"), "case and slashes")
     }
@@ -275,8 +281,11 @@ class Updates_Tests {
             RunWait(A_ComSpec ' /c mklink /J "' base '\link" "' base '\real"', , "Hide")
             Assert.True(DirExist(base "\link"), "junction created")
             ; Git reports the real folder; hotkit was started through the junction.
-            Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: StrReplace(base "\real", "\", "/") }, base "\link"))
-            Assert.Equal(Paths.Normalize(base "\real"), Paths.Normalize(Paths.RealPath(base "\link")))
+            ; RealPath also expands a short-named temp folder, so compare resolved paths.
+            real := Paths.RealPath(base "\real")
+            Assert.Equal(Paths.Normalize(real), Paths.Normalize(Paths.RealPath(base "\link")))
+            Assert.False(InStr(Paths.RealPath(base "\link"), "\link"), "the junction is resolved")
+            Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: StrReplace(real, "\", "/") }, base "\link"))
             Assert.Equal("Z:\missing\dir", Paths.RealPath("Z:/missing/dir"), "unresolvable paths come back as given")
         } finally {
             try DirDelete(base "\link")

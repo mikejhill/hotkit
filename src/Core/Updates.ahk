@@ -257,7 +257,7 @@ class Updates {
             return fail(problem.message, problem.notGit)
         r := Updates.Git("status --porcelain --untracked-files=no")
         if (r.exit != 0)
-            return fail("git status failed: " Updates.LastLine(r.out))
+            return fail("git status failed: " Updates.Detail(r))
         if (r.out != "")
             return fail("The hotkit folder has uncommitted changes.")
         r := Updates.Git("symbolic-ref -q HEAD")
@@ -268,39 +268,48 @@ class Updates {
         ref := '"refs/tags/' tag '"'
         r := Updates.Git('fetch --no-tags "https://github.com/' Updates.Settings.repository '.git" "refs/tags/' tag ':refs/tags/' tag '"')
         if (r.exit != 0)
-            return fail("Couldn't download " tag ": " Updates.LastLine(r.out))
+            return fail("Couldn't download " tag ": " Updates.Detail(r))
         if (Updates.Git("merge-base --is-ancestor HEAD " ref).exit != 0) {
             ; Case-sensitive: git ref names are, and "Main" isn't main.
             return fail(Updates.NotFastForwardMessage(headRef, tag))
         }
         r := Updates.Git("merge --ff-only " ref)
         if (r.exit != 0)
-            return fail("git merge failed: " Updates.LastLine(r.out))
+            return fail("git merge failed: " Updates.Detail(r))
         return { ok: true, message: "", notGit: false }
     }
 
     ; Why `git rev-parse --show-toplevel` (result r) doesn't confirm that
     ; repoDir is its own checkout: { message, notGit }, or "" when it does.
-    ; Git's output includes stderr, so a warning can precede the path; and
-    ; git may report a junction, subst drive, or short name by its real path.
+    ; Git may report a junction, subst drive, or short name by its real path.
     static CheckoutProblem(r, repoDir) {
+        mismatch := (root, extra := "") => { notGit: true, message: "hotkit runs from " repoDir
+            ", but git says that folder belongs to the checkout at " root extra "." }
         if (r.exit != 0) {
-            if (InStr(r.out, "dubious ownership"))
+            text := (r.HasProp("err") ? r.err "`n" : "") r.out
+            if (RegExMatch(text, "dubious ownership in repository at '([^'\r\n]+)'", &m)) {
+                if (!Updates.SamePath(m[1], repoDir))
+                    return mismatch(m[1], ", which another Windows account owns")
+                ; PowerShell single quotes keep spaces and $ literal; ' doubles.
                 return { notGit: false, message: "Git won't use the hotkit folder because another Windows account owns it "
-                    "(often a clone made from an elevated prompt). To trust it, run: "
-                    "git config --global --add safe.directory " StrReplace(Paths.Normalize(repoDir), "\", "/") }
-            detail := Updates.LastLine(r.out)
+                    "(often a clone made from an elevated prompt). To trust it, run in PowerShell: "
+                    "git config --global --add safe.directory '" StrReplace(m[1], "'", "''") "'" }
+            }
+            detail := Updates.Detail(r)
             return { notGit: true, message: "Git can't use the hotkit folder " repoDir
                 (detail != "" ? ": " detail : " (exit code " r.exit ").") }
         }
-        want := Paths.Normalize(Paths.RealPath(repoDir))
-        for line in StrSplit(r.out, "`n", "`r") {
-            line := Trim(line)
-            if (line != "" && Paths.Normalize(Paths.RealPath(line)) = want)
-                return ""
-        }
-        return { notGit: true, message: "hotkit runs from " repoDir ", but git says that folder belongs to the checkout at "
-            Updates.LastLine(r.out) "." }
+        root := Updates.LastLine(r.out)
+        return Updates.SamePath(root, repoDir) ? "" : mismatch(root)
+    }
+
+    ; Whether two paths name the same folder, after resolving aliases.
+    static SamePath(a, b) => a != "" && Paths.Normalize(Paths.RealPath(a)) = Paths.Normalize(Paths.RealPath(b))
+
+    ; Pure: what went wrong in a git result: the last line of stderr, else of stdout.
+    static Detail(r) {
+        err := r.HasProp("err") ? Updates.LastLine(r.err) : ""
+        return err != "" ? err : Updates.LastLine(r.out)
     }
 
     ; Why HEAD can't fast-forward to the release, and what to do about it.
@@ -326,21 +335,26 @@ class Updates {
         return lines.Length ? Trim(lines[lines.Length]) : ""
     }
 
-    ; Runs git in the checkout without a window; returns { exit, out }.
+    ; Runs git in the checkout without a window; returns { exit, out, err }
+    ; with stdout and stderr apart, so warnings never read as command output.
     static Git(args) {
         if (Updates.GitRunner != "")
             return Updates.GitRunner.Call(args)
-        outFile := A_Temp "\hotkit-git-" ProcessExist() "-" A_TickCount ".txt"
-        cmd := A_ComSpec ' /c set "GIT_TERMINAL_PROMPT=0" && git -C "' Updates.RepoDir '" ' args ' > "' outFile '" 2>&1'
+        base := A_Temp "\hotkit-git-" ProcessExist() "-" A_TickCount
+        outFile := base ".out.txt", errFile := base ".err.txt"
+        cmd := A_ComSpec ' /c set "GIT_TERMINAL_PROMPT=0" && git -C "' Updates.RepoDir '" ' args
+            . ' > "' outFile '" 2> "' errFile '"'
         try {
             code := RunWait(cmd, Updates.RepoDir, "Hide")
         } catch as e {
-            return { exit: -1, out: e.Message }
+            return { exit: -1, out: "", err: e.Message }
         }
-        text := ""
-        try text := FileRead(outFile, "UTF-8")
+        out := "", err := ""
+        try out := FileRead(outFile, "UTF-8")
+        try err := FileRead(errFile, "UTF-8")
         try FileDelete(outFile)
-        return { exit: code, out: Trim(text, " `t`r`n") }
+        try FileDelete(errFile)
+        return { exit: code, out: Trim(out, " `t`r`n"), err: Trim(err, " `t`r`n") }
     }
 
     ; GETs url without blocking; calls done(status, text, error) once.
