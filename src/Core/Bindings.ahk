@@ -116,7 +116,7 @@ class Bindings {
         Bindings.remoteWindows := remote.titles
         for p in remote.problems
             Bindings.problems.Push(p)
-        suspendCfg := SuspendWindows.Parse(cfg.Get("settings.suspendWhenActive", ""))
+        suspendCfg := SuspendWindows.Parse(cfg.Get("settings.suspendWhenActive", []))
         Bindings.suspendWindows := suspendCfg.titles
         for p in suspendCfg.problems
             Bindings.problems.Push(p)
@@ -1068,6 +1068,26 @@ class Bindings {
         state.active := true
         Bindings._Begin(spec, () => Bindings.HoldEnd(spec, state))
         ActionRegistry.SafeInvoke(spec.action, spec.args)
+    }
+
+    ; Ends every active hold (running onRelease) and latch (running onNextKey)
+    ; and forgets held keys, before another program gets the keyboard and
+    ; their releases or next keys can't be seen.
+    static EndPending() {
+        for spec in Bindings.specs {
+            if spec.HasOwnProp("holdState") {
+                spec.holdState.baseDown := false
+                Bindings.HoldEnd(spec, spec.holdState)
+            }
+            if spec.HasOwnProp("latchState") {
+                spec.latchState.baseDown := false
+                Bindings.LatchEnd(spec, spec.latchState, spec.onNextKey)
+            }
+        }
+        if (Bindings._rearmHook != "")
+            try Bindings._rearmHook.Stop()
+        Bindings._rearmHook := ""
+        Bindings._rearmKey := ""
     }
 
     static HoldEnd(spec, state) {

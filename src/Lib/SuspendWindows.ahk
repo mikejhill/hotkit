@@ -12,6 +12,11 @@ class SuspendWindows {
     static locks := Map()
     ; Whether the shortcuts are suspended because of a listed window.
     static active := false
+    ; Whether the shortcuts were already suspended (tray) when a listed window took over.
+    static _wasSuspended := false
+    ; Called on entry to end holds and latches whose release or next key
+    ; would otherwise go unseen (set by App).
+    static EndPending := ""
     static OnChange := ""
     static _hook := 0
     static _callback := 0
@@ -20,7 +25,7 @@ class SuspendWindows {
     ; Pure: parses settings.suspendWhenActive (a WinTitle or a list of them).
     static Parse(raw) {
         result := { titles: [], problems: [] }
-        if (raw = "")
+        if (raw is Array && !raw.Length)
             return result
         for title in (raw is Array ? raw : [raw]) {
             if (title is String && Trim(title) != "")
@@ -80,8 +85,18 @@ class SuspendWindows {
             SuspendWindows._Leave()
     }
 
+    ; Lock keys a toggle action forces at runtime (keyboard.toggleCapsLock)
+    ; replace the configured state, so leaving restores the policy in effect.
+    static SetForced(name, state) {
+        if (state is String && InStr(state, "Always") = 1)
+            SuspendWindows.locks[name] := state
+    }
+
     static _Enter() {
+        if HasMethod(SuspendWindows.EndPending)
+            try SuspendWindows.EndPending.Call()
         SuspendWindows.active := true
+        SuspendWindows._wasSuspended := A_IsSuspended
         Suspend(true)
         ; Lift forced states and keep the current one, so the key toggles as usual.
         for name in SuspendWindows.locks
@@ -95,7 +110,11 @@ class SuspendWindows {
         SuspendWindows.active := false
         for name, state in SuspendWindows.locks
             SuspendWindows._SetLock(name, state)
-        Suspend(false)
+        if !SuspendWindows._wasSuspended {
+            Suspend(false)
+            ; Resuming re-installs AutoHotkey's hook ahead of ours; restore the order.
+            SimulatedKeys._Reinstall()
+        }
         SuspendWindows._Notify()
     }
 

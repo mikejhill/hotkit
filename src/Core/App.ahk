@@ -224,6 +224,7 @@ class App {
         }
         try {
             SuspendWindows.OnChange := (*) => Tray.RefreshTip()
+            SuspendWindows.EndPending := () => (Bindings.EndPending(), RemoteSessions._ReleaseHeld())
             SuspendWindows.Start(Bindings.suspendWindows, Map(
                 "CapsLock", cfg.Get("settings.keyboard.capsLock", ""),
                 "NumLock", cfg.Get("settings.keyboard.numLock", "")))

@@ -137,6 +137,9 @@ class RemoteSessions {
     ; right here, so it is queued behind this event and ahead of the next key
     ; of the chord (as AutoHotkey's own hook does for its disguise keys).
     static _OnTyped(vk, up) {
+        ; A suspended window gets keys as typed; nothing is passed on for it.
+        if SuspendWindows.active
+            return
         for m in RemoteSessions.modifiers {
             if (vk != m.vk)                   ; Bindings only accepts keys with their own code
                 continue
