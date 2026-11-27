@@ -399,6 +399,8 @@ class Bindings_Tests {
             SuspendWindows.locks := saved
         }
         Assert.Equal(1, SuspendWindows.Parse("").problems.Length, "an explicit empty title is reported")
+        Assert.Equal(0, SuspendWindows.ForcedToggle("AlwaysOff"))
+        Assert.Equal(1, SuspendWindows.ForcedToggle("AlwaysOn"))
         Assert.Equal(0, SuspendWindows.Parse([]).problems.Length)
     }
 

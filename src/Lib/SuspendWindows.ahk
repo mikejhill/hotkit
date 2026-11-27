@@ -110,8 +110,11 @@ class SuspendWindows {
         if !SuspendWindows.active
             return
         SuspendWindows.active := false
-        for name, state in SuspendWindows.locks
-            SuspendWindows._SetLock(name, state)
+        SuspendWindows._Restore()
+        ; A remote client may sync its session's lock state back to this
+        ; machine after it loses focus, so enforce the policy again shortly.
+        for ms in SuspendWindows.ReassertMs
+            SetTimer(ObjBindMethod(SuspendWindows, "_Reassert"), -ms)  ; one timer each
         if !SuspendWindows._wasSuspended {
             Suspend(false)
             ; Resuming re-installs AutoHotkey's hook ahead of ours; restore the order.
@@ -119,6 +122,27 @@ class SuspendWindows {
         }
         SuspendWindows._Notify()
     }
+
+    static ReassertMs := [250, 1000, 2500]
+
+    static _Reassert() {
+        if !SuspendWindows.active
+            SuspendWindows._Restore()
+    }
+
+    ; Applies the forced policy. A key toggled the wrong way is first set to
+    ; the forced side, since the toggle can change outside our hook.
+    static _Restore() {
+        for name, state in SuspendWindows.locks {
+            want := SuspendWindows.ForcedToggle(state)
+            if (GetKeyState(name, "T") != want)
+                SuspendWindows._SetLock(name, want ? "On" : "Off")
+            SuspendWindows._SetLock(name, state)
+        }
+    }
+
+    ; Pure: the toggle state a forced policy keeps (AlwaysOn -> 1, AlwaysOff -> 0).
+    static ForcedToggle(state) => state = "AlwaysOn" ? 1 : 0
 
     static _SetLock(name, state) {
         switch name {

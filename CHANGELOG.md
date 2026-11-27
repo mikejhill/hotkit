@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- After leaving a `settings.suspendWhenActive` window, a forced CapsLock or NumLock state is applied again over the next few seconds, and a key toggled the wrong way is set back first. Before, CapsLock could stay on after you left a remote session that synced its lock state back to the local machine.
+
 ## [1.21.0] - 2026-11-27
 
 ### Changed
