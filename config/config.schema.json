@@ -54,6 +54,10 @@
             },
             "numLock": {
               "$ref": "#/$defs/lockState"
+            },
+            "keepWhileSuspended": {
+              "type": "boolean",
+              "description": "Keep a forced capsLock/numLock state while a settings.suspendWhenActive window is active: the key still reaches the window, and the toggle it causes is set back after release (default false)."
             }
           },
           "additionalProperties": false

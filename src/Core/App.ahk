@@ -227,7 +227,8 @@ class App {
             SuspendWindows.EndPending := () => Bindings.EndPending()
             SuspendWindows.Start(Bindings.suspendWindows, Map(
                 "CapsLock", cfg.Get("settings.keyboard.capsLock", ""),
-                "NumLock", cfg.Get("settings.keyboard.numLock", "")))
+                "NumLock", cfg.Get("settings.keyboard.numLock", "")),
+                !!cfg.Get("settings.keyboard.keepWhileSuspended", false))
         } catch as e {
             Bindings.problems.Push("Couldn't watch for settings.suspendWhenActive windows: " e.Message)
         }

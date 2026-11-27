@@ -428,6 +428,13 @@ class Bindings_Tests {
         Assert.Equal(0, SuspendWindows.Parse([]).problems.Length)
     }
 
+    static Test_SuspendKeepsLocksOnlyAfterRelease() {
+        Assert.True(SuspendWindows.NeedsCorrection(1, 0, false), "toggled on, key released")
+        Assert.False(SuspendWindows.NeedsCorrection(1, 0, true), "still held as a modifier")
+        Assert.False(SuspendWindows.NeedsCorrection(0, 0, false), "already off")
+        Assert.True(SuspendWindows.NeedsCorrection(0, 1, false), "AlwaysOn")
+    }
+
     static Test_SuspendLiftsOnlyForcedLockStates() {
         locks := SuspendWindows.ForcedLocks(Map("CapsLock", "AlwaysOff", "NumLock", "On", "ScrollLock", ""))
         Assert.Equal(1, locks.Count)

@@ -46,9 +46,16 @@ class SuspendWindows {
         return out
     }
 
-    static Start(titles, locks := Map()) {
+    ; With keepLocks, forced lock states also hold while suspended: the keys
+    ; still reach the window, and a toggle they cause here is set back once
+    ; the key is released (see _KeepLocks).
+    static keepLocks := false
+    static _keep := (*) => SuspendWindows._KeepLocks()
+
+    static Start(titles, locks := Map(), keepLocks := false) {
         SuspendWindows.titles := titles
         SuspendWindows.locks := SuspendWindows.ForcedLocks(locks)
+        SuspendWindows.keepLocks := keepLocks
         if (!titles.Length || SuspendWindows._hook)
             return
         ; EVENT_SYSTEM_FOREGROUND, out of context: delivered through this thread's message loop.
@@ -100,6 +107,8 @@ class SuspendWindows {
         if HasMethod(SuspendWindows.EndPending)
             try SuspendWindows.EndPending.Call()
         Suspend(true)
+        if SuspendWindows.keepLocks
+            SetTimer(SuspendWindows._keep, 100)
         ; Lift forced states and keep the current one, so the key toggles as usual.
         for name in SuspendWindows.locks
             SuspendWindows._SetLock(name, GetKeyState(name, "T") ? "On" : "Off")
@@ -110,6 +119,7 @@ class SuspendWindows {
         if !SuspendWindows.active
             return
         SuspendWindows.active := false
+        SetTimer(SuspendWindows._keep, 0)
         SuspendWindows._Restore()
         ; A remote client may sync its session's lock state back to this
         ; machine after it loses focus, so enforce the policy again shortly.
@@ -124,6 +134,23 @@ class SuspendWindows {
     }
 
     static ReassertMs := [250, 1000, 2500]
+
+    ; While suspended with keepLocks: a forced key toggled by a press in the
+    ; window is set back after release. That correction reaches the window
+    ; too, as a simulated press of the key.
+    static _KeepLocks() {
+        if !SuspendWindows.active
+            return SetTimer(SuspendWindows._keep, 0)
+        for name, state in SuspendWindows.locks {
+            want := SuspendWindows.ForcedToggle(state)
+            if SuspendWindows.NeedsCorrection(SuspendWindows.ToggleOf(name), want, GetKeyState(name, "P"))
+                SuspendWindows._SetLock(name, want ? "On" : "Off")
+        }
+    }
+
+    ; Pure: whether a lock key's toggle must be set back now: it differs from
+    ; the forced side and the key isn't held (it may be a modifier in use).
+    static NeedsCorrection(toggle, want, held) => toggle != want && !held
 
     static _Reassert() {
         ; Focus may be back on a listed window before Update has seen it.
