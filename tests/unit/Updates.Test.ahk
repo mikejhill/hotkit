@@ -219,10 +219,23 @@ class Updates_Tests {
 
     static Test_InstallRefusals() {
         cases := [
-            [Map("rev-parse", { exit: 128, out: "fatal: not a git repository" }), "isn't running from its own git checkout", 1],
-            [Map("rev-parse", { exit: 0, out: "C:/elsewhere" }), "isn't running from its own git checkout", 1],
+            [Map("rev-parse", { exit: 128, out: "fatal: not a git repository" }),
+                "Git can't use the hotkit folder C:\hotkit: fatal: not a git repository", 1],
+            [Map("rev-parse", { exit: 128, out: "" }), "Git can't use the hotkit folder C:\hotkit (exit code 128).", 1],
+            [Map("rev-parse", { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/hotkit'`n"
+                "'C:/hotkit' is owned by:`n`tBUILTIN/Administrators (S-1-5-32-544)" }),
+                "Git can't confirm you own the hotkit folder (an elevated clone or a drive without owners). To trust it, run in PowerShell: "
+                "git config --global --add safe.directory 'C:/hotkit'", 1],
+            [Map("rev-parse", { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/Their Code'" }),
+                "hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/Their Code, "
+                "which git doesn't trust.", 1],
+            [Map("rev-parse", { exit: 128, out: "", err: "warning: x`nfatal: not a git repository" }),
+                "Git can't use the hotkit folder C:\hotkit: fatal: not a git repository", 1],
+            [Map("rev-parse", { exit: 0, out: "C:/elsewhere" }),
+                "hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/elsewhere.", 1],
             [Map("rev-parse", { exit: 9009, out: "'git' is not recognized" }), "Git isn't installed", 1],
             [Map("status", { exit: 0, out: " M src/Main.ahk" }), "uncommitted changes", 2],
+            [Map("status", { exit: 128, out: "", err: "fatal: index file corrupt" }), "git status failed: fatal: index file corrupt", 2],
             [Map("symbolic-ref", { exit: 1, out: "" }), "isn't on a branch", 3],
             [Map("fetch", { exit: 128, out: "remote: Not Found`nfatal: couldn't find remote ref" }),
                 "Couldn't download v1.5.0: fatal: couldn't find remote ref", 4],
@@ -253,6 +266,56 @@ class Updates_Tests {
             Assert.False(Updates.Busy)
         }
         Assert.Equal("", EnvGet("HOTKIT_UPDATED_FROM"))
+    }
+
+    static Test_CheckoutIgnoresGitWarnings() {
+        r := { exit: 0, out: "C:/hotkit", err: "warning: unable to access 'X:/gitconfig': Invalid argument" }
+        Assert.Equal("", Updates.CheckoutProblem(r, "C:\hotkit"))
+        Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: "c:/HOTKIT/" }, "C:\hotkit"), "case and slashes")
+    }
+
+    static Test_SamePathTreatsPercentLiterally() {
+        Assert.False(Updates.SamePath("C:\hotkit\%HOTKIT_UNSET_VAR%", "C:\hotkit"), "a parent never matches its child")
+        Assert.True(Updates.SamePath("C:/hotkit/%X%/", "C:\hotkit\%X%"))
+    }
+
+    static Test_SamePathDriveRoot() {
+        drive := SubStr(A_WinDir, 1, 2)  ; e.g. C:
+        Assert.True(Updates.SamePath(drive, drive "/"), "a bare drive is its root, not its current directory")
+    }
+
+    static Test_DetailPrefersGitError() {
+        r := { exit: 128, out: "", err: "fatal: not a git repository`n12:00 trace2 atexit elapsed:0.01 code:128" }
+        Assert.Equal("fatal: not a git repository", Updates.Detail(r))
+        Assert.Equal("last", Updates.Detail({ exit: 1, out: "first`nlast" }))
+    }
+
+    static Test_DubiousOwnershipPathWithQuotes() {
+        r := { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/O'Brien/hotkit'`n"
+            "'C:/O'Brien/hotkit' is owned by:`n`tBUILTIN/Administrators (S-1-5-32-544)" }
+        p := Updates.CheckoutProblem(r, "C:\O'Brien\hotkit")
+        Assert.Contains(p.message, "safe.directory 'C:/O''Brien/hotkit'")
+        Assert.Equal("'a''b" Chr(0x2019) Chr(0x2019) "c $d'", Updates.PowerShellLiteral("a'b" Chr(0x2019) "c $d"))
+    }
+
+    static Test_CheckoutResolvesJunctions() {
+        base := A_Temp "\hotkit-realpath-" ProcessExist() "-" A_TickCount
+        DirCreate(base "\real")
+        try {
+            RunWait(A_ComSpec ' /c mklink /J "' base '\link" "' base '\real"', , "Hide")
+            Assert.True(DirExist(base "\link"), "junction created")
+            ; Git reports the real folder; hotkit was started through the junction.
+            ; RealPath also expands a short-named temp folder, so compare resolved paths.
+            real := Paths.RealPath(base "\real")
+            Assert.Equal(Paths.Normalize(real), Paths.Normalize(Paths.RealPath(base "\link")))
+            SplitPath(Paths.RealPath(base "\link"), &leaf)
+            Assert.Equal("real", leaf, "the junction is resolved")
+            Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: StrReplace(real, "\", "/") }, base "\link"))
+            Assert.Equal("Z:\missing\dir", Paths.RealPath("Z:/missing/dir"), "unresolvable paths come back as given")
+        } finally {
+            try DirDelete(base "\link")
+            try DirDelete(base, true)
+        }
     }
 
     static Test_InstallWithoutKnownReleaseChecksFirst() {

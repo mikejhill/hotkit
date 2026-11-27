@@ -252,11 +252,12 @@ class Updates {
         r := Updates.Git("rev-parse --show-toplevel")
         if (r.exit = 9009)
             return fail("Git isn't installed or isn't on PATH.", true)
-        if (r.exit != 0 || Paths.Normalize(r.out) != Paths.Normalize(Updates.RepoDir))
-            return fail("hotkit isn't running from its own git checkout, so it can't update itself.", true)
+        problem := Updates.CheckoutProblem(r, Updates.RepoDir)
+        if (problem != "")
+            return fail(problem.message, problem.notGit)
         r := Updates.Git("status --porcelain --untracked-files=no")
         if (r.exit != 0)
-            return fail("git status failed: " Updates.LastLine(r.out))
+            return fail("git status failed: " Updates.Detail(r))
         if (r.out != "")
             return fail("The hotkit folder has uncommitted changes.")
         r := Updates.Git("symbolic-ref -q HEAD")
@@ -267,15 +268,70 @@ class Updates {
         ref := '"refs/tags/' tag '"'
         r := Updates.Git('fetch --no-tags "https://github.com/' Updates.Settings.repository '.git" "refs/tags/' tag ':refs/tags/' tag '"')
         if (r.exit != 0)
-            return fail("Couldn't download " tag ": " Updates.LastLine(r.out))
+            return fail("Couldn't download " tag ": " Updates.Detail(r))
         if (Updates.Git("merge-base --is-ancestor HEAD " ref).exit != 0) {
             ; Case-sensitive: git ref names are, and "Main" isn't main.
             return fail(Updates.NotFastForwardMessage(headRef, tag))
         }
         r := Updates.Git("merge --ff-only " ref)
         if (r.exit != 0)
-            return fail("git merge failed: " Updates.LastLine(r.out))
+            return fail("git merge failed: " Updates.Detail(r))
         return { ok: true, message: "", notGit: false }
+    }
+
+    ; Why `git rev-parse --show-toplevel` (result r) doesn't confirm that
+    ; repoDir is its own checkout: { message, notGit }, or "" when it does.
+    ; Git may report a junction, subst drive, or short name by its real path.
+    static CheckoutProblem(r, repoDir) {
+        mismatch := (root, extra := "") => { notGit: true, message: "hotkit runs from " repoDir
+            ", but git says that folder belongs to the checkout at " root extra "." }
+        if (r.exit != 0) {
+            text := (r.HasProp("err") ? r.err "`n" : "") r.out
+            ; Through the line's last quote: the path itself may hold one.
+            if (RegExMatch(text, "m)dubious ownership in repository at '(.+)'\s*$", &m)) {
+                if (!Updates.SamePath(m[1], repoDir))
+                    return mismatch(m[1], ", which git doesn't trust")
+                return { notGit: false, message: "Git can't confirm you own the hotkit folder (an elevated clone or a drive "
+                    "without owners). To trust it, run in PowerShell: "
+                    "git config --global --add safe.directory " Updates.PowerShellLiteral(m[1]) }
+            }
+            detail := Updates.Detail(r)
+            return { notGit: true, message: "Git can't use the hotkit folder " repoDir
+                (detail != "" ? ": " detail : " (exit code " r.exit ").") }
+        }
+        root := Updates.LastLine(r.out)
+        return Updates.SamePath(root, repoDir) ? "" : mismatch(root)
+    }
+
+    ; Whether two paths name the same folder, after resolving aliases. No
+    ; Paths.Normalize: real folder names may contain %, which it expands.
+    static SamePath(a, b) {
+        return a != "" && Updates._Canon(a) = Updates._Canon(b)
+    }
+
+    static _Canon(p) {
+        p := StrReplace(p, "/", "\")
+        if (RegExMatch(p, "^[A-Za-z]:$"))
+            p .= "\"  ; "R:" alone would mean R:'s current directory
+        return RTrim(StrReplace(Paths.RealPath(p), "/", "\"), "\")
+    }
+
+    ; Pure: s as a PowerShell single-quoted literal (spaces and $ stay
+    ; literal; every quote PowerShell treats as single, typographic too, doubles).
+    static PowerShellLiteral(s) {
+        for q in ["'", Chr(0x2018), Chr(0x2019), Chr(0x201A), Chr(0x201B)]
+            s := StrReplace(s, q, q q)
+        return "'" s "'"
+    }
+
+    ; Pure: what went wrong in a git result: its last fatal:/error: line
+    ; (trace output can follow it), else the last line of stderr, else stdout.
+    static Detail(r) {
+        text := (r.HasProp("err") && Trim(r.err) != "") ? r.err : r.out
+        pos := 1, found := ""
+        while (pos := RegExMatch(text, "m)^(?:fatal|error): .*$", &m, pos))
+            found := Trim(m[0]), pos += m.Len
+        return found != "" ? found : Updates.LastLine(text)
     }
 
     ; Why HEAD can't fast-forward to the release, and what to do about it.
@@ -301,21 +357,26 @@ class Updates {
         return lines.Length ? Trim(lines[lines.Length]) : ""
     }
 
-    ; Runs git in the checkout without a window; returns { exit, out }.
+    ; Runs git in the checkout without a window; returns { exit, out, err }
+    ; with stdout and stderr apart, so warnings never read as command output.
     static Git(args) {
         if (Updates.GitRunner != "")
             return Updates.GitRunner.Call(args)
-        outFile := A_Temp "\hotkit-git-" ProcessExist() "-" A_TickCount ".txt"
-        cmd := A_ComSpec ' /c set "GIT_TERMINAL_PROMPT=0" && git -C "' Updates.RepoDir '" ' args ' > "' outFile '" 2>&1'
+        base := A_Temp "\hotkit-git-" ProcessExist() "-" A_TickCount
+        outFile := base ".out.txt", errFile := base ".err.txt"
+        cmd := A_ComSpec ' /c set "GIT_TERMINAL_PROMPT=0" && git -C "' Updates.RepoDir '" ' args
+            . ' > "' outFile '" 2> "' errFile '"'
         try {
             code := RunWait(cmd, Updates.RepoDir, "Hide")
         } catch as e {
-            return { exit: -1, out: e.Message }
+            return { exit: -1, out: "", err: e.Message }
         }
-        text := ""
-        try text := FileRead(outFile, "UTF-8")
+        out := "", err := ""
+        try out := FileRead(outFile, "UTF-8")
+        try err := FileRead(errFile, "UTF-8")
         try FileDelete(outFile)
-        return { exit: code, out: Trim(text, " `t`r`n") }
+        try FileDelete(errFile)
+        return { exit: code, out: Trim(out, " `t`r`n"), err: Trim(err, " `t`r`n") }
     }
 
     ; GETs url without blocking; calls done(status, text, error) once.
