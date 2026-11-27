@@ -399,6 +399,32 @@ class Bindings_Tests {
             SuspendWindows.locks := saved
         }
         Assert.Equal(1, SuspendWindows.Parse("").problems.Length, "an explicit empty title is reported")
+        Assert.Equal(0, SuspendWindows.ForcedToggle("AlwaysOff"))
+        Assert.Equal(1, SuspendWindows.ForcedToggle("AlwaysOn"))
+    }
+
+    static Test_SuspendRestoreCorrectsALateToggle() {
+        savedLocks := SuspendWindows.locks, savedTitles := SuspendWindows.titles
+        savedSet := SuspendWindows.GetOwnPropDesc("_SetLock"), savedToggle := SuspendWindows.GetOwnPropDesc("ToggleOf")
+        savedMatches := SuspendWindows.GetOwnPropDesc("Matches")
+        calls := []
+        try {
+            SuspendWindows.DefineProp("_SetLock", { Call: (this, name, state) => calls.Push(name ":" state) })
+            SuspendWindows.DefineProp("ToggleOf", { Call: (this, name) => 1 })   ; synced back on
+            SuspendWindows.locks := Map("CapsLock", "AlwaysOff")
+            SuspendWindows.titles := []                                          ; no listed window active
+            SuspendWindows._Reassert()
+            Assert.Equal("CapsLock:Off,CapsLock:AlwaysOff", Bindings_Tests.Joined(calls), "set back, then forced")
+            calls.Length := 0
+            SuspendWindows.titles := ["A"]
+            SuspendWindows.DefineProp("Matches", { Call: (this) => true })
+            SuspendWindows._Reassert()
+            Assert.Equal(0, calls.Length, "focus is back on a listed window")
+        } finally {
+            SuspendWindows.DefineProp("_SetLock", savedSet), SuspendWindows.DefineProp("ToggleOf", savedToggle)
+            SuspendWindows.DefineProp("Matches", savedMatches)
+            SuspendWindows.locks := savedLocks, SuspendWindows.titles := savedTitles
+        }
         Assert.Equal(0, SuspendWindows.Parse([]).problems.Length)
     }
 
@@ -416,8 +442,9 @@ class Bindings_Tests {
         Assert.Equal("LCtrl", Bindings_Tests.Joined(Bindings.PhysicalMods(Bindings.specs[1])), "Ctrl is still required")
         Assert.True(InStr(Bindings.ContextKey(Bindings.specs[1]), "|simmod") > 0)
         Assert.False(InStr(Bindings.ContextKey(Bindings.specs[2]), "|simmod") > 0)
-        saved := Bindings.LogicalKeyDown
+        saved := Bindings.LogicalKeyDown, savedPhysical := Bindings.PhysicalKeyDown
         try {
+            Bindings.PhysicalKeyDown := (k) => false   ; independent of the real keyboard
             Bindings.LogicalKeyDown := (k) => k = "F17" || k = "LCtrl"
             modifier := { key: "F17", remoteKey: "" }
             Assert.True(Bindings.ModifierDown(modifier, true), "a held injected modifier key counts")
@@ -429,7 +456,7 @@ class Bindings_Tests {
             Assert.True(Bindings.HeldKey("F17"), "holds last while the injected modifier key is down")
             Assert.False(Bindings.HeldKey("LCtrl"), "only modifier keys with simulated bindings")
         } finally {
-            Bindings.LogicalKeyDown := saved
+            Bindings.LogicalKeyDown := saved, Bindings.PhysicalKeyDown := savedPhysical
         }
     }
 
