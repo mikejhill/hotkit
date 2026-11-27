@@ -1201,14 +1201,14 @@ class Bindings {
     ; WinSwallowed). With simulated, a key held by another program (logical
     ; state) counts as well.
     static AllPhysicallyDown(keys, simulated := false) {
-        logicalDown := Bindings.LogicalKeyDown
+        logicalDown := Bindings.LogicalKeyDown, physicalDown := Bindings.PhysicalKeyDown
         for key in keys {
             if (key = "Win")
                 down := GetKeyState("LWin", "P") || GetKeyState("RWin", "P") || SimulatedKeys.WinHeld()
             else if (key = "LWin" || key = "RWin")
                 down := GetKeyState(key, "P") || SimulatedKeys.WinHeld(SubStr(key, 1, 1))
             else
-                down := GetKeyState(key, "P")
+                down := physicalDown(key)
             if (!down && simulated)
                 down := key = "Win" ? logicalDown("LWin") || logicalDown("RWin") : logicalDown(key)
             if !down

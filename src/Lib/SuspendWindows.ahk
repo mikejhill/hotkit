@@ -126,7 +126,10 @@ class SuspendWindows {
     static ReassertMs := [250, 1000, 2500]
 
     static _Reassert() {
-        if !SuspendWindows.active
+        ; Focus may be back on a listed window before Update has seen it.
+        matches := true
+        try matches := SuspendWindows.Matches()
+        if (!SuspendWindows.active && !matches)
             SuspendWindows._Restore()
     }
 
@@ -135,11 +138,13 @@ class SuspendWindows {
     static _Restore() {
         for name, state in SuspendWindows.locks {
             want := SuspendWindows.ForcedToggle(state)
-            if (GetKeyState(name, "T") != want)
+            if (SuspendWindows.ToggleOf(name) != want)
                 SuspendWindows._SetLock(name, want ? "On" : "Off")
             SuspendWindows._SetLock(name, state)
         }
     }
+
+    static ToggleOf(name) => GetKeyState(name, "T")
 
     ; Pure: the toggle state a forced policy keeps (AlwaysOn -> 1, AlwaysOff -> 0).
     static ForcedToggle(state) => state = "AlwaysOn" ? 1 : 0
