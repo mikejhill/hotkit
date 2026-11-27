@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-11-27
+
 ### Added
 - `settings.keyboard.keepWhileSuspended` keeps a forced CapsLock or NumLock state while a `settings.suspendWhenActive` window is active. The key still reaches the window, so a Hotkit on the other side can use CapsLock as its modifier, and Hotkit sets the local toggle back once you release it. CapsLock no longer stays on after you leave a remote session, however you leave it.
 
