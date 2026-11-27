@@ -41,12 +41,12 @@ class PowerModule {
     static ES_DISPLAY_REQUIRED := 0x2
 
     static Labels := Map(
-        "keepAwake", "Keep &Awake (no sleep)",
+        "keepAwake", "Keep &Awake (No Sleep)",
         "keepScreenOn", "Keep &Screen On",
         "keepUnlocked", "Keep &Unlocked")
 
     ; "Keep Awake", "Keep Screen On", "Keep Unlocked".
-    static Title(name) => StrReplace(StrReplace(PowerModule.Labels[name], "&"), " (no sleep)")
+    static Title(name) => StrReplace(StrReplace(PowerModule.Labels[name], "&"), " (No Sleep)")
 
     static Register(cfg) {
         PowerModule.Enabled := cfg.ModuleEnabled("power", true)
@@ -109,7 +109,7 @@ class PowerModule {
             reason := PowerModule.LockPolicy(PowerModule.ReadLockPolicy())
             if (reason != "") {
                 StatusLog.Warn("power: keep unlocked refused: " reason)
-                Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Keep Unlocked is unavailable", reason)
+                Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Keep Unlocked Is Unavailable", reason)
                 return false
             }
         }
@@ -122,7 +122,7 @@ class PowerModule {
         if (!quiet) {
             status := on ? PowerModule.OnText(endAt) : "Off."
             if (on && name = "keepUnlocked")
-                Toast.ShowToast({ color: "FFB000", fadeDelay: 7000 }, "Keep Unlocked is on",
+                Toast.ShowToast({ color: "FFB000", fadeDelay: 7000 }, "Keep Unlocked Is On",
                     "Anyone at this PC can use your session.", status)
             else
                 Toast.ShowToast(, PowerModule.Title(name), status)
@@ -149,7 +149,7 @@ class PowerModule {
             PowerModule.State.keepUnlocked := false
             PowerModule.Until.keepUnlocked := ""
             StatusLog.Warn("power: keep unlocked off: the screen saver could not be paused safely")
-            Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Keep Unlocked is unavailable",
+            Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Keep Unlocked Is Unavailable",
                 "The screen saver could not be paused safely. Keep Screen On still works.")
             return PowerModule.Apply()
         }
@@ -176,12 +176,12 @@ class PowerModule {
     }
 
     ; Pure: tray tooltip text for the strongest toggle that is on, such as
-    ; "Keep Unlocked until 2:30 AM"; "" when everything is off.
+    ; "Keep Unlocked Until 2:30 AM"; "" when everything is off.
     static Summary(state, ends := "") {
         for name in ["keepUnlocked", "keepScreenOn", "keepAwake"] {
             if (state.%name%) {
                 endAt := IsObject(ends) ? ends.%name% : ""
-                return PowerModule.Title(name) (endAt != "" ? " until " PowerModule.Clock(endAt) : "")
+                return PowerModule.Title(name) (endAt != "" ? " Until " PowerModule.Clock(endAt) : "")
             }
         }
         return ""
@@ -424,7 +424,7 @@ class PowerModule {
         for name in PowerModule.Names {
             sub := Menu()
             sub.Add("&Off", ActionRegistry.Callback("power." name ".off"))
-            sub.Add("&On (no time limit)", ActionRegistry.Callback("power." name ".on"))
+            sub.Add("&On (No Time Limit)", ActionRegistry.Callback("power." name ".on"))
             sub.Add()
             for minutes in PowerModule.Durations
                 sub.Add(PowerModule.DurationLabel(minutes),
@@ -440,11 +440,11 @@ class PowerModule {
         return [{ label: "Stay &Awake", menu: m }]
     }
 
-    ; Pure: "For &30 minutes", "For &1 hour", "For &2 hours".
+    ; Pure: "For &30 Minutes", "For &1 Hour", "For &2 Hours".
     static DurationLabel(minutes) {
         if (Mod(minutes, 60) = 0)
-            return "For &" (minutes // 60) (minutes = 60 ? " hour" : " hours")
-        return "For &" minutes " minutes"
+            return "For &" (minutes // 60) (minutes = 60 ? " Hour" : " Hours")
+        return "For &" minutes " Minutes"
     }
 
     ; Checks each toggle that is on, and Off or On (no time limit) inside its
@@ -460,7 +460,7 @@ class PowerModule {
                 continue
             sub := PowerModule._subMenus[name]
             try on ? sub.Uncheck("&Off") : sub.Check("&Off")
-            try (on && PowerModule.Until.%name% = "") ? sub.Check("&On (no time limit)") : sub.Uncheck("&On (no time limit)")
+            try (on && PowerModule.Until.%name% = "") ? sub.Check("&On (No Time Limit)") : sub.Uncheck("&On (No Time Limit)")
         }
     }
 

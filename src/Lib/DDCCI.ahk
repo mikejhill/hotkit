@@ -223,7 +223,7 @@ class DDCCIController {
     AdjustMonitors(vcpCode, delta, monitorEntries, showToast := true) {
         if (monitorEntries.Length = 0) {
             if (showToast) {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: "No monitors found", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: "No Monitors Found", size: 14 })
             }
             return { success: 0, value: -1 }
         }
@@ -236,7 +236,7 @@ class DDCCIController {
 
         if (feature.current = -1) {
             if (showToast) {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: featureName . " read failed",
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: featureName . " Read Failed",
                     size: 14 })
             }
             return { success: 0, value: -1 }
@@ -271,7 +271,7 @@ class DDCCIController {
                 Toast.ShowToast({ fadeDelay: 800 }, { text: icon, size: 24 }, { text: featureName . " " . newValue,
                     size: 14 })
             } else {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: featureName . " adjust failed",
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: featureName . " Adjust Failed",
                     size: 14 })
             }
         }
@@ -282,7 +282,7 @@ class DDCCIController {
     SetMonitors(vcpCode, value, monitorEntries, showToast := true) {
         if (monitorEntries.Length = 0) {
             if (showToast) {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: "No monitors found", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: "No Monitors Found", size: 14 })
             }
             return { success: 0, value: -1 }
         }
@@ -306,7 +306,7 @@ class DDCCIController {
             if (successCount > 0) {
                 Toast.ShowToast({ fadeDelay: 800 }, { text: "✓", size: 24 }, { text: featureName . " " . value, size: 14 })
             } else {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: featureName . " set failed", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: featureName . " Set Failed", size: 14 })
             }
         }
 
@@ -329,7 +329,7 @@ class DDCCIController {
     SwapBrightness(defaultValue, &savedValueRef, showToast := true) {
         if (this.monitorHandles.Length = 0) {
             if (showToast) {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: "No monitors found", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: "No Monitors Found", size: 14 })
             }
             return
         }
@@ -340,7 +340,7 @@ class DDCCIController {
 
         if (feature.current = -1) {
             if (showToast) {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: "Brightness read failed", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "⚠", size: 24 }, { text: "Brightness Read Failed", size: 14 })
             }
             return
         }

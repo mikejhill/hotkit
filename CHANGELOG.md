@@ -6,6 +6,11 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-11-27
+
+### Changed
+- Display text now writes the name as Hotkit and uses title case for labels: tray items, toast titles, dialog titles, the example configs' binding descriptions, and doc headings. The README logo and social preview spell it Hotkit too. Paths, the config folder, environment variables, and other identifiers stay lowercase.
+
 ## [1.20.0] - 2026-11-27
 
 ### Added

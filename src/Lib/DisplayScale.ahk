@@ -81,10 +81,10 @@ class DisplayScale {
         if (monitor = "") {
             loop MonitorGetCount()
                 DisplayScale.Set(scale, A_Index)
-            DisplayScale._Show(Format("Display Scaling: {1}% (all monitors)", scale))
+            DisplayScale._Show(Format("Display Scaling: {1}% (All Monitors)", scale))
         } else {
             DisplayScale.Set(scale, DisplayScale._ValidateMonitor(monitor))
-            DisplayScale._Show(Format("Display Scaling: {1}% (monitor {2})", scale, monitor))
+            DisplayScale._Show(Format("Display Scaling: {1}% (Monitor {2})", scale, monitor))
         }
     }
 
@@ -117,7 +117,7 @@ class DisplayScale {
             loop MonitorGetCount()
                 message .= Format("`nMonitor {1}: {2}%", A_Index, DisplayScale.Get(A_Index))
         } else {
-            message .= Format(" {1}% (monitor {2})", DisplayScale.Get(monitor), monitor)
+            message .= Format(" {1}% (Monitor {2})", DisplayScale.Get(monitor), monitor)
         }
         DisplayScale._Show(message)
     }

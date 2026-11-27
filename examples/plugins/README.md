@@ -1,4 +1,4 @@
-# Example plugins
+# Example Plugins
 
 Three small, complete plugins to copy from. Each one is a top-level `.ahk`
 file plus a helper folder of the same name with the logic that has no UI, so
@@ -10,7 +10,7 @@ it can be unit tested. See [docs/plugins.md](../../docs/plugins.md) for the API.
 | [QuickNote](QuickNote.ahk) | `quickNote.add [text]`, `quickNote.open` | An action with an optional parameter, `Paths.Expand`, writing a file |
 | [Stopwatch](Stopwatch.ahk) | `stopwatch.toggle`, `.lap`, `.reset`, `.show` | State kept between actions, all settings optional |
 
-## Try one
+## Try One
 
 1. Copy the plugin file and its folder into `<config dir>\plugins\`
    (default `%USERPROFILE%\.config\hotkit\plugins\`), for example
@@ -25,7 +25,7 @@ it can be unit tested. See [docs/plugins.md](../../docs/plugins.md) for the API.
    AutoHotkey64.exe src\Main.ahk --check
    ```
 
-## Make your own
+## Make Your Own
 
 1. Copy the closest example and rename the file, folder, classes, plugin name
    and action prefix (`stopwatch.` → `myplugin.`).

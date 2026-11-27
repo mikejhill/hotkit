@@ -94,7 +94,7 @@ class AppUtil {
             Run(appPath, , launchOptions?)
             Toast.ShowToast(, "Executing:", appName)
         } catch as e {
-            Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Failed to launch:`n" . appName, "Error:`n" . e.Message)
+            Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Failed to Launch:`n" . appName, "Error:`n" . e.Message)
         }
     }
 

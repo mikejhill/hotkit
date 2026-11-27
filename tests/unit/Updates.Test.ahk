@@ -156,7 +156,7 @@ class Updates_Tests {
         Updates.Check()
         Assert.Equal("1.5.0", Updates.Available.version)
         Assert.Equal(1, Updates_Tests.Toasts.Length)
-        Assert.Equal("hotkit 1.5.0 is available Tray › Update to v1.5.0", Updates_Tests.Toasts[1])
+        Assert.Equal("Hotkit 1.5.0 Is Available Tray › Update to v1.5.0", Updates_Tests.Toasts[1])
         Updates.Check()
         Assert.Equal(1, Updates_Tests.Toasts.Length, "a scheduled check repeats no toast")
         Updates.Check(true)
@@ -181,7 +181,7 @@ class Updates_Tests {
         }
         Assert.Equal(0, Updates_Tests.Toasts.Length, "scheduled checks stay quiet")
         Updates.Check(true)
-        Assert.Equal("hotkit is up to date Version 1.4.2", Updates_Tests.Toasts[1])
+        Assert.Equal("Hotkit Is Up to Date Version 1.4.2", Updates_Tests.Toasts[1])
     }
 
     static Test_FailedCheckIsQuietUnlessManual() {
@@ -190,10 +190,10 @@ class Updates_Tests {
         Assert.Equal(0, Updates_Tests.Toasts.Length)
         Assert.Contains(FileRead(StatusLog.Path, "UTF-8"), "[WARN] update check failed: The server name")
         Updates.Check(true)
-        Assert.Equal("Couldn't check for updates: The server name or address could not be resolved", Updates_Tests.Toasts[1])
+        Assert.Equal("Couldn't Check for Updates: The server name or address could not be resolved", Updates_Tests.Toasts[1])
         Updates_Tests.Respond(404, "")
         Updates.Check(true)
-        Assert.Equal("Couldn't check for updates: No releases found for mikejhill/hotkit.", Updates_Tests.Toasts[2])
+        Assert.Equal("Couldn't Check for Updates: No releases found for mikejhill/hotkit.", Updates_Tests.Toasts[2])
         Updates_Tests.Respond(200, "not json")
         Updates.Check(true)
         Assert.Equal(3, Updates_Tests.Toasts.Length)
@@ -220,19 +220,19 @@ class Updates_Tests {
     static Test_InstallRefusals() {
         cases := [
             [Map("rev-parse", { exit: 128, out: "fatal: not a git repository" }),
-                "Git can't use the hotkit folder C:\hotkit: fatal: not a git repository", 1],
-            [Map("rev-parse", { exit: 128, out: "" }), "Git can't use the hotkit folder C:\hotkit (exit code 128).", 1],
+                "Git can't use the Hotkit folder C:\hotkit: fatal: not a git repository", 1],
+            [Map("rev-parse", { exit: 128, out: "" }), "Git can't use the Hotkit folder C:\hotkit (exit code 128).", 1],
             [Map("rev-parse", { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/hotkit'`n"
                 "'C:/hotkit' is owned by:`n`tBUILTIN/Administrators (S-1-5-32-544)" }),
-                "Git can't confirm you own the hotkit folder (an elevated clone or a drive without owners). To trust it, run in PowerShell: "
+                "Git can't confirm you own the Hotkit folder (an elevated clone or a drive without owners). To trust it, run in PowerShell: "
                 "git config --global --add safe.directory 'C:/hotkit'", 1],
             [Map("rev-parse", { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/Their Code'" }),
-                "hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/Their Code, "
+                "Hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/Their Code, "
                 "which git doesn't trust.", 1],
             [Map("rev-parse", { exit: 128, out: "", err: "warning: x`nfatal: not a git repository" }),
-                "Git can't use the hotkit folder C:\hotkit: fatal: not a git repository", 1],
+                "Git can't use the Hotkit folder C:\hotkit: fatal: not a git repository", 1],
             [Map("rev-parse", { exit: 0, out: "C:/elsewhere" }),
-                "hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/elsewhere.", 1],
+                "Hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/elsewhere.", 1],
             [Map("rev-parse", { exit: 9009, out: "'git' is not recognized" }), "Git isn't installed", 1],
             [Map("status", { exit: 0, out: " M src/Main.ahk" }), "uncommitted changes", 2],
             [Map("status", { exit: 128, out: "", err: "fatal: index file corrupt" }), "git status failed: fatal: index file corrupt", 2],
@@ -240,15 +240,15 @@ class Updates_Tests {
             [Map("fetch", { exit: 128, out: "remote: Not Found`nfatal: couldn't find remote ref" }),
                 "Couldn't download v1.5.0: fatal: couldn't find remote ref", 4],
             [Map("merge-base", { exit: 1, out: "" }),
-                "hotkit's branch has commits that v1.5.0 doesn't have. Rebase them onto v1.5.0 to update.", 6],
+                "Hotkit's branch has commits that v1.5.0 doesn't have. Rebase them onto v1.5.0 to update.", 6],
             [Map("merge-base --is-ancestor HEAD", { exit: 1, out: "" }, 'merge-base --is-ancestor "refs', { exit: 0, out: "" }),
-                "hotkit's branch already has everything in v1.5.0, plus newer commits.", 6],
+                "Hotkit's branch already has everything in v1.5.0, plus newer commits.", 6],
             [Map("symbolic-ref", { exit: 0, out: "refs/heads/fix/thing" }, "merge-base --is-ancestor HEAD", { exit: 1, out: "" }),
-                "hotkit is on the fix/thing branch. Switch to main to update; fix/thing keeps its commits.", 6],
+                "Hotkit is on the fix/thing branch. Switch to main to update; fix/thing keeps its commits.", 6],
             [Map("symbolic-ref", { exit: 0, out: "refs/heads/fix/thing" }, "merge-base", { exit: 1, out: "" }),
-                "hotkit is on the fix/thing branch, which has commits that v1.5.0 doesn't have. Rebase them onto v1.5.0 to update.", 6],
+                "Hotkit is on the fix/thing branch, which has commits that v1.5.0 doesn't have. Rebase them onto v1.5.0 to update.", 6],
             [Map("symbolic-ref", { exit: 0, out: "refs/heads/Main" }, "merge-base", { exit: 1, out: "" }),
-                "hotkit is on the Main branch, which has commits", 6],
+                "Hotkit is on the Main branch, which has commits", 6],
             [Map("merge --ff-only", { exit: 128, out: "fatal: Not possible to fast-forward, aborting." }),
                 "git merge failed: fatal: Not possible to fast-forward, aborting.", 6],
         ]
@@ -261,7 +261,7 @@ class Updates_Tests {
             Assert.Equal(0, Updates_Tests.Restarts, c[2])
             Assert.Equal(c[3], Updates_Tests.GitCalls.Length, c[2] ": stops at the failing step")
             Assert.Equal(1, Updates_Tests.Toasts.Length, c[2])
-            Assert.Contains(Updates_Tests.Toasts[1], "Couldn't update to v1.5.0: ")
+            Assert.Contains(Updates_Tests.Toasts[1], "Couldn't Update to v1.5.0: ")
             Assert.Contains(Updates_Tests.Toasts[1], c[2])
             Assert.False(Updates.Busy)
         }
@@ -323,7 +323,7 @@ class Updates_Tests {
         Updates_Tests.FakeGit()
         Updates.Install()
         Assert.Equal(0, Updates_Tests.GitCalls.Length)
-        Assert.Equal("hotkit is up to date Version 1.4.2", Updates_Tests.Toasts[1])
+        Assert.Equal("Hotkit Is Up to Date Version 1.4.2", Updates_Tests.Toasts[1])
     }
 
     static Test_AutoModeWaitsForIdleThenInstalls() {
@@ -359,7 +359,7 @@ class Updates_Tests {
             Updates.Check()
             Assert.Equal(calls, Updates_Tests.GitCalls.Length, "no retry for a version that failed")
             Assert.Equal("1.5.0", Updates.Available.version, "still offered in the tray")
-            Assert.Equal("hotkit 1.5.0 is available Tray › Update to v1.5.0", Updates_Tests.Toasts[2])
+            Assert.Equal("Hotkit 1.5.0 Is Available Tray › Update to v1.5.0", Updates_Tests.Toasts[2])
         } finally {
             Updates.IdleMs := saved
         }

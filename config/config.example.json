@@ -22,7 +22,7 @@
   // Bindings with a "layer" fire only on that layer; the rest on every layer.
   "layers": {
     "1": { "label": "Main" },
-    "2": { "label": "Media", "description": "Arrow keys control playback" }
+    "2": { "label": "Media", "description": "Arrow Keys Control Playback" }
   },
 
   "modules": {
@@ -53,7 +53,7 @@
   },
 
   "bindings": [
-    { "keys": ">^>!/", "action": "osd.toggle", "description": "Show keyboard shortcuts" },
+    { "keys": ">^>!/", "action": "osd.toggle", "description": "Show Keyboard Shortcuts" },
 
     { "modifier": "caps", "keys": "1", "action": "layer.activate", "args": ["1"] },
     { "modifier": "caps", "keys": "2", "action": "layer.activate", "args": ["2"] },
@@ -63,7 +63,7 @@
 
     { "modifier": "caps", "keys": "BackSpace", "action": "keyboard.toggleCapsLock" },
     { "modifier": "caps", "keys": "N", "action": "app.toggle", "args": ["notepad"], "description": "Notepad" },
-    { "modifier": "caps", "keys": "+N", "action": "app.cycle", "args": ["notepad"], "description": "Notepad: switch windows" },
+    { "modifier": "caps", "keys": "+N", "action": "app.cycle", "args": ["notepad"], "description": "Notepad: Switch Windows" },
     { "modifier": "caps", "keys": "G", "action": "window.toggleAlwaysOnTop" },
     { "modifier": "caps", "keys": "Z", "action": "window.toggleMinimized" },
     { "modifier": "caps", "keys": "[", "action": "window.cycleNext" },
@@ -73,18 +73,18 @@
     { "modifier": "caps", "keys": "^+[", "action": "window.sendToBack" },
     { "modifier": "caps", "keys": "^+]", "action": "window.bringToFront" },
     { "modifier": "caps", "keys": "S", "action": "quickWindow.toggle", "args": ["scratchpad"], "description": "Scratchpad" },
-    { "modifier": "caps", "keys": "<^S", "action": "quickWindow.create", "args": ["scratchpad"], "description": "New scratchpad" },
+    { "modifier": "caps", "keys": "<^S", "action": "quickWindow.create", "args": ["scratchpad"], "description": "New Scratchpad" },
 
     { "keys": ">^>!PgUp", "action": "brightness.increase" },
     { "keys": ">^>!PgDn", "action": "brightness.decrease" },
-    { "keys": ">^>!End", "action": "brightness.swap", "args": [0], "description": "Brightness: toggle off / last level" },
+    { "keys": ">^>!End", "action": "brightness.swap", "args": [0], "description": "Brightness: Toggle Off / Last Level" },
     { "keys": ">^>!<+End", "action": "nightLight.toggle" },
 
     { "keys": "LShift & Volume_Mute", "action": "media.playPause" },
     { "keys": "LShift & Volume_Down", "action": "media.previous" },
     { "keys": "LShift & Volume_Up", "action": "media.next" },
 
-    { "keys": "!F13", "action": "window.activateLast", "description": "Switch to previous window" }
+    { "keys": "!F13", "action": "window.activateLast", "description": "Switch to Previous Window" }
   ],
 
   "tray": {

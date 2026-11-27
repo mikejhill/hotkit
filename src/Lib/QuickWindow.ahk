@@ -102,7 +102,7 @@ class QuickWindow {
             this.Clean()
             before := this.GetCandidates()
             if (!this.multipleWindows && before.Length) {
-                Toast.ShowToast(, this.name " new window unavailable", "The installed app has no CLI parameter for a second window.")
+                Toast.ShowToast(, this.name " New Window Unavailable", "The installed app has no CLI parameter for a second window.")
                 return
             }
             this.SetManagedTopmost(false)
@@ -126,7 +126,7 @@ class QuickWindow {
                 this.Clean()
             }
             Debugger.Log(this.name ": " caughtError.Message)
-            Toast.ShowToast({color: "Red", fadeDelay: 5000}, this.name " window failed", caughtError.Message)
+            Toast.ShowToast({color: "Red", fadeDelay: 5000}, this.name " Window Failed", caughtError.Message)
         } finally {
             this.SetManagedTopmost(true)
             this.creating := false
@@ -167,7 +167,7 @@ class QuickWindow {
         if (!this.modes.Length)
             return
         this.modeIndex := Mod(this.modeIndex, this.modes.Length) + 1
-        Toast.ShowToast(, "Selected mode [" this.modeIndex "]: [" this.CurrentMode() "]")
+        Toast.ShowToast(, "Selected Mode [" this.modeIndex "]: [" this.CurrentMode() "]")
     }
 
     CurrentMode() => this.modes.Length ? this.modes[this.modeIndex] : ""

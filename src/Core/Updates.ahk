@@ -119,7 +119,7 @@ class Updates {
         from := EnvGet("HOTKIT_UPDATED_FROM")
         if (from != "") {
             EnvSet("HOTKIT_UPDATED_FROM")
-            Updates._Toast({ fadeDelay: 5000 }, "Updated hotkit to " Updates.Version, "From " from)
+            Updates._Toast({ fadeDelay: 5000 }, "Updated Hotkit to " Updates.Version, "From " from)
             StatusLog.Info("updated from " from " to " Updates.Version)
         }
         if (Updates.Settings.check) {
@@ -154,13 +154,13 @@ class Updates {
         if (error != "") {
             StatusLog.Warn("update check failed: " error)
             if (manual)
-                Updates._Toast({ color: "FF6060", fadeDelay: 5000 }, "Couldn't check for updates:", error)
+                Updates._Toast({ color: "FF6060", fadeDelay: 5000 }, "Couldn't Check for Updates:", error)
             return
         }
         if (release = "" || Updates.Compare(release.version, Updates.Version) <= 0) {
             Updates._SetAvailable("")
             if (manual)
-                Updates._Toast({ fadeDelay: 3000 }, "hotkit is up to date", "Version " Updates.Version)
+                Updates._Toast({ fadeDelay: 3000 }, "Hotkit Is Up to Date", "Version " Updates.Version)
             return
         }
         isNew := Updates.Available = "" || Updates.Available.version != release.version
@@ -173,7 +173,7 @@ class Updates {
         }
         if (manual || Updates._notified != release.version) {
             Updates._notified := release.version
-            Updates._Toast({ fadeDelay: 6000 }, "hotkit " release.version " is available",
+            Updates._Toast({ fadeDelay: 6000 }, "Hotkit " release.version " Is Available",
                 "Tray › Update to v" release.version)
         }
     }
@@ -240,7 +240,7 @@ class Updates {
         StatusLog.Warn("update to " release.version " failed: " result.message)
         if (auto)
             Updates._autoFailed := release.version
-        Updates._Toast({ color: "FF6060", fadeDelay: 8000 }, "Couldn't update to v" release.version ":", result.message)
+        Updates._Toast({ color: "FF6060", fadeDelay: 8000 }, "Couldn't Update to v" release.version ":", result.message)
         if (!auto && result.notGit && release.url != "")
             try Run(release.url)
     }
@@ -259,10 +259,10 @@ class Updates {
         if (r.exit != 0)
             return fail("git status failed: " Updates.Detail(r))
         if (r.out != "")
-            return fail("The hotkit folder has uncommitted changes.")
+            return fail("The Hotkit folder has uncommitted changes.")
         r := Updates.Git("symbolic-ref -q HEAD")
         if (r.exit != 0)
-            return fail("The hotkit folder isn't on a branch.")
+            return fail("The Hotkit folder isn't on a branch.")
         headRef := Updates.LastLine(r.out)
         tag := release.tag
         ref := '"refs/tags/' tag '"'
@@ -283,7 +283,7 @@ class Updates {
     ; repoDir is its own checkout: { message, notGit }, or "" when it does.
     ; Git may report a junction, subst drive, or short name by its real path.
     static CheckoutProblem(r, repoDir) {
-        mismatch := (root, extra := "") => { notGit: true, message: "hotkit runs from " repoDir
+        mismatch := (root, extra := "") => { notGit: true, message: "Hotkit runs from " repoDir
             ", but git says that folder belongs to the checkout at " root extra "." }
         if (r.exit != 0) {
             text := (r.HasProp("err") ? r.err "`n" : "") r.out
@@ -291,12 +291,12 @@ class Updates {
             if (RegExMatch(text, "m)dubious ownership in repository at '(.+)'\s*$", &m)) {
                 if (!Updates.SamePath(m[1], repoDir))
                     return mismatch(m[1], ", which git doesn't trust")
-                return { notGit: false, message: "Git can't confirm you own the hotkit folder (an elevated clone or a drive "
+                return { notGit: false, message: "Git can't confirm you own the Hotkit folder (an elevated clone or a drive "
                     "without owners). To trust it, run in PowerShell: "
                     "git config --global --add safe.directory " Updates.PowerShellLiteral(m[1]) }
             }
             detail := Updates.Detail(r)
-            return { notGit: true, message: "Git can't use the hotkit folder " repoDir
+            return { notGit: true, message: "Git can't use the Hotkit folder " repoDir
                 (detail != "" ? ": " detail : " (exit code " r.exit ").") }
         }
         root := Updates.LastLine(r.out)
@@ -343,12 +343,12 @@ class Updates {
         if (SubStr(headRef, 1, 11) == "refs/heads/" && headRef !== "refs/heads/main") {
             branch := SubStr(headRef, 12)
             if (Updates.Git("merge-base --is-ancestor refs/heads/main " ref).exit = 0)
-                return "hotkit is on the " branch " branch. Switch to main to update; " branch " keeps its commits."
-            return "hotkit is on the " branch " branch, which has commits that " tag " doesn't have. Rebase them onto " tag " to update."
+                return "Hotkit is on the " branch " branch. Switch to main to update; " branch " keeps its commits."
+            return "Hotkit is on the " branch " branch, which has commits that " tag " doesn't have. Rebase them onto " tag " to update."
         }
         if (Updates.Git("merge-base --is-ancestor " ref " HEAD").exit = 0)
-            return "hotkit's branch already has everything in " tag ", plus newer commits."
-        return "hotkit's branch has commits that " tag " doesn't have. Rebase them onto " tag " to update."
+            return "Hotkit's branch already has everything in " tag ", plus newer commits."
+        return "Hotkit's branch has commits that " tag " doesn't have. Rebase them onto " tag " to update."
     }
 
     ; Pure: last non-empty line of command output.

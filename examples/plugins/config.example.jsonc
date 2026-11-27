@@ -8,14 +8,14 @@
     "stopwatch": { "showLaps": 3 }
   },
   "bindings": [
-    { "keys": "^#!b", "action": "breakReminder.status", "description": "Time until next break" },
-    { "keys": "^#!p", "action": "breakReminder.togglePause", "description": "Pause/resume break reminders" },
+    { "keys": "^#!b", "action": "breakReminder.status", "description": "Time Until Next Break" },
+    { "keys": "^#!p", "action": "breakReminder.togglePause", "description": "Pause/Resume Break Reminders" },
 
-    { "keys": "^#!n", "action": "quickNote.add", "description": "Add a note" },
-    { "keys": "^#!o", "action": "quickNote.open", "description": "Open notes" },
+    { "keys": "^#!n", "action": "quickNote.add", "description": "Add a Note" },
+    { "keys": "^#!o", "action": "quickNote.open", "description": "Open Notes" },
 
-    { "keys": "^#!s", "action": "stopwatch.toggle", "description": "Start/pause stopwatch" },
-    { "keys": "^#!l", "action": "stopwatch.lap", "description": "Stopwatch lap" },
-    { "keys": "^#!r", "action": "stopwatch.reset", "description": "Reset stopwatch" }
+    { "keys": "^#!s", "action": "stopwatch.toggle", "description": "Start/Pause Stopwatch" },
+    { "keys": "^#!l", "action": "stopwatch.lap", "description": "Stopwatch Lap" },
+    { "keys": "^#!r", "action": "stopwatch.reset", "description": "Reset Stopwatch" }
   ]
 }

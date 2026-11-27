@@ -352,7 +352,7 @@ class DesktopModule {
             f.Write(JSON.Stringify(settings))
             f.Close()
         } catch as e {
-            return Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Failed to toggle:", "PowerToys Awake`n" e.Message)
+            return Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Failed to Toggle:", "PowerToys Awake`n" e.Message)
         }
         Toast.ShowToast(, "Keep Awake:", next = 1 ? "On" : "Off")
     }

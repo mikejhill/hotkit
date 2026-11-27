@@ -1,9 +1,9 @@
-# Stay awake and monitors off
+# Stay Awake and Monitors Off
 
 The `power` module adds three independent toggles and a monitors-off action.
 Every toggle starts **off**, is shown with a check mark under tray ›
 *Actions* › *Stay Awake*, and is named in the tray tooltip while it is on
-(for example `hotkit 1.7.0: Keep Unlocked until 2:30 AM`). While any toggle is
+(for example `Hotkit 1.7.0: Keep Unlocked Until 2:30 AM`). While any toggle is
 on, the tray icon also shows a muted coral warning circle with a near-white
 "!" and a dark outline in its top-right corner, including on a custom icon.
 
@@ -16,13 +16,13 @@ on, the tray icon also shows a muted coral warning circle with a near-white
 `power.allOff` turns all three off. `monitors.off` turns every monitor off;
 any key press or mouse movement turns them back on.
 
-## Time limits
+## Time Limits
 
 Each toggle can run for a set time and then turn itself off, like the
 PowerToys Awake timer.
 
-- **Tray:** each toggle has a submenu with *Off*, *On (no time limit)*, and
-  *For 30 minutes*, *1 hour*, *2 hours*, *4 hours* or *8 hours*.
+- **Tray:** each toggle has a submenu with *Off*, *On (No Time Limit)*, and
+  *For 30 Minutes*, *1 Hour*, *2 Hours*, *4 Hours* or *8 Hours*.
 - **Actions:** pass a number of minutes to `.on` or `.toggle`, for example
   `{ "action": "power.keepUnlocked.on", "args": [90] }`. Without it, the toggle
   stays on until you turn it off.
@@ -34,55 +34,55 @@ PowerToys Awake timer.
 > [!WARNING]
 > **Keep Unlocked leaves your signed-in session open to anyone who can reach
 > the keyboard, mouse or a remote session.** Use it only on a PC you control,
-> in a place you trust, and turn it off when you're done. hotkit shows a
+> in a place you trust, and turn it off when you're done. Hotkit shows a
 > warning toast each time you turn it on.
 
 - Use a time limit when you can, so Keep Unlocked can't be left on by
   mistake.
 - Turning the monitors off (`monitors.off`) does not lock the PC. Press
   Win+L if you want it locked.
-- hotkit does not get around locks someone else enforces. If Group Policy or
+- Hotkit does not get around locks someone else enforces. If Group Policy or
   MDM sets a machine inactivity limit (`InactivityTimeoutSecs`, or the
   DeviceLock `MaxInactivityTimeDeviceLock` policy) or a forced screen saver,
   Keep Unlocked refuses to turn on and says why; Keep Screen On and Keep Awake
-  still work. hotkit never sends simulated key presses or mouse movement.
-- Some locks are outside hotkit's reach and stay in effect: Dynamic Lock
+  still work. Hotkit never sends simulated key presses or mouse movement.
+- Some locks are outside Hotkit's reach and stay in effect: Dynamic Lock
   (locks when your phone leaves), smart-card removal, and sign-in after the
   PC wakes from sleep if something else puts it to sleep.
 
-## How it works
+## How It Works
 
 - Keep Awake and Keep Screen On call `SetThreadExecutionState` with
   `ES_CONTINUOUS | ES_SYSTEM_REQUIRED` (plus `ES_DISPLAY_REQUIRED` for the
   screen), the same documented call PowerToys Awake uses. `powercfg
-  /requests` (from an elevated prompt) lists hotkit while one is on. Windows
-  drops the request automatically when hotkit exits.
+  /requests` (from an elevated prompt) lists Hotkit while one is on. Windows
+  drops the request automatically when Hotkit exits.
 - Keep Unlocked also pauses your screen saver with
   `SystemParametersInfo(SPI_SETSCREENSAVEACTIVE)` for the current session only.
-  The setting in the registry is not changed, and hotkit turns the screen saver
-  back on when you turn Keep Unlocked off or exit hotkit. If hotkit is killed,
+  The setting in the registry is not changed, and Hotkit turns the screen saver
+  back on when you turn Keep Unlocked off or exit Hotkit. If Hotkit is killed,
   the screen saver stays paused until you sign out.
 - `monitors.off` waits about half a second (so releasing the hotkey doesn't
   wake the screens), then sends `WM_SYSCOMMAND` / `SC_MONITORPOWER`. While the
-  monitors are off, hotkit drops its screen-on request and only keeps the PC
+  monitors are off, Hotkit drops its screen-on request and only keeps the PC
   awake; the first input after that brings the screen-on request back. On PCs
   with Modern Standby, Windows may enter standby when the screens go off
   regardless; check with `powercfg /a`.
 
-## Reloads and restarts
+## Reloads and Restarts
 
 A config reload (saving `config.json`, `app.reload`, or tray › *Reload
 Script*) keeps the toggles that were on, with their time limits. Exiting
-hotkit, or starting it fresh, starts with everything off.
+Hotkit, or starting it fresh, starts with everything off.
 
-## Example bindings
+## Example Bindings
 
 ```jsonc
 "bindings": [
-  { "keys": "#!u", "action": "power.keepUnlocked.toggle", "description": "Keep unlocked" },
-  { "keys": "#!+u", "action": "power.keepUnlocked.on", "args": [480], "description": "Keep unlocked for 8 hours" },
-  { "keys": "#!s", "action": "power.keepScreenOn.toggle", "description": "Keep screen on" },
-  { "keys": "#!m", "action": "monitors.off", "description": "Monitors off" }
+  { "keys": "#!u", "action": "power.keepUnlocked.toggle", "description": "Keep Unlocked" },
+  { "keys": "#!+u", "action": "power.keepUnlocked.on", "args": [480], "description": "Keep Unlocked for 8 Hours" },
+  { "keys": "#!s", "action": "power.keepScreenOn.toggle", "description": "Keep Screen On" },
+  { "keys": "#!m", "action": "monitors.off", "description": "Monitors Off" }
 ]
 ```
 

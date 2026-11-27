@@ -1,26 +1,26 @@
-# Hotkeys inside remote and virtual sessions
+# Hotkeys Inside Remote and Virtual Sessions
 
 A remote desktop client, a virtual machine console, or a virtual desktop
 viewer forwards your keystrokes to another machine. When that machine runs
-hotkit too, its shortcuts and the ones on your local machine compete for the
+Hotkit too, its shortcuts and the ones on your local machine compete for the
 same keys. This playbook shows how to make shortcuts on the inner machine
 work reliably, at any depth of nesting, using *relay keys*.
 
-## Why shortcuts get lost
+## Why Shortcuts Get Lost
 
 Every keystroke goes through the low-level keyboard hooks on your local
 machine before the session window sees it. Windows calls the most recently
 installed hook first.
 
-- **The local hotkit usually wins.** Its hook sees the key first. When a
-  local binding matches, hotkit handles the key and the session never gets
+- **The local Hotkit usually wins.** Its hook sees the key first. When a
+  local binding matches, Hotkit handles the key and the session never gets
   it. A key with no local binding passes through to the session.
 - **A held modifier may never arrive.** With
-  `"settings": { "keyboard": { "capsLock": "AlwaysOff" } }`, hotkit swallows
+  `"settings": { "keyboard": { "capsLock": "AlwaysOff" } }`, Hotkit swallows
   CapsLock completely, so the inner machine never sees it held and its
   CapsLock bindings never fire.
 - **Some clients take every key.** A full-screen client may install its own
-  keyboard hook when its window gets focus, ahead of hotkit's. The client then
+  keyboard hook when its window gets focus, ahead of Hotkit's. The client then
   forwards every key, including local shortcuts, and can swallow the release of
   a key that was down when it took over. Clients usually have a setting for
   where Windows key combinations apply. Check it if local shortcuts stop
@@ -29,26 +29,26 @@ installed hook first.
 Relay keys avoid the first two problems. The local machine never has to guess
 which side a key is meant for: you decide per shortcut and send an
 unambiguous key into the session. They don't help with the third, because the
-local shortcut that sends the relay key must reach hotkit first. Before you
+local shortcut that sends the relay key must reach Hotkit first. Before you
 start, focus the session window and press a local shortcut that does
 something visible. If it doesn't fire, change the client's keyboard setting
 or use the client in a window, then try again.
 
-## How relay keys work
+## How Relay Keys Work
 
 1. You press a local shortcut, for example CapsLock+K, while the session
    window is active.
-2. The local hotkit sends a *relay key* into the session, a key that no
+2. The local Hotkit sends a *relay key* into the session, a key that no
    physical keyboard has, such as F15.
 3. The client forwards F15 to the inner machine like any other key.
-4. The hotkit on the inner machine has a binding on F15 and runs the action.
+4. The Hotkit on the inner machine has a binding on F15 and runs the action.
 
 F13 to F24 suit this: they exist in Windows and in remote protocols, but
 keyboards rarely have them, so nothing else reacts to them.
 
 ## Playbook
 
-### 1. Choose relay keys
+### 1. Choose Relay Keys
 
 Pick keys that nothing on either machine already uses: no binding, and no
 modifier's `remoteKey`. F13 to F24 give 12 keys, and each combines with Ctrl,
@@ -61,7 +61,7 @@ assignments down in one table and keep it the same in both configs:
 | CapsLock+Shift+K | `+F15` | Cycle browser windows |
 | CapsLock+J | `F16` | Toggle the terminal |
 
-### 2. Find the session window
+### 2. Find the Session Window
 
 Bindings on the local machine only send relay keys while the session window
 is active. Find a WinTitle that matches it, for example with AutoHotkey's
@@ -73,7 +73,7 @@ Window Spy. Some examples:
 | Hyper-V console | `ahk_exe vmconnect.exe` |
 | VNC viewer | `ahk_exe vncviewer.exe` |
 
-### 3. Send relay keys from the local machine
+### 3. Send Relay Keys From the Local Machine
 
 Add one `send` binding per shortcut, limited to the session window with
 `whenActive`. The examples use the `caps` modifier and layer `1` from the
@@ -82,9 +82,9 @@ layers:
 
 ```jsonc
 { "layer": "1", "modifier": "caps", "keys": "K", "whenActive": "ahk_exe vncviewer.exe",
-  "action": "send", "args": ["{F15}"], "description": "Session: browser" },
+  "action": "send", "args": ["{F15}"], "description": "Session: Browser" },
 { "layer": "1", "modifier": "caps", "keys": "+K", "whenActive": "ahk_exe vncviewer.exe",
-  "action": "send", "args": ["+{F15}"], "description": "Session: next browser window" },
+  "action": "send", "args": ["+{F15}"], "description": "Session: Next Browser Window" },
 ```
 
 Outside the session window these bindings do nothing, and CapsLock+K keeps
@@ -98,10 +98,10 @@ only between bindings of the same kind: all bindings limited to layers come
 before bindings that apply on every layer, wherever they are listed. So if
 the local binding has a `layer`, give the session version a `layer` too.
 
-### 4. Bind the relay keys on the inner machine
+### 4. Bind the Relay Keys on the Inner Machine
 
 In the inner machine's config, bind each relay key and set `allowSimulated`.
-The actions are ordinary hotkit actions. This example toggles an app defined
+The actions are ordinary Hotkit actions. This example toggles an app defined
 under `apps`:
 
 ```jsonc
@@ -114,11 +114,11 @@ under `apps`:
 ]
 ```
 
-hotkit ignores keys that programs simulate unless the binding allows them
+Hotkit ignores keys that programs simulate unless the binding allows them
 (see [Simulated keys](configuration.md#simulated-keys)). Some clients deliver
 forwarded keys as simulated input, so allow them on every relay binding.
 
-### 5. Test one key end to end
+### 5. Test One Key End to End
 
 Before you add more, check each hop on its own:
 
@@ -143,7 +143,7 @@ keys instead, such as Ctrl+Shift+Alt plus a letter. Send it with
 `{Ctrl down}{Shift down}{Alt down}k{Alt up}{Shift up}{Ctrl up}` and bind
 `^+!k` on the inner machine.
 
-## Handing the whole keyboard to the session
+## Handing the Whole Keyboard to the Session
 
 The simplest way: list the session window in `settings.suspendWhenActive`
 (see [Suspend for a window](configuration.md#suspend-for-a-window)). While it
@@ -172,7 +172,7 @@ use the automatic `remoteKey` forwarding described under
 [Remote sessions](configuration.md#remote-sessions)). To trigger a
 CapsLock binding on the inner machine, add a relay key for it.
 
-## Relay keys as a modifier
+## Relay Keys as a Modifier
 
 Instead of one relay key per shortcut, one relay key can stand in for the
 CapsLock modifier. The local machine holds it down around the key you
@@ -187,9 +187,9 @@ local app may quit it.
 
 ```jsonc
 { "layer": "2", "modifier": "caps", "keys": "Q", "whenActive": "ahk_exe vncviewer.exe",
-  "action": "send", "args": ["{F13 down}q{F13 up}"], "description": "Session: browser" },
+  "action": "send", "args": ["{F13 down}q{F13 up}"], "description": "Session: Browser" },
 { "layer": "2", "modifier": "caps", "keys": "<^Q", "whenActive": "ahk_exe vncviewer.exe",
-  "action": "send", "args": ["{F13 down}^q{F13 up}"], "description": "Session: new browser window" },
+  "action": "send", "args": ["{F13 down}^q{F13 up}"], "description": "Session: New Browser Window" },
 ```
 
 On the inner machine, define the relay key as a modifier and set
@@ -220,7 +220,7 @@ inside the chord free: with no binding on F14, and its own bindings on those
 keys limited to its F13 modifier, the chord passes through it to the nested
 session.
 
-## Deeper nesting
+## Deeper Nesting
 
 The same technique works at every level. Each machine relays the keys meant
 for the level below it:
@@ -254,6 +254,6 @@ passes through a level by mistake can't trigger the wrong action.
 - [Configuration reference](configuration.md): `whenActive`, layers,
   modifiers, and `allowSimulated`.
 - [Remote sessions](configuration.md#remote-sessions): `settings.remoteWindows`,
-  an automatic alternative that re-installs hotkit's keyboard hook while a
-  session window is active. Re-installing makes hotkit forget held keys, so
+  an automatic alternative that re-installs Hotkit's keyboard hook while a
+  session window is active. Re-installing makes Hotkit forget held keys, so
   relay keys are more predictable.

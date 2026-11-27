@@ -5,7 +5,7 @@
 ; the "osd.toggle" action to a key.
 ;
 ; Type to filter; Esc or the bound key closes it. With layers defined, it lists
-; the active layer's shortcuts (plus those on every layer); "All layers" shows
+; the active layer's shortcuts (plus those on every layer); "All Layers" shows
 ; the rest too.
 class ShortcutOsd {
     static Gui := ""
@@ -101,7 +101,7 @@ class ShortcutOsd {
         g.Add("Edit", "vFilter w760", "")
         SendMessage(0x1501, true, StrPtr("Filter shortcuts…"), g["Filter"])  ; EM_SETCUEBANNER
         g["Filter"].OnEvent("Change", (ctl, *) => ShortcutOsd.Fill(ctl.Value))
-        g.Add("CheckBox", "vAllLayers x+12 yp+3 w104", "All layers")
+        g.Add("CheckBox", "vAllLayers x+12 yp+3 w104", "All Layers")
         g["AllLayers"].OnEvent("Click", (ctl, *) => (ShortcutOsd.AllLayers := ctl.Value, ShortcutOsd.Fill(g["Filter"].Value)))
         g.Add("ListView", "vList xm w876 h470 -Multi Grid", ["Shortcut", "Description", "Layer", "Group", "Action", "Source"])
         g.Add("Text", "vStatus w876", "")
