@@ -219,8 +219,15 @@ class Updates_Tests {
 
     static Test_InstallRefusals() {
         cases := [
-            [Map("rev-parse", { exit: 128, out: "fatal: not a git repository" }), "isn't running from its own git checkout", 1],
-            [Map("rev-parse", { exit: 0, out: "C:/elsewhere" }), "isn't running from its own git checkout", 1],
+            [Map("rev-parse", { exit: 128, out: "fatal: not a git repository" }),
+                "Git can't use the hotkit folder C:\hotkit: fatal: not a git repository", 1],
+            [Map("rev-parse", { exit: 128, out: "" }), "Git can't use the hotkit folder C:\hotkit (exit code 128).", 1],
+            [Map("rev-parse", { exit: 128, out: "fatal: detected dubious ownership in repository at 'C:/hotkit'`n"
+                "'C:/hotkit' is owned by:`n`tBUILTIN/Administrators (S-1-5-32-544)" }),
+                "another Windows account owns it (often a clone made from an elevated prompt). To trust it, run: "
+                "git config --global --add safe.directory C:/hotkit", 1],
+            [Map("rev-parse", { exit: 0, out: "C:/elsewhere" }),
+                "hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/elsewhere.", 1],
             [Map("rev-parse", { exit: 9009, out: "'git' is not recognized" }), "Git isn't installed", 1],
             [Map("status", { exit: 0, out: " M src/Main.ahk" }), "uncommitted changes", 2],
             [Map("symbolic-ref", { exit: 1, out: "" }), "isn't on a branch", 3],
@@ -253,6 +260,28 @@ class Updates_Tests {
             Assert.False(Updates.Busy)
         }
         Assert.Equal("", EnvGet("HOTKIT_UPDATED_FROM"))
+    }
+
+    static Test_CheckoutAcceptsWarningsBeforeTheRoot() {
+        r := { exit: 0, out: "warning: unable to access 'X:/gitconfig': Invalid argument`nC:/hotkit" }
+        Assert.Equal("", Updates.CheckoutProblem(r, "C:\hotkit"))
+        Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: "c:/HOTKIT/" }, "C:\hotkit"), "case and slashes")
+    }
+
+    static Test_CheckoutResolvesJunctions() {
+        base := A_Temp "\hotkit-realpath-" A_TickCount
+        DirCreate(base "\real")
+        try {
+            RunWait(A_ComSpec ' /c mklink /J "' base '\link" "' base '\real"', , "Hide")
+            Assert.True(DirExist(base "\link"), "junction created")
+            ; Git reports the real folder; hotkit was started through the junction.
+            Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: StrReplace(base "\real", "\", "/") }, base "\link"))
+            Assert.Equal(Paths.Normalize(base "\real"), Paths.Normalize(Paths.RealPath(base "\link")))
+            Assert.Equal("Z:\missing\dir", Paths.RealPath("Z:/missing/dir"), "unresolvable paths come back as given")
+        } finally {
+            try DirDelete(base "\link")
+            try DirDelete(base, true)
+        }
     }
 
     static Test_InstallWithoutKnownReleaseChecksFirst() {

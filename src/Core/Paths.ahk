@@ -88,6 +88,28 @@ class Paths {
         return out
     }
 
+    ; Final path of an existing file or folder, with junctions, symlinks,
+    ; subst drives, and 8.3 short names resolved; path unchanged on failure.
+    static RealPath(path) {
+        path := StrReplace(path, "/", "\")
+        ; FILE_READ_ATTRIBUTES, share all, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS (folders)
+        h := DllCall("CreateFileW", "Str", path, "UInt", 0x80, "UInt", 7, "Ptr", 0, "UInt", 3,
+            "UInt", 0x02000000, "Ptr", 0, "Ptr")
+        if (h = -1 || h = 0)
+            return path
+        buf := Buffer(65536, 0)
+        n := DllCall("GetFinalPathNameByHandleW", "Ptr", h, "Ptr", buf, "UInt", 32767, "UInt", 0, "UInt")
+        DllCall("CloseHandle", "Ptr", h)
+        if (n = 0 || n >= 32767)
+            return path
+        out := StrGet(buf, n, "UTF-16")
+        if (SubStr(out, 1, 8) = "\\?\UNC\")
+            return "\\" SubStr(out, 9)
+        if (SubStr(out, 1, 4) = "\\?\")
+            return SubStr(out, 5)
+        return out
+    }
+
     static Normalize(path) {
         path := StrReplace(Paths.Expand(path), "/", "\")
         isUnc := SubStr(path, 1, 2) = "\\"

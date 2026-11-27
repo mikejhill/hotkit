@@ -252,8 +252,9 @@ class Updates {
         r := Updates.Git("rev-parse --show-toplevel")
         if (r.exit = 9009)
             return fail("Git isn't installed or isn't on PATH.", true)
-        if (r.exit != 0 || Paths.Normalize(r.out) != Paths.Normalize(Updates.RepoDir))
-            return fail("hotkit isn't running from its own git checkout, so it can't update itself.", true)
+        problem := Updates.CheckoutProblem(r, Updates.RepoDir)
+        if (problem != "")
+            return fail(problem.message, problem.notGit)
         r := Updates.Git("status --porcelain --untracked-files=no")
         if (r.exit != 0)
             return fail("git status failed: " Updates.LastLine(r.out))
@@ -276,6 +277,30 @@ class Updates {
         if (r.exit != 0)
             return fail("git merge failed: " Updates.LastLine(r.out))
         return { ok: true, message: "", notGit: false }
+    }
+
+    ; Why `git rev-parse --show-toplevel` (result r) doesn't confirm that
+    ; repoDir is its own checkout: { message, notGit }, or "" when it does.
+    ; Git's output includes stderr, so a warning can precede the path; and
+    ; git may report a junction, subst drive, or short name by its real path.
+    static CheckoutProblem(r, repoDir) {
+        if (r.exit != 0) {
+            if (InStr(r.out, "dubious ownership"))
+                return { notGit: false, message: "Git won't use the hotkit folder because another Windows account owns it "
+                    "(often a clone made from an elevated prompt). To trust it, run: "
+                    "git config --global --add safe.directory " StrReplace(Paths.Normalize(repoDir), "\", "/") }
+            detail := Updates.LastLine(r.out)
+            return { notGit: true, message: "Git can't use the hotkit folder " repoDir
+                (detail != "" ? ": " detail : " (exit code " r.exit ").") }
+        }
+        want := Paths.Normalize(Paths.RealPath(repoDir))
+        for line in StrSplit(r.out, "`n", "`r") {
+            line := Trim(line)
+            if (line != "" && Paths.Normalize(Paths.RealPath(line)) = want)
+                return ""
+        }
+        return { notGit: true, message: "hotkit runs from " repoDir ", but git says that folder belongs to the checkout at "
+            Updates.LastLine(r.out) "." }
     }
 
     ; Why HEAD can't fast-forward to the release, and what to do about it.
