@@ -287,13 +287,13 @@ class Updates {
             ", but git says that folder belongs to the checkout at " root extra "." }
         if (r.exit != 0) {
             text := (r.HasProp("err") ? r.err "`n" : "") r.out
-            if (RegExMatch(text, "dubious ownership in repository at '([^'\r\n]+)'", &m)) {
+            ; Through the line's last quote: the path itself may hold one.
+            if (RegExMatch(text, "m)dubious ownership in repository at '(.+)'\s*$", &m)) {
                 if (!Updates.SamePath(m[1], repoDir))
                     return mismatch(m[1], ", which another Windows account owns")
-                ; PowerShell single quotes keep spaces and $ literal; ' doubles.
                 return { notGit: false, message: "Git won't use the hotkit folder because another Windows account owns it "
                     "(often a clone made from an elevated prompt). To trust it, run in PowerShell: "
-                    "git config --global --add safe.directory '" StrReplace(m[1], "'", "''") "'" }
+                    "git config --global --add safe.directory " Updates.PowerShellLiteral(m[1]) }
             }
             detail := Updates.Detail(r)
             return { notGit: true, message: "Git can't use the hotkit folder " repoDir
@@ -303,8 +303,20 @@ class Updates {
         return Updates.SamePath(root, repoDir) ? "" : mismatch(root)
     }
 
-    ; Whether two paths name the same folder, after resolving aliases.
-    static SamePath(a, b) => a != "" && Paths.Normalize(Paths.RealPath(a)) = Paths.Normalize(Paths.RealPath(b))
+    ; Whether two paths name the same folder, after resolving aliases. No
+    ; Paths.Normalize: real folder names may contain %, which it expands.
+    static SamePath(a, b) {
+        canon := (p) => RTrim(StrReplace(Paths.RealPath(p), "/", "\"), "\")
+        return a != "" && canon(a) = canon(b)
+    }
+
+    ; Pure: s as a PowerShell single-quoted literal (spaces and $ stay
+    ; literal; every quote PowerShell treats as single, typographic too, doubles).
+    static PowerShellLiteral(s) {
+        for q in ["'", Chr(0x2018), Chr(0x2019), Chr(0x201A), Chr(0x201B)]
+            s := StrReplace(s, q, q q)
+        return "'" s "'"
+    }
 
     ; Pure: what went wrong in a git result: the last line of stderr, else of stdout.
     static Detail(r) {

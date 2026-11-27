@@ -274,6 +274,19 @@ class Updates_Tests {
         Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: "c:/HOTKIT/" }, "C:\hotkit"), "case and slashes")
     }
 
+    static Test_SamePathTreatsPercentLiterally() {
+        Assert.False(Updates.SamePath("C:\hotkit\%HOTKIT_UNSET_VAR%", "C:\hotkit"), "a parent never matches its child")
+        Assert.True(Updates.SamePath("C:/hotkit/%X%/", "C:\hotkit\%X%"))
+    }
+
+    static Test_DubiousOwnershipPathWithQuotes() {
+        r := { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/O'Brien/hotkit'`n"
+            "'C:/O'Brien/hotkit' is owned by:`n`tBUILTIN/Administrators (S-1-5-32-544)" }
+        p := Updates.CheckoutProblem(r, "C:\O'Brien\hotkit")
+        Assert.Contains(p.message, "safe.directory 'C:/O''Brien/hotkit'")
+        Assert.Equal("'a''b" Chr(0x2019) Chr(0x2019) "c $d'", Updates.PowerShellLiteral("a'b" Chr(0x2019) "c $d"))
+    }
+
     static Test_CheckoutResolvesJunctions() {
         base := A_Temp "\hotkit-realpath-" A_TickCount
         DirCreate(base "\real")
@@ -284,7 +297,8 @@ class Updates_Tests {
             ; RealPath also expands a short-named temp folder, so compare resolved paths.
             real := Paths.RealPath(base "\real")
             Assert.Equal(Paths.Normalize(real), Paths.Normalize(Paths.RealPath(base "\link")))
-            Assert.False(InStr(Paths.RealPath(base "\link"), "\link"), "the junction is resolved")
+            SplitPath(Paths.RealPath(base "\link"), &leaf)
+            Assert.Equal("real", leaf, "the junction is resolved")
             Assert.Equal("", Updates.CheckoutProblem({ exit: 0, out: StrReplace(real, "\", "/") }, base "\link"))
             Assert.Equal("Z:\missing\dir", Paths.RealPath("Z:/missing/dir"), "unresolvable paths come back as given")
         } finally {
