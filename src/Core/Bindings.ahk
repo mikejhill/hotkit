@@ -4,6 +4,7 @@
 #Include %A_LineFile%\..\..\Lib\HotkeyText.ahk
 #Include %A_LineFile%\..\..\Lib\SimulatedKeys.ahk
 #Include %A_LineFile%\..\..\Lib\RemoteSessions.ahk
+#Include %A_LineFile%\..\..\Lib\SuspendWindows.ahk
 #Include %A_LineFile%\..\Config.ahk
 
 ; Turns binding definitions (from config or plugins) into live hotkeys.
@@ -54,6 +55,8 @@ class Bindings {
     static ignoreSimulated := false
     ; WinTitles from settings.remoteWindows (see RemoteSessions).
     static remoteWindows := []
+    ; WinTitles from settings.suspendWhenActive (see SuspendWindows).
+    static suspendWindows := []
     static _rearmHook := ""
     ; key -> watchers for the shared "*key" and "~*key Up" hotkeys
     static _downWatchers := Bindings._CaseMap()
@@ -97,6 +100,7 @@ class Bindings {
         Bindings._rearmKey := ""
         Bindings.ignoreSimulated := false
         Bindings.remoteWindows := []
+        Bindings.suspendWindows := []
         Bindings._thisHotkey := ""
     }
 
@@ -111,6 +115,10 @@ class Bindings {
         remote := RemoteSessions.Parse(cfg.Get("settings.remoteWindows", ""))
         Bindings.remoteWindows := remote.titles
         for p in remote.problems
+            Bindings.problems.Push(p)
+        suspendCfg := SuspendWindows.Parse(cfg.Get("settings.suspendWhenActive", []))
+        Bindings.suspendWindows := suspendCfg.titles
+        for p in suspendCfg.problems
             Bindings.problems.Push(p)
         for index, raw in cfg.List("bindings")
             Bindings.Add(raw, source " #" index)
@@ -1060,6 +1068,26 @@ class Bindings {
         state.active := true
         Bindings._Begin(spec, () => Bindings.HoldEnd(spec, state))
         ActionRegistry.SafeInvoke(spec.action, spec.args)
+    }
+
+    ; Ends every active hold (running onRelease) and latch (running onNextKey)
+    ; and forgets held keys, before another program gets the keyboard and
+    ; their releases or next keys can't be seen.
+    static EndPending() {
+        for spec in Bindings.specs {
+            if spec.HasOwnProp("holdState") {
+                spec.holdState.baseDown := false
+                Bindings.HoldEnd(spec, spec.holdState)
+            }
+            if spec.HasOwnProp("latchState") {
+                spec.latchState.baseDown := false
+                Bindings.LatchEnd(spec, spec.latchState, spec.onNextKey)
+            }
+        }
+        if (Bindings._rearmHook != "")
+            try Bindings._rearmHook.Stop()
+        Bindings._rearmHook := ""
+        Bindings._rearmKey := ""
     }
 
     static HoldEnd(spec, state) {

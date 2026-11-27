@@ -13,7 +13,7 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.19.1"
+    static Version := "1.20.0"
     static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
@@ -222,6 +222,15 @@ class App {
         } catch as e {
             Bindings.problems.Push("Couldn't watch for remote session windows, so their clients may take keys first: " e.Message)
         }
+        try {
+            SuspendWindows.OnChange := (*) => Tray.RefreshTip()
+            SuspendWindows.EndPending := () => Bindings.EndPending()
+            SuspendWindows.Start(Bindings.suspendWindows, Map(
+                "CapsLock", cfg.Get("settings.keyboard.capsLock", ""),
+                "NumLock", cfg.Get("settings.keyboard.numLock", "")))
+        } catch as e {
+            Bindings.problems.Push("Couldn't watch for settings.suspendWhenActive windows: " e.Message)
+        }
         menus := []
         for m in App.Modules {
             if HasMethod(m, "TrayMenus") {
@@ -233,6 +242,7 @@ class App {
         Tray.Build(cfg, menus)
         Tray.Version := App.Version
         Tray.AddStatus(() => Bindings.activeLayer != "" ? Bindings.layers[Bindings.activeLayer].label : "")
+        Tray.AddStatus(() => SuspendWindows.active ? "Paused While This Window Is Active" : "")
         Tray.AddStatus(() => Updates.Status(Updates.Available))
         Updates.Version := App.Version
         Updates.RepoDir := Paths.RepoRoot()

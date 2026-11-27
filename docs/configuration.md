@@ -240,6 +240,20 @@ shortly after the active window changes, so it stays ahead of clients that
 install their own hook when they get focus. The hook also runs, even with the
 setting off, when a binding on a modifier uses Win (see [Modifiers](#modifiers)).
 
+### Suspend for a Window
+
+```jsonc
+"settings": { "suspendWhenActive": ["ahk_exe vncviewer.exe"] }
+```
+
+While a listed window is active, every shortcut is suspended, layer keys
+included, and a forced `settings.keyboard` lock state is lifted, so the window
+sees CapsLock and the rest as typed. Use it for a remote session whose machine
+runs Hotkit with the same keys: there CapsLock works as the modifier, as if
+you were at that machine. Focusing another window brings everything back; the
+tray tooltip says when Hotkit is paused. Keep a way out of the window that
+doesn't need Hotkit, such as the client's own shortcut or the mouse.
+
 ### Remote Sessions
 
 For shortcuts on the machine inside a session, see

@@ -9,6 +9,11 @@ All notable changes are listed here. The format follows
 ### Changed
 - Display text now writes the name as Hotkit and uses title case for labels: tray items, toast titles, dialog titles, the example configs' binding descriptions, and doc headings. The README logo and social preview spell it Hotkit too. Paths, the config folder, environment variables, and other identifiers stay lowercase.
 
+## [1.20.0] - 2026-11-27
+
+### Added
+- `settings.suspendWhenActive` lists windows that get the keyboard to themselves. While one is active, hotkit suspends every shortcut, layer keys included, and lifts a forced CapsLock or NumLock state, so that window sees CapsLock as CapsLock. Use it for a remote session whose machine runs its own hotkit with the same keys. Focusing another window brings everything back, and the tray tooltip says when hotkit is paused.
+
 ## [1.19.1] - 2026-11-27
 
 ### Fixed
