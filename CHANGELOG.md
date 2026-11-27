@@ -7,7 +7,7 @@ All notable changes are listed here. The format follows
 ## [Unreleased]
 
 ### Fixed
-- Updating from the tray no longer refuses a valid checkout when hotkit was started through a junction, symlink, subst drive, or short (8.3) path, or when git prints warnings or trace output, which no longer read as uncommitted changes either. When git can't use the folder, the message now says why: git's own error, the checkout git found instead, or, for a folder another Windows account owns, the `safe.directory` command that trusts it.
+- Updating from the tray no longer refuses a valid checkout when hotkit was started through a junction, symlink, subst drive, or short (8.3) path, or when git prints warnings or trace output, which no longer read as uncommitted changes either. When git can't use the folder, the message now says why: git's own error, the checkout git found instead, or, when git can't confirm who owns the folder, the `safe.directory` command that trusts it.
 
 ## [1.19.0] - 2026-11-26
 

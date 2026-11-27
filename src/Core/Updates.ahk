@@ -290,9 +290,9 @@ class Updates {
             ; Through the line's last quote: the path itself may hold one.
             if (RegExMatch(text, "m)dubious ownership in repository at '(.+)'\s*$", &m)) {
                 if (!Updates.SamePath(m[1], repoDir))
-                    return mismatch(m[1], ", which another Windows account owns")
-                return { notGit: false, message: "Git won't use the hotkit folder because another Windows account owns it "
-                    "(often a clone made from an elevated prompt). To trust it, run in PowerShell: "
+                    return mismatch(m[1], ", which git doesn't trust")
+                return { notGit: false, message: "Git can't confirm you own the hotkit folder (an elevated clone or a drive "
+                    "without owners). To trust it, run in PowerShell: "
                     "git config --global --add safe.directory " Updates.PowerShellLiteral(m[1]) }
             }
             detail := Updates.Detail(r)
@@ -306,8 +306,14 @@ class Updates {
     ; Whether two paths name the same folder, after resolving aliases. No
     ; Paths.Normalize: real folder names may contain %, which it expands.
     static SamePath(a, b) {
-        canon := (p) => RTrim(StrReplace(Paths.RealPath(p), "/", "\"), "\")
-        return a != "" && canon(a) = canon(b)
+        return a != "" && Updates._Canon(a) = Updates._Canon(b)
+    }
+
+    static _Canon(p) {
+        p := StrReplace(p, "/", "\")
+        if (RegExMatch(p, "^[A-Za-z]:$"))
+            p .= "\"  ; "R:" alone would mean R:'s current directory
+        return RTrim(StrReplace(Paths.RealPath(p), "/", "\"), "\")
     }
 
     ; Pure: s as a PowerShell single-quoted literal (spaces and $ stay
@@ -318,10 +324,14 @@ class Updates {
         return "'" s "'"
     }
 
-    ; Pure: what went wrong in a git result: the last line of stderr, else of stdout.
+    ; Pure: what went wrong in a git result: its last fatal:/error: line
+    ; (trace output can follow it), else the last line of stderr, else stdout.
     static Detail(r) {
-        err := r.HasProp("err") ? Updates.LastLine(r.err) : ""
-        return err != "" ? err : Updates.LastLine(r.out)
+        text := (r.HasProp("err") && Trim(r.err) != "") ? r.err : r.out
+        pos := 1, found := ""
+        while (pos := RegExMatch(text, "m)^(?:fatal|error): .*$", &m, pos))
+            found := Trim(m[0]), pos += m.Len
+        return found != "" ? found : Updates.LastLine(text)
     }
 
     ; Why HEAD can't fast-forward to the release, and what to do about it.

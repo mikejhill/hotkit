@@ -224,11 +224,11 @@ class Updates_Tests {
             [Map("rev-parse", { exit: 128, out: "" }), "Git can't use the hotkit folder C:\hotkit (exit code 128).", 1],
             [Map("rev-parse", { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/hotkit'`n"
                 "'C:/hotkit' is owned by:`n`tBUILTIN/Administrators (S-1-5-32-544)" }),
-                "another Windows account owns it (often a clone made from an elevated prompt). To trust it, run in PowerShell: "
+                "Git can't confirm you own the hotkit folder (an elevated clone or a drive without owners). To trust it, run in PowerShell: "
                 "git config --global --add safe.directory 'C:/hotkit'", 1],
             [Map("rev-parse", { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/Their Code'" }),
                 "hotkit runs from C:\hotkit, but git says that folder belongs to the checkout at C:/Their Code, "
-                "which another Windows account owns.", 1],
+                "which git doesn't trust.", 1],
             [Map("rev-parse", { exit: 128, out: "", err: "warning: x`nfatal: not a git repository" }),
                 "Git can't use the hotkit folder C:\hotkit: fatal: not a git repository", 1],
             [Map("rev-parse", { exit: 0, out: "C:/elsewhere" }),
@@ -279,6 +279,17 @@ class Updates_Tests {
         Assert.True(Updates.SamePath("C:/hotkit/%X%/", "C:\hotkit\%X%"))
     }
 
+    static Test_SamePathDriveRoot() {
+        drive := SubStr(A_WinDir, 1, 2)  ; e.g. C:
+        Assert.True(Updates.SamePath(drive, drive "/"), "a bare drive is its root, not its current directory")
+    }
+
+    static Test_DetailPrefersGitError() {
+        r := { exit: 128, out: "", err: "fatal: not a git repository`n12:00 trace2 atexit elapsed:0.01 code:128" }
+        Assert.Equal("fatal: not a git repository", Updates.Detail(r))
+        Assert.Equal("last", Updates.Detail({ exit: 1, out: "first`nlast" }))
+    }
+
     static Test_DubiousOwnershipPathWithQuotes() {
         r := { exit: 128, out: "", err: "fatal: detected dubious ownership in repository at 'C:/O'Brien/hotkit'`n"
             "'C:/O'Brien/hotkit' is owned by:`n`tBUILTIN/Administrators (S-1-5-32-544)" }
@@ -288,7 +299,7 @@ class Updates_Tests {
     }
 
     static Test_CheckoutResolvesJunctions() {
-        base := A_Temp "\hotkit-realpath-" A_TickCount
+        base := A_Temp "\hotkit-realpath-" ProcessExist() "-" A_TickCount
         DirCreate(base "\real")
         try {
             RunWait(A_ComSpec ' /c mklink /J "' base '\link" "' base '\real"', , "Hide")
