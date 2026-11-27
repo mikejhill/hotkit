@@ -433,6 +433,8 @@ class Bindings_Tests {
         Assert.False(SuspendWindows.NeedsCorrection(1, 0, true), "still held as a modifier")
         Assert.False(SuspendWindows.NeedsCorrection(0, 0, false), "already off")
         Assert.True(SuspendWindows.NeedsCorrection(0, 1, false), "AlwaysOn")
+        Assert.False(SuspendWindows.NeedsCorrection(1, 0, false, true), "waits for Ctrl/Alt/Shift/Win")
+        Assert.False(SuspendWindows.NeedsCorrection(1, 0, false, false, SuspendWindows.MaxCorrections), "attempts are bounded")
     }
 
     static Test_SuspendLiftsOnlyForcedLockStates() {
