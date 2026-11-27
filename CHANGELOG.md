@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-11-27
+
 ### Added
 - `settings.suspendWhenActive` lists windows that get the keyboard to themselves. While one is active, hotkit suspends every shortcut, layer keys included, and lifts a forced CapsLock or NumLock state, so that window sees CapsLock as CapsLock. Use it for a remote session whose machine runs its own hotkit with the same keys. Focusing another window brings everything back, and the tray tooltip says when hotkit is paused.
 
