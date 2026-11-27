@@ -145,8 +145,14 @@ keys instead, such as Ctrl+Shift+Alt plus a letter. Send it with
 
 ## Handing the whole keyboard to the session
 
-Sometimes you want every CapsLock shortcut to go to the inner machine, not
-only the ones in your relay table. Use a layer for this:
+The simplest way: list the session window in `settings.suspendWhenActive`
+(see [Suspend for a window](configuration.md#suspend-for-a-window)). While it
+is active, hotkit stands aside completely and the inner machine sees CapsLock
+itself, so its config can match the local one. Use relay keys when you also
+want some local shortcuts to keep working in the session.
+
+To keep a few local shortcuts while the rest go to the inner machine, use a
+layer instead:
 
 1. Define a second layer: `"layers": ["1", "2"]`.
 2. Keep the layer keys on every layer by leaving out `layer`:

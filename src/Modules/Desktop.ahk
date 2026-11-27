@@ -89,6 +89,7 @@ class DesktopModule {
             SetCapsLockState(state)
         else
             SetNumLockState(state)
+        SuspendWindows.SetForced(name, state)
     }
 
     ; Gives keyboard focus to the desktop without minimizing, hiding, or moving

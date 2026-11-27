@@ -182,6 +182,21 @@ class Bindings_Tests {
         Assert.Equal("start,stop", Bindings_Tests.Joined(Bindings_Tests.calls))
     }
 
+    static Test_EndPendingFinishesHoldsAndLatches() {
+        Bindings_Tests.LoadKeyBindings('{ "keys": "Space", "modifier": "caps", "action": "t.start", "onRelease": "t.stop" },'
+            . '{ "keys": "^Space", "modifier": "caps", "action": "t.start", "onNextKey": "t.stop" }')
+        hold := Bindings.specs[1], latch := Bindings.specs[2]
+        hold.holdState := Bindings.NewKeyState(), latch.latchState := Bindings.NewKeyState()
+        Bindings.HoldPress(hold, hold.holdState)
+        Bindings.LatchPress(latch, latch.latchState)
+        Bindings.EndPending()
+        Assert.Equal("start,start,stop,stop", Bindings_Tests.Joined(Bindings_Tests.calls))
+        Assert.False(hold.holdState.baseDown, "held keys are forgotten")
+        Assert.False(latch.latchState.active)
+        Bindings.EndPending()
+        Assert.Equal(4, Bindings_Tests.calls.Length, "nothing runs twice")
+    }
+
     static Test_HoldModifierKeyIsTheBindingModifier() {
         Bindings_Tests.LoadKeyBindings('{ "keys": "+Space", "modifier": "caps", "action": "t.start", "onRelease": "t.stop" }')
         Assert.Equal("CapsLock", Bindings.ModifierKey(Bindings.specs[1]))
@@ -360,6 +375,38 @@ class Bindings_Tests {
         Assert.Equal("Win,Alt", Bindings_Tests.Joined(Bindings.PhysicalMods(Bindings.specs[5])))
         Assert.False(Bindings._Context(Bindings.specs[1]) == Bindings._Context(Bindings.specs[2]), "different chords get their own context")
         Assert.True(Bindings.AllPhysicallyDown([]))
+    }
+
+    static Test_SuspendWhenActiveIsParsed() {
+        Bindings_Tests.Load('{ "settings": { "suspendWhenActive": ["ahk_exe a.exe", "ahk_exe b.exe"] }, "bindings": [] }')
+        Assert.Equal("ahk_exe a.exe,ahk_exe b.exe", Bindings_Tests.Joined(Bindings.suspendWindows))
+        Bindings_Tests.Load('{ "settings": { "suspendWhenActive": "ahk_exe a.exe" }, "bindings": [] }')
+        Assert.Equal(1, Bindings.suspendWindows.Length, "a single WinTitle")
+        Bindings_Tests.Load('{ "settings": { "suspendWhenActive": [""] }, "bindings": [] }')
+        Assert.Equal(0, Bindings.suspendWindows.Length)
+        Assert.True(Bindings.problems.Length > 0, "empty entries are reported")
+    }
+
+    static Test_SuspendTracksRuntimeLockPolicy() {
+        saved := SuspendWindows.locks
+        try {
+            SuspendWindows.locks := SuspendWindows.ForcedLocks(Map("CapsLock", "AlwaysOff"))
+            SuspendWindows.SetForced("CapsLock", "AlwaysOn")
+            SuspendWindows.SetForced("NumLock", "On")
+            Assert.Equal("AlwaysOn", SuspendWindows.locks["CapsLock"])
+            Assert.False(SuspendWindows.locks.Has("NumLock"), "only forced states are restored")
+        } finally {
+            SuspendWindows.locks := saved
+        }
+        Assert.Equal(1, SuspendWindows.Parse("").problems.Length, "an explicit empty title is reported")
+        Assert.Equal(0, SuspendWindows.Parse([]).problems.Length)
+    }
+
+    static Test_SuspendLiftsOnlyForcedLockStates() {
+        locks := SuspendWindows.ForcedLocks(Map("CapsLock", "AlwaysOff", "NumLock", "On", "ScrollLock", ""))
+        Assert.Equal(1, locks.Count)
+        Assert.Equal("AlwaysOff", locks["CapsLock"])
+        Assert.Equal(0, SuspendWindows.ForcedLocks(Map()).Count)
     }
 
     static Test_AllowSimulatedModifierChordsAcceptInjectedKeys() {
