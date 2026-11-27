@@ -75,7 +75,7 @@ take plain values, not config, and keep decisions in pure static methods
 (`HotkeyText.Parse`, `WindowMatcher.Matches`, `GammaBrightness.GammaFor`,
 `DisplayScale.StepBy`, ...) that the unit tests cover.
 
-## Private code
+## Private Code
 
 Anything specific to one person or employer lives in the config folder, never
 in the repository: the config file for preferences, plugins for code. The lint

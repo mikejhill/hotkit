@@ -261,7 +261,7 @@ class WindowsModule {
         } catch TargetError {
             return
         } catch as e {
-            Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Window order:", e.Message)
+            Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Window Order:", e.Message)
         }
     }
 
@@ -271,7 +271,7 @@ class WindowsModule {
         } catch TargetError {
             return
         } catch as e {
-            Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Window order:", e.Message)
+            Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Window Order:", e.Message)
         }
     }
 

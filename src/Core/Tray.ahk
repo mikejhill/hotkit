@@ -38,9 +38,9 @@ class Tray {
         A_IconTip := Tray.Tip(Tray.Version, parts)
     }
 
-    ; Pure: "hotkit 1.2.0", or "hotkit 1.2.0: a, b" with statuses.
+    ; Pure: "Hotkit 1.2.0", or "Hotkit 1.2.0: a, b" with statuses.
     static Tip(version, parts) {
-        tip := "hotkit " version
+        tip := "Hotkit " version
         for s in parts
             tip .= (A_Index = 1 ? ": " : ", ") s
         return tip

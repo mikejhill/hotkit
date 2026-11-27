@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/brand/logo-light.svg">
-    <img src="assets/brand/logo-light.svg" alt="hotkit" width="369" height="72">
+    <img src="assets/brand/logo-light.svg" alt="Hotkit" width="369" height="72">
   </picture>
 </h1>
 
@@ -38,7 +38,7 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 | **Updates** | Checks GitHub for new releases and installs them into your clone from the tray, or automatically once you're idle. See [Updates](docs/configuration.md#updates). |
 | **One config location** | `%USERPROFILE%\.config\hotkit\`, live-reloaded on save. |
 
-## Quick start
+## Quick Start
 
 1. Install [AutoHotkey v2.0](https://www.autohotkey.com/) (v2.0.30 or later).
 2. Clone and run:
@@ -54,7 +54,7 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 
 To start at sign-in, put a shortcut to `src\Main.ahk` in `shell:startup`.
 
-## Configuration in one example
+## Configuration in One Example
 
 ```jsonc
 {
@@ -87,7 +87,7 @@ AutoHotkey64.exe src\Main.ahk --check
 python tools\check.py
 ```
 
-## Repository layout
+## Repository Layout
 
 ```
 src/         Main.ahk, Core/ (config, actions, bindings, plugins, tray), Modules/, Lib/, Ui/

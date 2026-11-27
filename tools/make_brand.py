@@ -47,7 +47,7 @@ FONT_SIZE = 80
 FONT_WEIGHT = 500
 SUPERSAMPLING = 4
 MARGIN = 4
-WORD = "hotkit"
+WORD = "Hotkit"
 
 
 class Wordmark:
@@ -129,7 +129,7 @@ class Brand:
                 f'viewBox="0 0 {self.width} {self.height}" role="img" '
                 'aria-labelledby="title">'
             ),
-            '  <title id="title">hotkit</title>',
+            '  <title id="title">Hotkit</title>',
         ]
         for (left, top, right, bottom), radius, color in KEY_LAYERS:
             lines.append(

@@ -34,8 +34,8 @@ class Power_Tests {
 
     static Test_SummaryShowsEndTimeOfStrongestToggle() {
         ends := { keepAwake: "20261114013000", keepScreenOn: "", keepUnlocked: "20261114143000" }
-        Assert.Equal("Keep Unlocked until 2:30 PM", PowerModule.Summary(Power_Tests.S(true, false, true), ends))
-        Assert.Equal("Keep Awake until 1:30 AM", PowerModule.Summary(Power_Tests.S(true), ends))
+        Assert.Equal("Keep Unlocked Until 2:30 PM", PowerModule.Summary(Power_Tests.S(true, false, true), ends))
+        Assert.Equal("Keep Awake Until 1:30 AM", PowerModule.Summary(Power_Tests.S(true), ends))
         Assert.Equal("Keep Screen On", PowerModule.Summary(Power_Tests.S(true, true), ends), "no limit on the strongest")
     }
 
@@ -73,10 +73,10 @@ class Power_Tests {
     }
 
     static Test_DurationLabels() {
-        Assert.Equal("For &30 minutes", PowerModule.DurationLabel(30))
-        Assert.Equal("For &1 hour", PowerModule.DurationLabel(60))
-        Assert.Equal("For &8 hours", PowerModule.DurationLabel(480))
-        Assert.Equal("For &90 minutes", PowerModule.DurationLabel(90))
+        Assert.Equal("For &30 Minutes", PowerModule.DurationLabel(30))
+        Assert.Equal("For &1 Hour", PowerModule.DurationLabel(60))
+        Assert.Equal("For &8 Hours", PowerModule.DurationLabel(480))
+        Assert.Equal("For &90 Minutes", PowerModule.DurationLabel(90))
     }
 
     static Test_TitlesDropMenuMarkup() {
@@ -126,9 +126,9 @@ class Power_Tests {
     }
 
     static Test_TrayTipListsStatuses() {
-        Assert.Equal("hotkit 1.2.0", Tray.Tip("1.2.0", []))
-        Assert.Equal("hotkit 1.2.0: Keep Unlocked", Tray.Tip("1.2.0", ["Keep Unlocked"]))
-        Assert.Equal("hotkit 1.2.0: a, b", Tray.Tip("1.2.0", ["a", "b"]))
+        Assert.Equal("Hotkit 1.2.0", Tray.Tip("1.2.0", []))
+        Assert.Equal("Hotkit 1.2.0: Keep Unlocked", Tray.Tip("1.2.0", ["Keep Unlocked"]))
+        Assert.Equal("Hotkit 1.2.0: a, b", Tray.Tip("1.2.0", ["a", "b"]))
     }
 
     ; ScreenSaverGuard runs in dry-run mode here: it writes to a file instead

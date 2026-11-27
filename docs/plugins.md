@@ -17,7 +17,7 @@ plugins\
   notes\NotesClient.ahk
 ```
 
-## Minimal plugin
+## Minimal Plugin
 
 ```ahk
 #Requires AutoHotkey v2.0

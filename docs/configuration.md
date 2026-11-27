@@ -16,9 +16,9 @@ hotkit\
 ```
 
 `config.json` is JSON with comments (`//`, `/* */`) and trailing commas allowed.
-hotkit keeps a copy of the schema next to `config.json`, as `config.schema.json`,
-and refreshes it when hotkit starts with a different version. It leaves an
-existing `config.schema.json` alone unless it is a hotkit schema. Point the
+Hotkit keeps a copy of the schema next to `config.json`, as `config.schema.json`,
+and refreshes it when Hotkit starts with a different version. It leaves an
+existing `config.schema.json` alone unless it is a Hotkit schema. Point the
 config at it so editors offer completion and validation:
 
 ```jsonc
@@ -30,8 +30,8 @@ before loading a schema from a web domain it doesn't trust). The schema also
 tells VS Code, and other editors built on its JSON support, to accept comments
 and trailing commas, so the file isn't flagged even though it is named `.json`.
 
-If the config folder is synced between machines running different hotkit
-versions, the copy matches whichever machine started hotkit last.
+If the config folder is synced between machines running different Hotkit
+versions, the copy matches whichever machine started Hotkit last.
 Paths accept `%VAR%` and a leading `~`.
 
 With `settings.watchConfig` on (the default), saving the file or adding/removing
@@ -57,12 +57,12 @@ anything shown as a dialog or toast can also be read afterwards. The log is
 kept out of the config directory so that directory can be synced between
 machines (with `--config-dir`, the log stays next to that config instead).
 
-hotkit refuses to start when it inherits an app package's virtualized profile
+Hotkit refuses to start when it inherits an app package's virtualized profile
 (for example when launched from a shell inside a packaged desktop app). In that
 state its registry writes never reach Windows, so features like tray-icon
 promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 
-## Top-level keys
+## Top-Level Keys
 
 | Key | Purpose |
 | --- | --- |
@@ -109,7 +109,7 @@ and can be live on the same layer. Both are reported and the later one is
 skipped. A binding limited to layers and one on every layer don't conflict: on
 those layers, the layer binding wins.
 
-### Hold and press-then-next-key
+### Hold and Press-Then-Next-Key
 
 Both run one action to start something and another to stop it, such as a
 dictation tool's start/stop toggle. Key repeat never starts it twice.
@@ -155,9 +155,9 @@ client forwards the modifier, as in
 
 Win chords on a modifier, such as CapsLock+Win+1, also work while a remote
 session or virtual desktop window has focus. Those clients often take the Win key
-for the remote machine before hotkit's main keyboard hook sees it, so hotkit
-would see CapsLock+1 instead. hotkit's own hook (see [Simulated keys](#simulated-keys))
-still sees Win. While Win is held this way, hotkit runs the matching Win binding
+for the remote machine before Hotkit's main keyboard hook sees it, so Hotkit
+would see CapsLock+1 instead. Hotkit's own hook (see [Simulated keys](#simulated-keys))
+still sees Win. While Win is held this way, Hotkit runs the matching Win binding
 itself and keeps the key from the client, and a binding without Win, such as
 CapsLock+1, doesn't fire. This covers simple action bindings, not
 `gestures`, `onRelease`, `onNextKey`, or release (`up`) hotkeys.
@@ -188,7 +188,7 @@ on every layer, here Caps+1..3:
 ```jsonc
 "layers": {
   "1": { "label": "Main", "default": true },
-  "2": { "label": "Games", "description": "Arrow keys on WASD" },
+  "2": { "label": "Games", "description": "Arrow Keys on WASD" },
   "3": {}
 },
 "bindings": [
@@ -216,12 +216,12 @@ keeps you on the same layer. The shortcut overlay lists the active layer's
 bindings plus those on every layer; tick *All layers* to see the rest. Actions:
 `layer.activate`, `layer.next`, `layer.previous`.
 
-### Simulated keys
+### Simulated Keys
 
 Shortcuts fire only on keys typed on a keyboard. Keystrokes that a program
 simulates, such as a dictation tool pasting with Ctrl+V, a remote-access client
 injecting keys, or another script, go to the focused app without triggering
-anything. AutoHotkey itself can't tell them apart, so hotkit runs its own
+anything. AutoHotkey itself can't tell them apart, so Hotkit runs its own
 low-level keyboard hook that reads the flag Windows sets on injected keys.
 
 Some programs are meant to trigger shortcuts, for example a mouse utility that
@@ -233,21 +233,21 @@ maps buttons to F13, or a remote machine that sends F24. Mark those bindings:
 
 `"settings": { "ignoreSimulatedKeys": false }` turns the check off. When in
 doubt, the check lets the key through: if Windows skipped the hook because
-hotkit was busy, or hotkit couldn't install it (listed under *Show Config
+Hotkit was busy, or Hotkit couldn't install it (listed under *Show Config
 Problems*), shortcuts behave as if the setting were off. The hook is
 re-installed every 30 seconds so it keeps running ahead of AutoHotkey's, and
 shortly after the active window changes, so it stays ahead of clients that
 install their own hook when they get focus. The hook also runs, even with the
 setting off, when a binding on a modifier uses Win (see [Modifiers](#modifiers)).
 
-### Remote sessions
+### Remote Sessions
 
 For shortcuts on the machine inside a session, see
 [Hotkeys inside remote and virtual sessions](relay-keys.md): relay keys are
 more predictable than the automatic handling described here.
 
 Remote Desktop, virtual desktop viewers, and similar clients forward keys to
-another machine, which may run hotkit too. List their windows and both
+another machine, which may run Hotkit too. List their windows and both
 machines share the keyboard: your local bindings keep working in the session,
 and any key no local binding takes reaches the remote machine.
 
@@ -269,20 +269,20 @@ and any key no local binding takes reaches the remote machine.
 
 While a listed window is active:
 
-- hotkit keeps its keyboard hook ahead of the client's. Remote Desktop
+- Hotkit keeps its keyboard hook ahead of the client's. Remote Desktop
   installs its own hook (in full screen, by default) whenever its window gets
   focus, and that hook would take every key, including the CapsLock release
-  that left the CapsLock layer stuck on. hotkit re-installs its hook just
+  that left the CapsLock layer stuck on. Hotkit re-installs its hook just
   after the window is activated and then every second, except while a key is
   held.
 - A modifier with a `remoteKey` is passed on as that key. Holding CapsLock
-  holds F18 in the session, and the remote hotkit, given the same `remoteKey`,
+  holds F18 in the session, and the remote Hotkit, given the same `remoteKey`,
   treats F18 as CapsLock. CapsLock itself never reaches the session, so a
   forced `settings.keyboard.capsLock` state holds on both machines. Pick a
   key that nothing else uses. The modifier key itself is not held back, so
   use `remoteKey` with a key the session never sees anyway, such as
   CapsLock with `AlwaysOff`.
-- When a local binding on a held modifier fires, hotkit first releases the
+- When a local binding on a held modifier fires, Hotkit first releases the
   `remoteKey` in the session, so the remote machine doesn't see it stuck down.
 - A binding with `"yieldToRemote": true` stands aside and its keys go to the
   remote machine.
@@ -291,12 +291,12 @@ To hand the whole keyboard to the remote machine, switch to a layer with
 few bindings (for example only the layer keys): CapsLock combinations that
 layer leaves unbound go through. Holding CapsLock across a local binding
 releases it remotely, so press it again before a combination meant for the
-remote machine. Both machines need a hotkit version with `remoteKey`.
+remote machine. Both machines need a Hotkit version with `remoteKey`.
 
 ### Groups
 
 ```jsonc
-"groups": { "gaming": { "description": "Gaming keys", "enabled": false } },
+"groups": { "gaming": { "description": "Gaming Keys", "enabled": false } },
 "bindings": [
   { "keys": "F9", "action": "bindings.toggleGroup", "args": ["gaming"] },
   { "group": "gaming", "keys": "F1", "action": "send", "args": ["{Esc}"] }
@@ -325,7 +325,7 @@ first, then each press rotates to the next. It skips windows on other virtual
 desktops, never minimizes, and launches the app when no window exists. A common
 pattern is `app.toggle` on a key and `app.cycle` on Shift plus the same key.
 
-## Quick windows
+## Quick Windows
 
 A quick window is a normal app window that is shown and hidden with one key,
 optionally floating on top and hidden from the taskbar.
@@ -377,7 +377,7 @@ Quick windows hide by turning fully transparent and click-through rather than mi
 
 ## Updates
 
-hotkit looks for a newer release on GitHub a minute after it starts and then
+Hotkit looks for a newer release on GitHub a minute after it starts and then
 every few hours. The tray item *Check for Updates* checks right away; when a
 release is found it becomes *Update to vX.Y.Z* and the tray tooltip says so.
 
@@ -395,10 +395,10 @@ release is found it becomes *Update to vX.Y.Z* and the tray tooltip says so.
 - `manual`: a toast announces the release once; pick *Update to vX.Y.Z* to
   install it.
 - `auto`: the release is installed once the keyboard and mouse have been idle
-  for two minutes, and hotkit restarts only once you're idle again, so the
+  for two minutes, and Hotkit restarts only once you're idle again, so the
   restart doesn't interrupt typing.
 
-Installing needs a git clone and `git` on `PATH`. hotkit downloads the release
+Installing needs a git clone and `git` on `PATH`. Hotkit downloads the release
 tag and fast-forwards the clone to it, then restarts itself and shows the new
 version. It changes nothing and explains why in a toast when the clone has
 uncommitted changes, is not on a branch, or has commits the release doesn't
@@ -407,7 +407,7 @@ that fails is not retried for that release; the tray item stays. Without a git
 clone, *Update to vX.Y.Z* opens the release page instead.
 
 `app.checkForUpdates` and `app.update` do the same from a binding. With
-`"check": false` hotkit never contacts GitHub on its own; the tray item still
+`"check": false` Hotkit never contacts GitHub on its own; the tray item still
 checks on request.
 
 ## Tray
@@ -422,24 +422,24 @@ checks on request.
 }
 ```
 
-### Tray icon
+### Tray Icon
 
-hotkit shows its own icon (`assets/hotkit.ico`) unless `tray.icon` names
+Hotkit shows its own icon (`assets/hotkit.ico`) unless `tray.icon` names
 another one:
 
 | Value | Meaning |
 | --- | --- |
-| *(omitted)*, `""` or `null` | The bundled hotkit icon |
+| *(omitted)*, `""` or `null` | The bundled Hotkit icon |
 | `"icons/my-icon.ico"` | A relative path, looked up next to `config.json` |
 | `"C:/Icons/work.ico"`, `"%OneDrive%/icons/x.ico"`, `"~/icons/x.ico"` | An absolute path; `%VAR%` and `~` are expanded |
 | `"shell32.dll"` | A bare file name not found next to `config.json` is looked up in `System32` |
 | `{ "file": "imageres.dll", "index": 77 }` | Icon number `index` (1-based) in a multi-icon `.dll`, `.exe` or `.icl`; a negative number is a resource ID |
 
 If the file is missing, the object form has no `file`, `index` isn't a
-non-zero whole number, or Windows can't load the icon, hotkit uses its default
+non-zero whole number, or Windows can't load the icon, Hotkit uses its default
 icon and lists the reason under *Show Config Problems* (and in `hotkit.log`).
 
-While a stay-awake toggle is on, hotkit draws a muted coral circle with a
+While a stay-awake toggle is on, Hotkit draws a muted coral circle with a
 near-white "!" and a dark outline in the top-right corner of whichever icon
 is in use; see [stay-awake.md](stay-awake.md).
 `--check` reports the same problems, except an icon that exists but fails to

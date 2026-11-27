@@ -1,10 +1,10 @@
 # Releasing
 
 A release is a version tag (`vX.Y.Z`) and a GitHub Release whose notes are
-that version's `CHANGELOG.md` entries. hotkit is not published to a package
+that version's `CHANGELOG.md` entries. Hotkit is not published to a package
 registry.
 
-## How it works
+## How It Works
 
 - `App.Version` in `src/Core/App.ahk` is the single source of truth for the
   version. The app shows it in the tray and in toasts.
@@ -21,9 +21,9 @@ registry.
 
 Nobody tags or creates releases by hand. Version tags are immutable.
 
-## Version numbers
+## Version Numbers
 
-Versions follow [Semantic Versioning](https://semver.org/). For hotkit, the
+Versions follow [Semantic Versioning](https://semver.org/). For Hotkit, the
 public interface is the config format, action names and parameters,
 command-line flags and the plugin API.
 
@@ -37,7 +37,7 @@ command-line flags and the plugin API.
 when the inference is wrong, for example `--bump patch` for a purely cosmetic
 `Changed` entry.
 
-## Cutting a release
+## Cutting a Release
 
 Release whenever `[Unreleased]` has entries worth shipping. Sessions may
 release without asking.
@@ -56,7 +56,7 @@ release without asking.
 4. The Release workflow publishes `vX.Y.Z` once CI passes on the merge commit.
    Check it with `gh release view vX.Y.Z`.
 
-## Concurrent releases
+## Concurrent Releases
 
 Two branches can prepare the same version. Whichever merges first wins; the
 other then fails `REL001` in CI (its notes differ from the released ones) or
@@ -65,7 +65,7 @@ conflicts with `main`. To fix it, update the branch from `main`, revert its
 `[Unreleased]` again, and rerun `prepare`. Run `prepare` as late as possible
 to make this rare.
 
-## Other commands
+## Other Commands
 
 ```powershell
 python tools\release.py check              # same as lint rule REL001

@@ -80,7 +80,7 @@ class WmiBrightnessController {
     AdjustBrightness(delta, timeout := 1, showToast := true) {
         if (this.monitors.Length = 0) {
             if (showToast) {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "!", size: 24 }, { text: "No WMI displays", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "!", size: 24 }, { text: "No WMI Displays", size: 14 })
             }
             return { success: 0, value: -1 }
         }
@@ -88,7 +88,7 @@ class WmiBrightnessController {
         current := this.GetPrimaryBrightness()
         if (current < 0) {
             if (showToast) {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "!", size: 24 }, { text: "Brightness read failed", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "!", size: 24 }, { text: "Brightness Read Failed", size: 14 })
             }
             return { success: 0, value: -1 }
         }
@@ -101,7 +101,7 @@ class WmiBrightnessController {
     SetAllMonitors(value, timeout := 1, showToast := true) {
         if (this.monitors.Length = 0) {
             if (showToast) {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "!", size: 24 }, { text: "No WMI displays", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "!", size: 24 }, { text: "No WMI Displays", size: 14 })
             }
             return { success: 0, value: -1 }
         }
@@ -126,7 +126,7 @@ class WmiBrightnessController {
             if (successCount > 0) {
                 Toast.ShowToast({ fadeDelay: 800 }, { text: "OK", size: 24 }, { text: "Brightness " . newValue, size: 14 })
             } else {
-                Toast.ShowToast({ fadeDelay: 1000 }, { text: "!", size: 24 }, { text: "Brightness set failed", size: 14 })
+                Toast.ShowToast({ fadeDelay: 1000 }, { text: "!", size: 24 }, { text: "Brightness Set Failed", size: 14 })
             }
         }
 

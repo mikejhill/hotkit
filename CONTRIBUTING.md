@@ -5,7 +5,7 @@ This is a personal toolkit shared in the open. Read
 more general are welcome; one person's shortcuts or apps belong in their own
 config.
 
-## Before opening a PR
+## Before Opening a PR
 
 1. Open an issue for anything larger than a fix, so we can agree it fits.
 2. Keep changes focused; one concern per PR.

@@ -106,7 +106,7 @@ class ActionRegistry {
 
     static _DefaultOnError(id, e) {
         try Debugger.Log("Action '" id "' failed: " e.Message, "ERROR")
-        try Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Action failed: " id, e.Message)
+        try Toast.ShowToast({ color: "Red", fadeDelay: 5000 }, "Action Failed: " id, e.Message)
     }
 
     static _Sort(items) {

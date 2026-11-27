@@ -57,9 +57,9 @@ class App {
         if (App.Mode = "run" && !App._allowVirtualized) {
             package := PackageVirtualization.RedirectingPackage()
             if (package != "")
-                return App.Fail("hotkit was started inside the " package " app package, which keeps its own "
-                    "private copy of the registry and AppData. Settings hotkit changes (tray icons, light/dark theme) "
-                    "would not reach Windows.`n`nStart hotkit from Explorer, the Start menu or a "
+                return App.Fail("Hotkit was started inside the " package " app package, which keeps its own "
+                    "private copy of the registry and AppData. Settings Hotkit changes (tray icons, light/dark theme) "
+                    "would not reach Windows.`n`nStart Hotkit from Explorer, the Start menu or a "
                     "normal terminal, or pass --allow-virtualized to run anyway.")
         }
         if (App.Mode = "run" && App._syncPlugins && Plugins.Sync()) {
@@ -156,7 +156,7 @@ class App {
         DirCreate(dir)
         DirCreate(Paths.PluginDir())
         FileCopy(example, path)
-        App.OnReady(() => Toast.ShowToast({ fadeDelay: 6000 }, "Created your config:", path))
+        App.OnReady(() => Toast.ShowToast({ fadeDelay: 6000 }, "Created Your Config:", path))
         return path
     }
 
@@ -246,7 +246,7 @@ class App {
         for fn in App._readyHooks
             try fn.Call()
         if (Bindings.problems.Length) {
-            Toast.ShowToast({ color: "FFB000", fadeDelay: 6000 }, "Config problems: " Bindings.problems.Length,
+            Toast.ShowToast({ color: "FFB000", fadeDelay: 6000 }, "Config Problems: " Bindings.problems.Length,
                 "Tray › Show Config Problems")
             for p in Bindings.problems {
                 Debugger.Log(p, "WARN")
@@ -261,12 +261,12 @@ class App {
             { module: "core", description: desc, params: params })
         reg("osd.toggle", (*) => ShortcutOsd.Toggle(), "Show or hide the keyboard shortcut overlay")
         reg("app.reload", (*) => App.Restart(), "Reload scripts and config")
-        reg("app.exit", (*) => ExitApp(), "Exit hotkit")
+        reg("app.exit", (*) => ExitApp(), "Exit Hotkit")
         reg("app.openConfigFolder", (*) => Run('explorer.exe "' Paths.ConfigDir() '"'), "Open the config folder")
         reg("app.editConfig", (*) => App.EditConfig(), "Open config.json in the default editor")
         reg("app.showProblems", (*) => App.ShowProblems(), "List config problems")
-        reg("app.checkForUpdates", (*) => Updates.Check(true), "Check GitHub for a newer hotkit release")
-        reg("app.update", (*) => Updates.Install(), "Install the newer hotkit release and reload (checks first if none is known)")
+        reg("app.checkForUpdates", (*) => Updates.Check(true), "Check GitHub for a newer Hotkit release")
+        reg("app.update", (*) => Updates.Install(), "Install the newer Hotkit release and reload (checks first if none is known)")
         reg("bindings.toggleGroup", (name) => App.ToggleGroup(name), "Turn a binding group on or off", "group")
         reg("bindings.enableGroup", (name) => Bindings.SetGroup(name, true), "Turn a binding group on", "group")
         reg("bindings.disableGroup", (name) => Bindings.SetGroup(name, false), "Turn a binding group off", "group")
@@ -355,7 +355,7 @@ class App {
         enabled := Bindings.ToggleGroup(name)
         group := Bindings.groups[name]
         label := group.description != "" ? group.description : name
-        Toast.ShowToast(, label ": " (enabled ? "enabled" : "disabled"))
+        Toast.ShowToast(, label ": " (enabled ? "Enabled" : "Disabled"))
         Debugger.Log("Binding group " name (enabled ? " enabled" : " disabled"))
     }
 
@@ -384,7 +384,7 @@ class App {
         text := ""
         for p in Bindings.problems
             text .= "• " p "`n"
-        MsgBox(text = "" ? "No problems found." : text, "hotkit: config problems", "Icon!")
+        MsgBox(text = "" ? "No problems found." : text, "Hotkit: Config Problems", "Icon!")
     }
 
     ; Reloads when config.json or the plugin folder changes. A change is applied
@@ -412,7 +412,7 @@ class App {
             Config.FromFile(App.ConfigPath)
         } catch as e {
             StatusLog.Error("config change not applied, keeping the running config: " e.Message)
-            Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Config not reloaded:", e.Message)
+            Toast.ShowToast({ color: "FF6060", fadeDelay: 8000 }, "Config Not Reloaded:", e.Message)
             return
         }
         StatusLog.Info("config changed, restarting")
@@ -451,7 +451,7 @@ class App {
     static Fail(message) {
         if (App.Mode = "run") {
             StatusLog.Error(message)
-            MsgBox(message, "hotkit", "IconX")
+            MsgBox(message, "Hotkit", "IconX")
         }
         else
             App.Print("error: " message "`n")

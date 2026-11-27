@@ -66,7 +66,7 @@ class HardwareBrightness {
     static Swap(target) {
         t := HardwareBrightness.Targets()
         if (!t.any)
-            return HardwareBrightness._Warn("No monitors found")
+            return HardwareBrightness._Warn("No Monitors Found")
         current := HardwareBrightness.Current(t)
         if (current < 0)
             return HardwareBrightness._Warn("Brightness read failed")
@@ -91,11 +91,11 @@ class HardwareBrightness {
     ; mutate: off (Win32/WMI/registry I/O)
     static _Toast(delta, value, successCount, hasTargets) {
         if (!hasTargets)
-            return HardwareBrightness._Warn("No monitors found")
+            return HardwareBrightness._Warn("No Monitors Found")
         if (successCount <= 0)
-            return HardwareBrightness._Warn(delta = 0 ? "Brightness set failed" : "Brightness adjust failed")
+            return HardwareBrightness._Warn(delta = 0 ? "Brightness Set Failed" : "Brightness Adjust Failed")
         icon := delta > 0 ? "🔆" : (delta < 0 ? "🔅" : "✓")
-        text := value >= 0 ? "Brightness " value : "Brightness updated"
+        text := value >= 0 ? "Brightness " value : "Brightness Updated"
         Toast.ShowToast({ fadeDelay: 800 }, { text: icon, size: 24 }, { text: text, size: 14 })
     }
 
@@ -276,9 +276,9 @@ class NightLight {
             NumPut("UChar", disabling ? 0x13 : 0x15, out, 18)
             NightLight._BumpTimestamp(out)
             NightLight._Write(NightLight.StatePath, out)
-            Toast.ShowToast({ fadeDelay: 800 }, "Night Light:", disabling ? "OFF" : "ON")
+            Toast.ShowToast({ fadeDelay: 800 }, "Night Light:", disabling ? "Off" : "On")
         } catch as err {
-            Toast.ShowToast({ fadeDelay: 2000, color: "Red" }, "Night Light error", err.Message)
+            Toast.ShowToast({ fadeDelay: 2000, color: "Red" }, "Night Light Error", err.Message)
         }
     }
 
@@ -309,7 +309,7 @@ class NightLight {
                 throw Error("write failed")
             Toast.ShowToast({ fadeDelay: 800 }, "Night Light Strength:", next "%")
         } catch as err {
-            Toast.ShowToast({ fadeDelay: 2000, color: "Red" }, "Night Light strength error", err.Message)
+            Toast.ShowToast({ fadeDelay: 2000, color: "Red" }, "Night Light Strength Error", err.Message)
         }
     }
 
@@ -317,7 +317,7 @@ class NightLight {
         if NightLight.SetStrength(percent)
             Toast.ShowToast({ fadeDelay: 800 }, "Night Light Strength:", Round(percent) "%")
         else
-            Toast.ShowToast({ fadeDelay: 2000, color: "Red" }, "Night Light strength error")
+            Toast.ShowToast({ fadeDelay: 2000, color: "Red" }, "Night Light Strength Error")
     }
 
     ; Increments the first non-0xFF byte of the change counter (bytes 10..14).
