@@ -213,7 +213,7 @@ object of name to settings, listed in natural order (2 before 10):
 Switching shows a toast, checks the layer in tray › *Layer*, and is remembered
 across restarts (in `state.json` beside `hotkit.log`), so saving the config
 keeps you on the same layer. The shortcut overlay lists the active layer's
-bindings plus those on every layer; tick *All layers* to see the rest. Actions:
+bindings plus those on every layer; tick *All Layers* to see the rest. Actions:
 `layer.activate`, `layer.next`, `layer.previous`.
 
 ### Simulated Keys

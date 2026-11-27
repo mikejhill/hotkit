@@ -26,17 +26,17 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 | | |
 | --- | --- |
 | **Shortcuts in JSON** | Every hotkey is a line in `config.json`: keys, action, arguments, description. Validated at load, with conflict detection. |
-| **Shortcut overlay** | Searchable list of every active shortcut (tray › *Show Shortcuts*, or bind `osd.toggle`). |
-| **Layers, modifiers and gestures** | Switchable layers of bindings (with tray menu, toasts and overlay support), hold-a-key modifiers (e.g. CapsLock), tap / double-tap / hold on one key, press-and-release actions, per-app bindings, runtime-toggleable groups. |
-| **Quick windows** | Summon and dismiss any app as a floating window with one key. Generic; you define the instances. |
-| **App toggles** | Focus, minimize, or launch an app from a hotkey. |
+| **Shortcut Overlay** | Searchable list of every active shortcut (tray › *Show Shortcuts*, or bind `osd.toggle`). |
+| **Layers, Modifiers, and Gestures** | Switchable layers of bindings (with tray menu, toasts and overlay support), hold-a-key modifiers (e.g. CapsLock), tap / double-tap / hold on one key, press-and-release actions, per-app bindings, runtime-toggleable groups. |
+| **Quick Windows** | Summon and dismiss any app as a floating window with one key. Generic; you define the instances. |
+| **App Toggles** | Focus, minimize, or launch an app from a hotkey. |
 | **Display** | DDC/CI and WMI brightness, gamma dimming, Night Light strength, display scale stepping. |
 | **Desktop** | Light/dark theme with wallpaper, media keys, always-on-top with an indicator, last-window switching, window stacking (send back / bring forward without losing focus), lock-key state. |
-| **Stay awake** | Off-by-default toggles to keep the PC awake, keep the screen on, or keep the session unlocked (standard Windows power requests; never overrides an enforced lock), plus monitors off. See [docs/stay-awake.md](docs/stay-awake.md). |
+| **Stay Awake** | Off-by-default toggles to keep the PC awake, keep the screen on, or keep the session unlocked (standard Windows power requests; never overrides an enforced lock), plus monitors off. See [docs/stay-awake.md](docs/stay-awake.md). |
 | **Plugins** | Drop an `.ahk` file into your config folder to add private actions. |
-| **Tray icon** | Ships with its own icon; point `tray.icon` at any `.ico`, `.dll` or `.exe` to use your own. |
+| **Tray Icon** | Ships with its own icon; point `tray.icon` at any `.ico`, `.dll` or `.exe` to use your own. |
 | **Updates** | Checks GitHub for new releases and installs them into your clone from the tray, or automatically once you're idle. See [Updates](docs/configuration.md#updates). |
-| **One config location** | `%USERPROFILE%\.config\hotkit\`, live-reloaded on save. |
+| **One Config Location** | `%USERPROFILE%\.config\hotkit\`, live-reloaded on save. |
 
 ## Quick Start
 

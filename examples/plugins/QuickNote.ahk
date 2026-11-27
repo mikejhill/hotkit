@@ -25,7 +25,7 @@ class QuickNotePlugin {
 
     static Add(text := unset) {
         if !IsSet(text) {
-            answer := InputBox("Note:", "Quick note", "w420 h110")
+            answer := InputBox("Note:", "Quick Note", "w420 h110")
             if (answer.Result != "OK")
                 return
             text := answer.Value
@@ -35,7 +35,7 @@ class QuickNotePlugin {
             return
         QuickNotePlugin.EnsureFile()
         FileAppend(line, QuickNotePlugin.File, "UTF-8")
-        Toast.ShowToast({ fadeDelay: 800 }, "Note saved")
+        Toast.ShowToast({ fadeDelay: 800 }, "Note Saved")
     }
 
     static Open() {

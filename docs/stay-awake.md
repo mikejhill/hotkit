@@ -3,7 +3,7 @@
 The `power` module adds three independent toggles and a monitors-off action.
 Every toggle starts **off**, is shown with a check mark under tray ›
 *Actions* › *Stay Awake*, and is named in the tray tooltip while it is on
-(for example `hotkit 1.7.0: Keep Unlocked until 2:30 AM`). While any toggle is
+(for example `Hotkit 1.7.0: Keep Unlocked Until 2:30 AM`). While any toggle is
 on, the tray icon also shows a muted coral warning circle with a near-white
 "!" and a dark outline in its top-right corner, including on a custom icon.
 
@@ -21,8 +21,8 @@ any key press or mouse movement turns them back on.
 Each toggle can run for a set time and then turn itself off, like the
 PowerToys Awake timer.
 
-- **Tray:** each toggle has a submenu with *Off*, *On (no time limit)*, and
-  *For 30 minutes*, *1 hour*, *2 hours*, *4 hours* or *8 hours*.
+- **Tray:** each toggle has a submenu with *Off*, *On (No Time Limit)*, and
+  *For 30 Minutes*, *1 Hour*, *2 Hours*, *4 Hours* or *8 Hours*.
 - **Actions:** pass a number of minutes to `.on` or `.toggle`, for example
   `{ "action": "power.keepUnlocked.on", "args": [90] }`. Without it, the toggle
   stays on until you turn it off.
