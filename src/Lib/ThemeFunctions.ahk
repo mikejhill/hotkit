@@ -10,6 +10,8 @@
 ;     - Toggles apps + system theme and broadcasts "ImmersiveColorSet".
 ;     - Returns Map("previous", 0|1, "current", 0|1, "broadcastOk", 0|1, "elapsedMs", n)
 ;       where 1 = light, 0 = dark.
+;   ThemeFunctions.SetTheme(light, logPath := "")
+;     - Sets light (1) or dark (0) the same way; returns the same Map.
 ; ======================================================================
 class ThemeFunctions {
     ; ------------------------- Constants -----------------------------------
@@ -20,28 +22,23 @@ class ThemeFunctions {
     ; ------------------------- Public API ----------------------------------
     static ToggleTheme(timeoutMs := 2000, logPath := "") {
         Debugger.Log("Starting theme toggle…", "INFO")
+        ThemeFunctions._EnsureRegKeyExists(ThemeFunctions.REG_PATH)
+        current := RegRead(ThemeFunctions.REG_PATH, ThemeFunctions.REG_APPS, 1)
+        return ThemeFunctions.SetTheme(1 - current, logPath)
+    }
 
-        ; Ensure current value (default 1=light if missing)
+    ; Sets apps + system theme: 1 = light, 0 = dark. Writes and broadcasts even
+    ; when the theme already matches, so apps that missed a change catch up.
+    ; Returns the same Map as ToggleTheme.
+    static SetTheme(light, logPath := "") {
         ; Note: Windows which exist before the key is created may fail to handle changes
         ThemeFunctions._EnsureRegKeyExists(ThemeFunctions.REG_PATH)
         current := RegRead(ThemeFunctions.REG_PATH, ThemeFunctions.REG_APPS, 1)
-        Debugger.Log("Current " ThemeFunctions.REG_APPS " = " current, "INFO")
-
-        ; Toggle (0 <-> 1)
-        newVal := 1 - current
+        newVal := light ? 1 : 0
         RegWrite(newVal, "REG_DWORD", ThemeFunctions.REG_PATH, ThemeFunctions.REG_APPS)
         RegWrite(newVal, "REG_DWORD", ThemeFunctions.REG_PATH, ThemeFunctions.REG_SYS)
-
-        ; Verify writes
-        appsNow := RegRead(ThemeFunctions.REG_PATH, ThemeFunctions.REG_APPS, newVal)
-        sysNow := RegRead(ThemeFunctions.REG_PATH, ThemeFunctions.REG_SYS, newVal)
-        Debugger.Log("Wrote " ThemeFunctions.REG_APPS "=" appsNow ", " ThemeFunctions.REG_SYS "=" sysNow, "INFO")
-
-        ; Broadcast WM_SETTINGCHANGE / "ImmersiveColorSet"
-        ; result := _BroadcastImmersiveColorSet(timeoutMs, logPath)
+        Debugger.Log("Set " ThemeFunctions.REG_APPS " and " ThemeFunctions.REG_SYS " to " newVal " (was " current ")", "INFO")
         result := ThemeFunctions._BroadcastImmersiveColorSet(logPath)
-
-        Debugger.Log("Done.", "INFO")
         return Map("previous", current, "current", newVal, "broadcastOk", result.Get("ok"), "elapsedMs", result.Get(
             "elapsedMs"))
     }

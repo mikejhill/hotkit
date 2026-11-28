@@ -33,6 +33,7 @@ overlay. **Which key does what** lives in one JSON file outside the repository.
 | **Display** | DDC/CI and WMI brightness, gamma dimming, Night Light strength, display scale stepping. |
 | **Desktop** | Light/dark theme with wallpaper, media keys, always-on-top with an indicator, last-window switching, window stacking (send back / bring forward without losing focus), lock-key state. |
 | **Stay Awake** | Off-by-default toggles to keep the PC awake, keep the screen on, or keep the session unlocked (standard Windows power requests; never overrides an enforced lock), plus monitors off. See [docs/stay-awake.md](docs/stay-awake.md). |
+| **Schedules** | Run any action on a cron schedule, at an interval, or when Hotkit starts or exits, the PC locks, unlocks, sleeps, wakes, goes idle, or changes power source. See [docs/schedules.md](docs/schedules.md). |
 | **Plugins** | Drop an `.ahk` file into your config folder to add private actions. |
 | **Tray Icon** | Ships with its own icon; point `tray.icon` at any `.ico`, `.dll` or `.exe` to use your own. |
 | **Updates** | Checks GitHub for new releases and installs them into your clone from the tray, or automatically once you're idle. See [Updates](docs/configuration.md#updates). |
@@ -77,6 +78,7 @@ To start at sign-in, put a shortcut to `src\Main.ahk` in `shell:startup`.
 - [Action reference](docs/actions.md) (generated)
 - [Stay awake and monitors off](docs/stay-awake.md) (read the security notes before using Keep Unlocked)
 - [Hotkeys inside remote and virtual sessions](docs/relay-keys.md): relay keys for shortcuts on nested machines
+- [Schedules](docs/schedules.md): cron, intervals, and events such as lock and unlock
 - [Writing plugins](docs/plugins.md) and [example plugins](examples/plugins/README.md)
 
 Validate a config without starting anything, and see what the running app

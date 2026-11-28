@@ -16,11 +16,13 @@ OnError((err, *) => (FileAppend("Bail out! " err.Message " (" err.File ":" err.L
 #Include %A_ScriptDir%\..\..\src\Lib\JSON.ahk
 #Include %A_ScriptDir%\..\..\src\Lib\HotkeyText.ahk
 #Include %A_ScriptDir%\..\..\src\Lib\AppUtil.ahk
+#Include %A_ScriptDir%\..\..\src\Lib\Cron.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Paths.ahk
 #Include %A_ScriptDir%\..\..\src\Core\StatusLog.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Config.ahk
 #Include %A_ScriptDir%\..\..\src\Core\ActionRegistry.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Bindings.ahk
+#Include %A_ScriptDir%\..\..\src\Core\Schedules.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Plugins.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Tray.ahk
 #Include %A_ScriptDir%\..\..\src\Core\Updates.ahk
@@ -38,6 +40,7 @@ OnError((err, *) => (FileAppend("Bail out! " err.Message " (" err.File ":" err.L
 #Include %A_ScriptDir%\ActionRegistry.Test.ahk
 #Include %A_ScriptDir%\Bindings.Test.ahk
 #Include %A_ScriptDir%\Config.Test.ahk
+#Include %A_ScriptDir%\Cron.Test.ahk
 #Include %A_ScriptDir%\DisplayMath.Test.ahk
 #Include %A_ScriptDir%\ExamplePlugins.Test.ahk
 #Include %A_ScriptDir%\HotkeyText.Test.ahk
@@ -46,6 +49,7 @@ OnError((err, *) => (FileAppend("Bail out! " err.Message " (" err.File ":" err.L
 #Include %A_ScriptDir%\Paths.Test.ahk
 #Include %A_ScriptDir%\Plugins.Test.ahk
 #Include %A_ScriptDir%\Power.Test.ahk
+#Include %A_ScriptDir%\Schedules.Test.ahk
 #Include %A_ScriptDir%\StatusLog.Test.ahk
 #Include %A_ScriptDir%\Tray.Test.ahk
 #Include %A_ScriptDir%\Updates.Test.ahk

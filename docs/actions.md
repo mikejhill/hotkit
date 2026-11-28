@@ -38,6 +38,7 @@ pass `args` as a JSON array in the order listed under **Arguments**
 | `layer.next` |  | Switch to the next layer |
 | `layer.previous` |  | Switch to the previous layer |
 | `osd.toggle` |  | Show or hide the keyboard shortcut overlay |
+| `schedule.run` | name | Run a schedule's action now |
 
 ## desktop
 
@@ -51,6 +52,7 @@ pass `args` as a JSON array in the order listed under **Arguments**
 | `media.previous` |  | Previous track |
 | `powerToys.toggleAwake` |  | Toggle PowerToys Awake between indefinite and off |
 | `taskbar.activate` | n | Like Win+<n>: start, switch to, or cycle taskbar app n (1-10; 0 = 10), even under a full-screen app |
+| `theme.set` | light|dark | Set Windows to the light or dark theme (and wallpaper) |
 | `theme.toggle` |  | Toggle Windows light/dark theme (and wallpaper) |
 | `trayIcons.showAll` |  | Promote every tray icon to the visible area |
 | `wallpaper.bing` |  | Set today's Bing image as wallpaper |

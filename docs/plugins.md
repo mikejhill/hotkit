@@ -48,6 +48,8 @@ class NotesPlugin {
 | `ActionRegistry.Register(id, fn, meta)` | in `init` | Add actions (`module: "plugin:<name>"` by convention) |
 | `Bindings.Add(map, source)` | in `init` | Add a binding from code |
 | `App.OnReady(fn)` | in `init` | Run after hotkeys are live |
+| `Schedules.Add(map, source)` | in `init` | Add a schedule from code ([schedules.md](schedules.md#from-a-plugin)) |
+| `Schedules.On(event, fn)` | in `init` | Call `fn(event)` on startup, exit, lock, unlock, sleep, resume, and the other [schedule events](schedules.md#events) |
 | `App.Mode` | anywhere | `"run"`, `"check"`, or `"list-actions"`; start timers or background work only in `"run"` |
 | `MapGet(map, key, default)`, `Paths.Expand(path)` | anywhere | Helpers |
 

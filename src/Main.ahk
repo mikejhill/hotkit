@@ -25,6 +25,7 @@ for arg in A_Args {
 #Include %A_ScriptDir%\Lib\Toast.ahk
 #Include %A_ScriptDir%\Lib\JSON.ahk
 #Include %A_ScriptDir%\Lib\PackageVirtualization.ahk
+#Include %A_ScriptDir%\Lib\Cron.ahk
 
 #Include %A_ScriptDir%\Core\Paths.ahk
 #Include %A_ScriptDir%\Core\StatusLog.ahk
@@ -32,6 +33,7 @@ for arg in A_Args {
 #Include %A_ScriptDir%\Lib\HotkeyText.ahk
 #Include %A_ScriptDir%\Core\ActionRegistry.ahk
 #Include %A_ScriptDir%\Core\Bindings.ahk
+#Include %A_ScriptDir%\Core\Schedules.ahk
 #Include %A_ScriptDir%\Core\Plugins.ahk
 #Include %A_ScriptDir%\Core\Tray.ahk
 #Include %A_ScriptDir%\Core\Updates.ahk

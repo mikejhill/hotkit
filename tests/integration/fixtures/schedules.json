@@ -1,0 +1,10 @@
+{
+  "schedules": [
+    { "name": "evening", "cron": "0 19 * * *", "action": "theme.set", "args": ["dark"], "catchUp": true },
+    { "name": "morning", "cron": "0 7 * * mon-fri", "action": "theme.set", "args": ["light"] },
+    { "on": ["unlock", "resume"], "delay": "5s", "action": "brightness.set", "args": [70] },
+    { "on": ["idle", "active"], "idleAfter": "10m", "action": "osd.toggle" },
+    { "every": "30m", "action": "app.checkForUpdates", "machines": ["NO-SUCH-PC"] },
+    { "on": "startup", "action": "schedule.run", "args": ["evening"], "enabled": false }
+  ]
+}

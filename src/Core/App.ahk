@@ -28,6 +28,8 @@ class App {
     static _exitAfter := 0
     static _allowVirtualized := false
     static _args := []
+    ; True when this process was started by App.Restart (a reload).
+    static Restarted := false
 
     ; ---------------- Plugin API                    ------------------------------
 
@@ -47,6 +49,8 @@ class App {
 
     static Main(args := unset) {
         App._args := IsSet(args) ? args : []
+        App.Restarted := EnvGet("HOTKIT_RESTARTED") = "1"
+        EnvSet("HOTKIT_RESTARTED")
         App.ParseArgs(App._args)
         if Tray.ShowsIcon(App.Mode, EnvGet("HOTKIT_HEADLESS") = "1")
             A_IconHidden := false
@@ -64,7 +68,7 @@ class App {
         }
         if (App.Mode = "run" && App._syncPlugins && Plugins.Sync()) {
             ; The plugin set changed; restart so the new #Include stub takes effect.
-            return App.Restart()
+            return App.Restart(App.Restarted)
         }
         if (App.Mode = "sync-plugins") {
             changed := Plugins.Sync()
@@ -165,6 +169,7 @@ class App {
         cfg := App.Config
         Debugger.Enabled := !!cfg.Get("settings.debug", false)
         Bindings.Reset()
+        Schedules.Reset(Bindings.problems)
         for p in App.Problems
             Bindings.problems.Push(p)
         App.RegisterCoreActions()
@@ -179,6 +184,8 @@ class App {
         }
         Bindings.LoadConfig(cfg)
         Bindings.Validate()
+        Schedules.LoadConfig(cfg)
+        Schedules.Validate()
         App.ValidateTray(cfg.List("tray.items"))
         Updates.Configure(cfg, Bindings.problems)
         iconProblem := Tray.ResolveIcon(cfg).problem
@@ -256,6 +263,11 @@ class App {
             SetTimer(() => ExitApp(), -App._exitAfter)
         for fn in App._readyHooks
             try fn.Call()
+        try {
+            Schedules.Start(App.Restarted)
+        } catch as e {
+            Bindings.problems.Push("schedules: " e.Message)
+        }
         if (Bindings.problems.Length) {
             Toast.ShowToast({ color: "FFB000", fadeDelay: 6000 }, "Config Problems: " Bindings.problems.Length,
                 "Tray › Show Config Problems")
@@ -277,6 +289,7 @@ class App {
         reg("app.editConfig", (*) => App.EditConfig(), "Open config.json in the default editor")
         reg("app.showProblems", (*) => App.ShowProblems(), "List config problems")
         reg("app.checkForUpdates", (*) => Updates.Check(true), "Check GitHub for a newer Hotkit release")
+        reg("schedule.run", (name) => Schedules.RunNow(name), "Run a schedule's action now", "name")
         reg("app.update", (*) => Updates.Install(), "Install the newer Hotkit release and reload (checks first if none is known)")
         reg("bindings.toggleGroup", (name) => App.ToggleGroup(name), "Turn a binding group on or off", "group")
         reg("bindings.enableGroup", (name) => Bindings.SetGroup(name, true), "Turn a binding group on", "group")
@@ -350,7 +363,14 @@ class App {
 
     ; Like Reload(), but keeps command-line arguments (Reload drops them).
     ; Modules with a BeforeRestart method can hand state to the new process.
-    static Restart() {
+    ; The new process sees App.Restarted (schedules fire "reload", not
+    ; "startup"), and this one doesn't fire "exit".
+    static Restart(reload := true) {
+        Schedules.Restarting := true
+        if (reload)
+            EnvSet("HOTKIT_RESTARTED", "1")
+        else
+            EnvSet("HOTKIT_RESTARTED")
         for m in App.Modules {
             if HasMethod(m, "BeforeRestart")
                 try m.BeforeRestart()
