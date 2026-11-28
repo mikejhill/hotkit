@@ -5,6 +5,9 @@
     { "on": ["unlock", "resume"], "delay": "5s", "action": "brightness.set", "args": [70] },
     { "on": ["idle", "active"], "idleAfter": "10m", "action": "osd.toggle" },
     { "every": "30m", "action": "app.checkForUpdates", "machines": ["NO-SUCH-PC"] },
-    { "on": "startup", "action": "schedule.run", "args": ["evening"], "enabled": false }
+    { "on": "startup", "action": "schedule.run", "args": ["evening"], "enabled": false },
+    { "name": "night", "cron": "0 22 * * *", "continueOnError": true, "actions": [
+      { "action": "theme.set", "args": ["dark"] }, { "wait": "2s" }, { "action": "brightness.set", "args": [30] }, "power.allOff"
+    ] }
   ]
 }
