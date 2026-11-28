@@ -749,7 +749,12 @@
             {
               "required": [
                 "action"
-              ]
+              ],
+              "not": {
+                "required": [
+                  "actions"
+                ]
+              }
             },
             {
               "required": [
@@ -797,7 +802,7 @@
                 "properties": {
                   "wait": {
                     "type": "string",
-                    "pattern": "^\\s*(\\d+\\s*d)?\\s*(\\d+\\s*h)?\\s*(\\d+\\s*m)?\\s*(\\d+\\s*s)?\\s*$",
+                    "pattern": "^(?=[^1-9]*[1-9])\\s*(\\d+\\s*[dD])?\\s*(\\d+\\s*[hH])?\\s*(\\d+\\s*[mM])?\\s*(\\d+\\s*[sS])?\\s*$",
                     "description": "Pause before the next step, such as \"2s\" (at most 24 days). Not allowed with exit or sleep."
                   }
                 },
@@ -832,7 +837,7 @@
         },
         "every": {
           "type": "string",
-          "pattern": "^\\s*(\\d+\\s*d)?\\s*(\\d+\\s*h)?\\s*(\\d+\\s*m)?\\s*(\\d+\\s*s)?\\s*$",
+          "pattern": "^(?=[^1-9]*[1-9])\\s*(\\d+\\s*[dD])?\\s*(\\d+\\s*[hH])?\\s*(\\d+\\s*[mM])?\\s*(\\d+\\s*[sS])?\\s*$",
           "description": "Run repeatedly at this interval, such as \"15m\" or \"1h30m\" (at most 24 days). The first run is one interval after Hotkit starts."
         },
         "on": {
@@ -880,12 +885,12 @@
         },
         "delay": {
           "type": "string",
-          "pattern": "^\\s*(\\d+\\s*d)?\\s*(\\d+\\s*h)?\\s*(\\d+\\s*m)?\\s*(\\d+\\s*s)?\\s*$",
+          "pattern": "^(?=[^1-9]*[1-9])\\s*(\\d+\\s*[dD])?\\s*(\\d+\\s*[hH])?\\s*(\\d+\\s*[mM])?\\s*(\\d+\\s*[sS])?\\s*$",
           "description": "Wait this long after an 'on' event before running. Not allowed with exit or sleep."
         },
         "idleAfter": {
           "type": "string",
-          "pattern": "^\\s*(\\d+\\s*d)?\\s*(\\d+\\s*h)?\\s*(\\d+\\s*m)?\\s*(\\d+\\s*s)?\\s*$",
+          "pattern": "^(?=[^1-9]*[1-9])\\s*(\\d+\\s*[dD])?\\s*(\\d+\\s*[hH])?\\s*(\\d+\\s*[mM])?\\s*(\\d+\\s*[sS])?\\s*$",
           "description": "For idle and active: how long without keyboard or mouse input counts as idle (default \"10m\", at least 10s)."
         },
         "catchUp": {

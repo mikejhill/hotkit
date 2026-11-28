@@ -39,6 +39,10 @@ class Schedules {
     static Restarting := false
     static _handlers := Map()
     static _timers := []
+    ; spec -> continuation of a schedule paused at a wait step.
+    static _pending := Map()
+    ; name -> spec, rebuilt when the list changes.
+    static _byName := Map()
     static _lastTick := ""
     static _acLine := ""
     static _started := false
@@ -51,6 +55,7 @@ class Schedules {
     static Reset(problems := "") {
         Schedules.Stop()
         Schedules.specs := []
+        Schedules._byName := Map()
         Schedules.problems := problems is Array ? problems : []
         Schedules._handlers := Map()
         Schedules._handlers.CaseSense := "Off"
@@ -97,7 +102,7 @@ class Schedules {
                 source: source,
                 description: MapGet(raw, "description", ""),
                 steps: steps,
-                continueOnError: !!MapGet(raw, "continueOnError", false),
+                continueOnError: Schedules._Bool(raw, "continueOnError"),
                 running: false,
                 crons: [],
                 next: [],
@@ -106,7 +111,7 @@ class Schedules {
                 delay: 0,
                 idleAfter: Schedules.DefaultIdleMs,
                 idle: false,
-                catchUp: !!MapGet(raw, "catchUp", false),
+                catchUp: Schedules._Bool(raw, "catchUp"),
             }
             spec.events.CaseSense := "Off"
             for text in Schedules._List(raw, "cron")
@@ -207,6 +212,14 @@ class Schedules {
         return [{ action: ref.action, args: ref.args }]
     }
 
+    ; true/false field (JSON true and false load as 1 and 0). Throws ValueError.
+    static _Bool(raw, key) {
+        value := MapGet(raw, key, false)
+        if !(value is Integer) || (value != 0 && value != 1)
+            throw ValueError("'" key "' must be true or false.")
+        return value
+    }
+
     static _HasWait(steps) {
         for step in steps {
             if step.HasOwnProp("wait")
@@ -251,23 +264,29 @@ class Schedules {
                 keep.Push(spec)
         }
         Schedules.specs := keep
+        Schedules._byName := Map()
     }
 
     ; Follows schedule.run steps from spec. Returns a chain that comes back to
     ; spec ("a -> b -> a"), otherwise "".
-    static RunLoop(spec, current := "", chain := "", seen := "") {
-        if (current = "") {
-            current := spec, chain := spec.name, seen := Map()
-        }
-        for target in Schedules._RunTargets(current) {
-            if (target = spec)
-                return chain " -> " target.name
-            if seen.Has(target.name)
-                continue
-            seen[target.name] := true
-            found := Schedules.RunLoop(spec, target, chain " -> " target.name, seen)
-            if (found != "")
-                return found
+    static RunLoop(spec) {
+        ; Depth-first with an explicit stack: long chains don't hit
+        ; AutoHotkey's recursion limit.
+        seen := Map()
+        stack := [{ node: spec, chain: spec.name }]
+        while stack.Length {
+            item := stack.Pop()
+            targets := Schedules._RunTargets(item.node)
+            i := targets.Length
+            while (i >= 1) {
+                target := targets[i--]
+                if (target = spec)
+                    return item.chain " -> " target.name
+                if seen.Has(target.name)
+                    continue
+                seen[target.name] := true
+                stack.Push({ node: target, chain: item.chain " -> " target.name })
+            }
         }
         return ""
     }
@@ -297,9 +316,9 @@ class Schedules {
         out := []
         for step in spec.steps {
             if (!step.HasOwnProp("action") || step.action != "schedule.run" || !step.args.Length
-                || !(step.args[1] is String))
+                || IsObject(step.args[1]))
                 continue
-            target := Schedules._Find(step.args[1])
+            target := Schedules._Find(String(step.args[1]))
             if (target != "")
                 out.Push(target)
         }
@@ -307,11 +326,15 @@ class Schedules {
     }
 
     static _Find(name) {
-        for spec in Schedules.specs {
-            if (spec.name = name)
-                return spec
+        if IsObject(name)
+            return ""
+        if (Schedules._byName.Count != Schedules.specs.Length) {
+            Schedules._byName := Map()
+            Schedules._byName.CaseSense := "Off"
+            for spec in Schedules.specs
+                Schedules._byName[spec.name] := spec
         }
-        return ""
+        return Schedules._byName.Has(String(name)) ? Schedules._byName[String(name)] : ""
     }
 
     ; Plugins: Schedules.On("unlock", (event) => ...). Runs alongside schedules.
@@ -443,6 +466,11 @@ class Schedules {
         for fn in Schedules._timers
             try SetTimer(fn, 0)
         Schedules._timers := []
+        for spec, fn in Schedules._pending {
+            try SetTimer(fn, 0)
+            spec.running := false
+        }
+        Schedules._pending := Map()
         try SetTimer(Schedules._tickFn, 0)
         try SetTimer(Schedules._idleFn, 0)
         if (Schedules._started) {
@@ -567,15 +595,20 @@ class Schedules {
     }
 
     ; Runs a schedule's action now (the schedule.run action).
-    ; Throws when a step fails before the schedule's first wait, so a
-    ; schedule that calls this one stops too (unless continueOnError).
+    ; Throws the first step error from before the schedule's first wait, so
+    ; a schedule that calls this one stops too (unless continueOnError).
     static RunNow(name) {
         spec := Schedules._Find(name)
         if (spec = "")
             throw ValueError("No schedule named '" name "'.")
         failed := Schedules.Run(spec, "manual")
-        if (IsInteger(failed) && failed > 0)
-            throw Error("schedule '" spec.name "': " failed " step" (failed = 1 ? "" : "s") " failed.")
+        if (IsInteger(failed) && failed > 0 && spec.HasOwnProp("lastError")) {
+            ; Already reported by RunSteps: a calling schedule won't report
+            ; it again, and a hotkey's report shows the original message.
+            err := spec.lastError
+            err.scheduleReported := true
+            throw err
+        }
         return failed
     }
 
@@ -608,21 +641,32 @@ class Schedules {
     ; first wait (or the end).
     static RunSteps(spec, start := 1) {
         failed := 0
+        if spec.HasOwnProp("lastError")
+            spec.DeleteProp("lastError")
         i := start
         while (i <= spec.steps.Length) {
             step := spec.steps[i]
             if step.HasOwnProp("wait") {
-                Schedules.Delayer.Call(Schedules._Resume.Bind(Schedules, spec, i + 1), step.wait)
+                fn := Schedules._Resume.Bind(Schedules, spec, i + 1)
+                Schedules._pending[spec] := fn
+                Schedules.Delayer.Call(fn, step.wait)
                 return failed
             }
             try {
-                ActionRegistry.Invoke(step.action, step.args)
+                result := ActionRegistry.Invoke(step.action, step.args)
+                ; run.wait returns the program's exit code instead of throwing.
+                if (step.action = "run.wait" && IsInteger(result) && result != 0)
+                    throw Error("the command exited with code " result ".")
             } catch as e {
                 failed++
-                if HasMethod(ActionRegistry.OnError)
-                    ActionRegistry.OnError.Call(step.action, e)
-                else
-                    ActionRegistry._DefaultOnError(step.action, e)
+                if (failed = 1)
+                    spec.lastError := e
+                if !e.HasOwnProp("scheduleReported") {
+                    if HasMethod(ActionRegistry.OnError)
+                        ActionRegistry.OnError.Call(step.action, e)
+                    else
+                        ActionRegistry._DefaultOnError(step.action, e)
+                }
                 if (!spec.continueOnError) {
                     if (i < spec.steps.Length)
                         StatusLog.Warn("schedule " spec.name ": " step.action " failed (" e.Message "), skipped the rest")
@@ -637,6 +681,9 @@ class Schedules {
     }
 
     static _Resume(spec, start, *) {
+        if !Schedules._pending.Has(spec)
+            return ; cancelled by Stop or Reset
+        Schedules._pending.Delete(spec)
         try {
             Schedules.RunSteps(spec, start)
         } catch as e {

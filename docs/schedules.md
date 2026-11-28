@@ -61,7 +61,8 @@ is written to the status log (`%LOCALAPPDATA%\hotkit\hotkit.log`).
 
 A step starts when the previous one returns. Actions that launch a program,
 such as `run`, return once it has started; use `run.wait` to wait for it to
-finish. When a step fails, its error shows like any failed action and the rest
+finish. A `run.wait` command that exits with a code other than 0 counts as a
+failed step. When a step fails, its error shows like any failed action and the rest
 are skipped, unless `continueOnError` is `true`. While a schedule's steps are
 running, another trigger of the same schedule is skipped. A `wait` doesn't
 hold up other schedules.
