@@ -26,6 +26,13 @@ class Paths {
         return Paths.Normalize(EnvGet("USERPROFILE") "\.config\" Paths.AppName)
     }
 
+    ; True when `title` is the main window title of an AutoHotkey process
+    ; running `scriptPath` ("<path> - AutoHotkey v2.x"), ignoring case.
+    static IsInstanceTitle(title, scriptPath) {
+        prefix := scriptPath " - AutoHotkey"
+        return scriptPath != "" && SubStr(title, 1, StrLen(prefix)) = prefix
+    }
+
     static ConfigFile() => Paths.ConfigDir() "\config.json"
     static PluginDir() => Paths.ConfigDir() "\plugins"
 

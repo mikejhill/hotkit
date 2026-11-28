@@ -1,5 +1,8 @@
 #Requires AutoHotkey v2.0
-#SingleInstance Force
+; Off, not Force: Force would let --check, --list-actions and test runs close
+; the Hotkit you're using. App.Main replaces an older instance itself, only in
+; interactive run mode.
+#SingleInstance Off
 ; App.Main shows the icon in run mode; --check, --list-actions, --sync-plugins and
 ; test runs (HOTKIT_HEADLESS=1) exit quickly and must not flash one in the tray.
 #NoTrayIcon

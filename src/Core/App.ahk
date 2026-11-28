@@ -52,6 +52,8 @@ class App {
         App.Restarted := EnvGet("HOTKIT_RESTARTED") = "1"
         EnvSet("HOTKIT_RESTARTED")
         App.ParseArgs(App._args)
+        if (App.Mode = "run" && EnvGet("HOTKIT_HEADLESS") != "1")
+            App.ReplaceOtherInstances()
         if Tray.ShowsIcon(App.Mode, EnvGet("HOTKIT_HEADLESS") = "1")
             A_IconHidden := false
         if (App.Mode = "run") {
@@ -92,6 +94,25 @@ class App {
         if (App.Mode = "list-actions")
             return App.ExitWithActions()
         App.Run()
+    }
+
+    ; Like #SingleInstance Force, but only for interactive runs: closes other
+    ; Hotkit instances started from this same script, letting their OnExit
+    ; cleanup run.
+    static ReplaceOtherInstances() {
+        hidden := DetectHiddenWindows(true)
+        try {
+            for hwnd in WinGetList("ahk_class AutoHotkey") {
+                if (hwnd = A_ScriptHwnd)
+                    continue
+                try {
+                    if Paths.IsInstanceTitle(WinGetTitle(hwnd), A_ScriptFullPath)
+                        WinClose(hwnd, , 5)
+                }
+            }
+        } finally {
+            DetectHiddenWindows(hidden)
+        }
     }
 
     static ParseArgs(args) {
