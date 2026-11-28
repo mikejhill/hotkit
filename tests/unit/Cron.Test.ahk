@@ -83,6 +83,17 @@ class Cron_Tests {
         Assert.Equal("20261130090000", Cron.Parse("0 9 * * mon").Next("20261127120000"))
     }
 
+    static Test_PreviousFindsLastMatchBefore() {
+        c := Cron.Parse("30 7 * * *")
+        Assert.Equal("20261127073000", c.Previous("20261127073100"))
+        Assert.Equal("20261126073000", c.Previous("20261127073000"), "strictly before")
+        Assert.Equal("20261126073000", c.Previous("20261127073059"), "seconds are ignored")
+        Assert.Equal("20261130090000", Cron.Parse("0 9 * * mon").Previous("20261203000000"))
+        Assert.Equal("20261231235800", Cron.Parse("0-58 * * * *").Previous("20270101000000"), "crosses a year")
+        Assert.Equal("20240229000000", Cron.Parse("0 0 29 2 *").Previous("20261127000000"))
+        Assert.Equal("", Cron.Parse("0 0 31 2 *").Previous("20261127000000"))
+    }
+
     static Test_NextFindsLeapDay() {
         Assert.Equal("20280229000000", Cron.Parse("0 0 29 2 *").Next("20261127000000"))
     }

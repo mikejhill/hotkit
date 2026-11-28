@@ -117,9 +117,11 @@ class App {
                     pid := WinGetPID(hwnd)
                     WinClose(hwnd)
                     ; Exit schedules may still be running; wait for them.
-                    if ProcessWaitClose(pid, 15)
-                        App.Problems.Push("Another Hotkit from this folder (PID " pid ") didn't exit, so "
-                            "both are running. Exit it from its tray icon or Task Manager.")
+                    if ProcessWaitClose(pid, 15) {
+                        DetectHiddenWindows(hidden)
+                        return App.Fail("Another Hotkit from this folder (PID " pid ") didn't exit, so this one "
+                            "won't start. Exit it from its tray icon or Task Manager, then start Hotkit again.")
+                    }
                 }
             }
         } finally {
@@ -272,6 +274,12 @@ class App {
         } catch as e {
             Bindings.problems.Push("Couldn't watch for settings.suspendWhenActive windows: " e.Message)
         }
+        ; Before Tray.Build, so a problem here gets the tray's problems item.
+        try {
+            Schedules.Start()
+        } catch as e {
+            Bindings.problems.Push("schedules: " e.Message)
+        }
         menus := []
         for m in App.Modules {
             if HasMethod(m, "TrayMenus") {
@@ -296,11 +304,7 @@ class App {
             SetTimer(() => ExitApp(), -App._exitAfter)
         for fn in App._readyHooks
             try fn.Call()
-        try {
-            Schedules.Start(App.Restarted)
-        } catch as e {
-            Bindings.problems.Push("schedules: " e.Message)
-        }
+        Schedules.Fire(App.Restarted ? "reload" : "startup")
         if (Bindings.problems.Length) {
             Toast.ShowToast({ color: "FFB000", fadeDelay: 6000 }, "Config Problems: " Bindings.problems.Length,
                 "Tray › Show Config Problems")

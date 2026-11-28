@@ -156,14 +156,19 @@ class Schedules {
     }
 
     ; Reports schedules whose action doesn't exist. Call after plugins load.
+    ; Schedules caught in a schedule.run loop are reported and dropped.
     static Validate() {
+        keep := []
         for spec in Schedules.specs {
             if !ActionRegistry.Has(spec.action)
                 Schedules.problems.Push(spec.source " (" spec.name "): unknown action '" spec.action "'.")
             chain := Schedules.RunLoop(spec)
             if (chain != "")
                 Schedules.problems.Push(spec.source " (" spec.name "): schedule.run calls loop back: " chain ".")
+            else
+                keep.Push(spec)
         }
+        Schedules.specs := keep
     }
 
     ; Follows schedule.run calls from spec. Returns the chain ("a -> b -> a")
@@ -281,8 +286,9 @@ class Schedules {
 
     ; ---------------- Running                       ------------------------------
 
-    ; Starts timers and event watchers (run mode), then fires startup or reload.
-    static Start(reloaded := false) {
+    ; Starts timers and event watchers (run mode). Fire("startup") or
+    ; Fire("reload") afterwards runs the startup schedules.
+    static Start() {
         Schedules.Stop()
         Schedules._started := true
         now := A_Now
@@ -315,7 +321,6 @@ class Schedules {
             SetTimer(Schedules._idleFn, Schedules.IdlePollMs)
         if Schedules._Uses(["exit"])
             OnExit(Schedules._OnExit)
-        Schedules.Fire(reloaded ? "reload" : "startup")
     }
 
     static Stop() {
@@ -352,8 +357,8 @@ class Schedules {
 
     ; Runs the schedules whose cron times have come. `now` is YYYYMMDDHHMISS.
     ; Times that passed unseen (the PC slept, or the clock jumped ahead) run
-    ; once if the schedule sets catchUp and are skipped otherwise. Catch-up
-    ; runs go in the order their times fell, so the latest one wins.
+    ; once if the schedule sets catchUp and are skipped otherwise. Runs go in
+    ; the order their times fell, catch-up runs first, so the latest one wins.
     static Tick(now := A_Now) {
         minute := SubStr(now, 1, 12)
         if (minute = Schedules._lastTick)
@@ -361,7 +366,7 @@ class Schedules {
         clockBack := Schedules._lastTick != "" && minute < Schedules._lastTick
         Schedules._lastTick := minute
         before := DateAdd(minute "00", -1, "Minutes")
-        catchUps := []
+        queue := []
         for spec in Schedules.specs {
             due := false, missedAt := ""
             for i, expr in spec.crons {
@@ -383,29 +388,23 @@ class Schedules {
                 spec.next[i] := expr.Next(now)
             }
             if (due)
-                Schedules.Run(spec, "cron")
+                queue.Push({ spec: spec, at: minute "00", trigger: "cron" })
             else if (missedAt != "") {
                 if (spec.catchUp)
-                    catchUps.Push({ spec: spec, at: missedAt })
+                    queue.Push({ spec: spec, at: missedAt, trigger: "cron (catch-up for " missedAt ")" })
                 else
                     StatusLog.Info("schedule " spec.name ": skipped " missedAt ", missed while the PC was asleep or busy")
             }
         }
-        for item in Schedules.SortByTime(catchUps)
-            Schedules.Run(item.spec, "cron (catch-up for " item.at ")")
+        for item in Schedules.SortByTime(queue)
+            Schedules.Run(item.spec, item.trigger)
     }
 
-    ; The latest match of expr from `first` (itself a match) up to, not
-    ; including, `minute` (YYYYMMDDHHMI). Gives up after 10000 steps.
+    ; The latest match of expr before `minute` (YYYYMMDDHHMI), and no earlier
+    ; than `first`, a match known to have passed.
     static LastBefore(expr, first, minute) {
-        last := first
-        loop 10000 {
-            nxt := expr.Next(last)
-            if (nxt = "" || SubStr(nxt, 1, 12) >= minute)
-                return last
-            last := nxt
-        }
-        return last
+        last := expr.Previous(minute "00")
+        return (last = "" || last < first) ? first : last
     }
 
     ; Stable insertion sort by .at.
@@ -460,10 +459,19 @@ class Schedules {
     }
 
     static Run(spec, trigger) {
+        if (spec.HasOwnProp("running") && spec.running) {
+            StatusLog.Warn("schedule " spec.name ": " trigger " skipped, its action is still running")
+            return
+        }
         StatusLog.Info("schedule " spec.name ": " trigger " -> " spec.action)
-        if HasMethod(Schedules.Runner)
-            return Schedules.Runner.Call(spec, trigger)
-        return ActionRegistry.SafeInvoke(spec.action, spec.args)
+        spec.running := true
+        try {
+            if HasMethod(Schedules.Runner)
+                return Schedules.Runner.Call(spec, trigger)
+            return ActionRegistry.SafeInvoke(spec.action, spec.args)
+        } finally {
+            spec.running := false
+        }
     }
 
     static _RunLater(spec, trigger, delayMs, *) {

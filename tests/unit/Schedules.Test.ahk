@@ -247,6 +247,29 @@ class Schedules_Tests {
             Schedules_Tests.Runs)
     }
 
+    static Test_CurrentRunGoesAfterCatchUp() {
+        light := Schedules_Tests.Add('{ "name": "light", "cron": "0 7 * * *", "action": "test.act" }')
+        dark := Schedules_Tests.Add('{ "name": "dark", "cron": "0 19 * * *", "catchUp": true, "action": "test.act" }')
+        light.next := [light.crons[1].Next("20261126180000")]
+        dark.next := [dark.crons[1].Next("20261126180000")]
+        Schedules.Tick("20261126180000")
+        Schedules.Tick("20261127070000")
+        Assert.Equal(["dark:cron (catch-up for 20261126190000)", "light:cron"], Schedules_Tests.Runs)
+    }
+
+    static Test_LastBeforeFindsLatestAfterLongGap() {
+        c := Cron.Parse("0-58 * * * *")
+        Assert.Equal("20261204005800", Schedules.LastBefore(c, "20261126000000", "202612040059"))
+    }
+
+    static Test_RunSkipsReentry() {
+        s := Schedules_Tests.Add('{ "name": "r", "on": "lock", "action": "test.act" }')
+        Schedules.Runner := (spec, trigger) => (Schedules_Tests.Runs.Push(trigger), Schedules.Run(spec, "inner"))
+        Schedules.Fire("lock")
+        Assert.Equal(["lock"], Schedules_Tests.Runs)
+        Assert.False(s.running)
+    }
+
     static Test_SortByTimeIsStable() {
         out := Schedules.SortByTime([{ at: "2", n: "a" }, { at: "1", n: "b" }, { at: "2", n: "c" }])
         Assert.Equal("b", out[1].n)
@@ -263,6 +286,8 @@ class Schedules_Tests {
         Schedules.Validate()
         ActionRegistry.Unregister("schedule.run")
         Assert.Equal(3, Schedules.problems.Length, "c only leads into the loop")
+        Assert.Equal(1, Schedules.specs.Length, "looping schedules are dropped")
+        Assert.Equal("c", Schedules.specs[1].name)
         Assert.Equal("schedules[1] (a): schedule.run calls loop back: a -> b -> a.", Schedules.problems[1])
         Assert.Equal("schedules[2] (b): schedule.run calls loop back: b -> a -> b.", Schedules.problems[2])
         Assert.Equal("schedules[4] (self): schedule.run calls loop back: self -> self.", Schedules.problems[3])

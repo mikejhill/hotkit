@@ -6,6 +6,7 @@
 ;   expr := Cron.Parse("30 7 * * mon-fri")
 ;   expr.Matches(A_Now)            ; true at 07:30 on weekdays
 ;   expr.Next(A_Now)               ; next matching minute after A_Now (YYYYMMDDHHMI00)
+;   expr.Previous(A_Now)           ; last matching minute before A_Now
 ;
 ; Each field takes *, a number or name, a range a-b, a list a,b,c and a step
 ; /n after * or a range ("*/15", "8-18/2"); "a/n" means a through the field's
@@ -132,6 +133,29 @@ class Cron {
         if (!this.dayStar && !this.weekdayStar)
             return dayOk || weekdayOk
         return dayOk && weekdayOk
+    }
+
+    ; The last matching minute strictly before the minute of `stamp`, as
+    ; YYYYMMDDHHMI00, or "" when none falls in the previous SearchYears years.
+    Previous(stamp) {
+        t := DateAdd(SubStr(stamp, 1, 12) "00", -1, "Minutes")
+        limit := (Integer(SubStr(t, 1, 4)) - Cron.SearchYears) "0101000000"
+        while (t >= limit) {
+            if !this._DayMatches(t) {
+                t := DateAdd(SubStr(t, 1, 8) "235900", -1, "Days")
+                continue
+            }
+            if !this._Has(this.hours, Integer(SubStr(t, 9, 2))) {
+                t := DateAdd(SubStr(t, 1, 10) "5900", -1, "Hours")
+                continue
+            }
+            if !this._Has(this.minutes, Integer(SubStr(t, 11, 2))) {
+                t := DateAdd(t, -1, "Minutes")
+                continue
+            }
+            return t
+        }
+        return ""
     }
 
     ; The first matching minute strictly after `stamp`, as YYYYMMDDHHMI00, or

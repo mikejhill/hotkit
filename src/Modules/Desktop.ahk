@@ -27,8 +27,8 @@ class DesktopModule {
             { module: DesktopModule.Name, description: desc, params: params })
 
         reg("theme.toggle", (*) => DesktopModule.ToggleTheme(), "Toggle Windows light/dark theme (and wallpaper)")
-        reg("theme.set", (mode) => DesktopModule.SetTheme(mode), "Set Windows to the light or dark theme (and wallpaper)",
-            "light|dark")
+        reg("theme.set", (mode) => DesktopModule.SetTheme(mode),
+            'Set Windows to the light or dark theme (and wallpaper); mode is "light" or "dark"', "mode")
         reg("wallpaper.set", (path, style := "Fill") => WallpaperFunctions.SetWallpaper(Paths.Expand(path), style),
             "Set the desktop wallpaper", "path, [style]")
         reg("wallpaper.bing", (*) => DesktopModule.SetBing(), "Set today's Bing image as wallpaper")
