@@ -1,5 +1,8 @@
 #Requires AutoHotkey v2.0
-#SingleInstance Force
+; Off, not Force: Force would let --check, --list-actions and test runs close
+; the Hotkit you're using. App.Main replaces an older instance itself, only in
+; interactive run mode.
+#SingleInstance Off
 ; App.Main shows the icon in run mode; --check, --list-actions, --sync-plugins and
 ; test runs (HOTKIT_HEADLESS=1) exit quickly and must not flash one in the tray.
 #NoTrayIcon
@@ -25,6 +28,7 @@ for arg in A_Args {
 #Include %A_ScriptDir%\Lib\Toast.ahk
 #Include %A_ScriptDir%\Lib\JSON.ahk
 #Include %A_ScriptDir%\Lib\PackageVirtualization.ahk
+#Include %A_ScriptDir%\Lib\Cron.ahk
 
 #Include %A_ScriptDir%\Core\Paths.ahk
 #Include %A_ScriptDir%\Core\StatusLog.ahk
@@ -32,6 +36,7 @@ for arg in A_Args {
 #Include %A_ScriptDir%\Lib\HotkeyText.ahk
 #Include %A_ScriptDir%\Core\ActionRegistry.ahk
 #Include %A_ScriptDir%\Core\Bindings.ahk
+#Include %A_ScriptDir%\Core\Schedules.ahk
 #Include %A_ScriptDir%\Core\Plugins.ahk
 #Include %A_ScriptDir%\Core\Tray.ahk
 #Include %A_ScriptDir%\Core\Updates.ahk

@@ -27,6 +27,8 @@ class DesktopModule {
             { module: DesktopModule.Name, description: desc, params: params })
 
         reg("theme.toggle", (*) => DesktopModule.ToggleTheme(), "Toggle Windows light/dark theme (and wallpaper)")
+        reg("theme.set", (mode) => DesktopModule.SetTheme(mode),
+            'Set Windows to the light or dark theme (and wallpaper); mode is "light" or "dark"', "mode")
         reg("wallpaper.set", (path, style := "Fill") => WallpaperFunctions.SetWallpaper(Paths.Expand(path), style),
             "Set the desktop wallpaper", "path, [style]")
         reg("wallpaper.bing", (*) => DesktopModule.SetBing(), "Set today's Bing image as wallpaper")
@@ -64,13 +66,31 @@ class DesktopModule {
     ; "bing", a file path, or "" (leave unchanged).
     static ToggleTheme() {
         result := ThemeFunctions.ToggleTheme()
-        mode := result.Get("current") = 1 ? "light" : "dark"
+        DesktopModule._ThemeWallpaper(result.Get("current") = 1 ? "light" : "dark")
+        return result
+    }
+
+    ; mode: "light" or "dark". Applies the matching wallpaper, as theme.toggle does.
+    static SetTheme(mode) {
+        light := DesktopModule.ThemeMode(mode)
+        result := ThemeFunctions.SetTheme(light)
+        DesktopModule._ThemeWallpaper(light ? "light" : "dark")
+        return result
+    }
+
+    ; "light" -> 1, "dark" -> 0 (any case). Throws ValueError otherwise.
+    static ThemeMode(mode) {
+        if (mode is String && (mode = "light" || mode = "dark"))
+            return mode = "light" ? 1 : 0
+        throw ValueError("theme.set: use 'light' or 'dark', not '" (IsObject(mode) ? "{…}" : mode) "'.")
+    }
+
+    static _ThemeWallpaper(mode) {
         target := MapGet(DesktopModule.Wallpaper, mode, "")
         if (target = "bing")
             DesktopModule.SetBing()
         else if (target != "")
             WallpaperFunctions.SetWallpaper(Paths.Expand(target))
-        return result
     }
 
     static SetBing() {

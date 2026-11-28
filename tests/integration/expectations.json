@@ -15,5 +15,15 @@
       "tray.icon: file not found: no-such-icon.ico",
       "FAIL"
     ]
+  },
+  "schedules.json": { "exit": 0, "contains": ["OK"] },
+  "schedule-problems.json": {
+    "exit": 1,
+    "contains": [
+      "schedules[1] (typo): cron hour 25 is outside 0-23",
+      "schedules[2] (missing): unknown action 'no.such.action'",
+      "schedules[3] (event): unknown event 'boot'",
+      "FAIL"
+    ]
   }
 }

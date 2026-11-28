@@ -31,6 +31,16 @@ class Paths_Tests {
         }
     }
 
+    static Test_IsInstanceTitleMatchesSameScriptOnly() {
+        path := "C:\tools\hotkit\src\Main.ahk"
+        Assert.True(Paths.IsInstanceTitle(path " - AutoHotkey v2.0.18", path))
+        Assert.True(Paths.IsInstanceTitle("c:\TOOLS\hotkit\src\main.ahk - AutoHotkey v2.0.18", path), "case")
+        Assert.False(Paths.IsInstanceTitle("C:\other\hotkit\src\Main.ahk - AutoHotkey v2.0.18", path))
+        Assert.False(Paths.IsInstanceTitle(path ".bak - AutoHotkey v2.0.18", path))
+        Assert.False(Paths.IsInstanceTitle(path, path), "no AutoHotkey suffix")
+        Assert.False(Paths.IsInstanceTitle(" - AutoHotkey v2", ""))
+    }
+
     static Test_DefaultConfigDir() {
         Assert.Equal(EnvGet("USERPROFILE") "\.config\hotkit", Paths.ConfigDir())
         Assert.Equal(Paths.ConfigDir() "\config.json", Paths.ConfigFile())

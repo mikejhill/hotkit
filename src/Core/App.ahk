@@ -13,7 +13,7 @@
 ;   --no-plugin-sync       do not regenerate the plugin include stub
 ;   --exit-after <ms>      exit automatically (used by end-to-end tests)
 class App {
-    static Version := "1.22.0"
+    static Version := "1.23.0"
     static Modules := [AppsModule, QuickWindowsModule, WindowsModule, DesktopModule, DisplayModule, PowerModule]
     static Config := ""
     static ConfigPath := ""
@@ -28,6 +28,8 @@ class App {
     static _exitAfter := 0
     static _allowVirtualized := false
     static _args := []
+    ; True when this process was started by App.Restart (a reload).
+    static Restarted := false
 
     ; ---------------- Plugin API                    ------------------------------
 
@@ -47,7 +49,17 @@ class App {
 
     static Main(args := unset) {
         App._args := IsSet(args) ? args : []
+        App.Restarted := EnvGet("HOTKIT_RESTARTED") = "1"
+        EnvSet("HOTKIT_RESTARTED")
+        ; App.Restart names the process it replaces; let it finish exiting
+        ; before taking over hotkeys.
+        previous := EnvGet("HOTKIT_RESTART_PID")
+        EnvSet("HOTKIT_RESTART_PID")
+        if (previous != "" && IsInteger(previous))
+            ProcessWaitClose(Integer(previous), 10)
         App.ParseArgs(App._args)
+        if (App.Mode = "run" && EnvGet("HOTKIT_HEADLESS") != "1")
+            App.ReplaceOtherInstances()
         if Tray.ShowsIcon(App.Mode, EnvGet("HOTKIT_HEADLESS") = "1")
             A_IconHidden := false
         if (App.Mode = "run") {
@@ -64,7 +76,7 @@ class App {
         }
         if (App.Mode = "run" && App._syncPlugins && Plugins.Sync()) {
             ; The plugin set changed; restart so the new #Include stub takes effect.
-            return App.Restart()
+            return App.Restart(App.Restarted)
         }
         if (App.Mode = "sync-plugins") {
             changed := Plugins.Sync()
@@ -88,6 +100,33 @@ class App {
         if (App.Mode = "list-actions")
             return App.ExitWithActions()
         App.Run()
+    }
+
+    ; Like #SingleInstance Force, but only for interactive runs: closes other
+    ; Hotkit instances started from this same script, letting their OnExit
+    ; cleanup run.
+    static ReplaceOtherInstances() {
+        hidden := DetectHiddenWindows(true)
+        try {
+            for hwnd in WinGetList("ahk_class AutoHotkey") {
+                if (hwnd = A_ScriptHwnd)
+                    continue
+                try {
+                    if !Paths.IsInstanceTitle(WinGetTitle(hwnd), A_ScriptFullPath)
+                        continue
+                    pid := WinGetPID(hwnd)
+                    WinClose(hwnd)
+                    ; Exit schedules may still be running; wait for them.
+                    if ProcessWaitClose(pid, 15) {
+                        DetectHiddenWindows(hidden)
+                        return App.Fail("Another Hotkit from this folder (PID " pid ") didn't exit, so this one "
+                            "won't start. Exit it from its tray icon or Task Manager, then start Hotkit again.")
+                    }
+                }
+            }
+        } finally {
+            DetectHiddenWindows(hidden)
+        }
     }
 
     static ParseArgs(args) {
@@ -165,6 +204,7 @@ class App {
         cfg := App.Config
         Debugger.Enabled := !!cfg.Get("settings.debug", false)
         Bindings.Reset()
+        Schedules.Reset(Bindings.problems)
         for p in App.Problems
             Bindings.problems.Push(p)
         App.RegisterCoreActions()
@@ -179,6 +219,8 @@ class App {
         }
         Bindings.LoadConfig(cfg)
         Bindings.Validate()
+        Schedules.LoadConfig(cfg)
+        Schedules.Validate()
         App.ValidateTray(cfg.List("tray.items"))
         Updates.Configure(cfg, Bindings.problems)
         iconProblem := Tray.ResolveIcon(cfg).problem
@@ -232,6 +274,12 @@ class App {
         } catch as e {
             Bindings.problems.Push("Couldn't watch for settings.suspendWhenActive windows: " e.Message)
         }
+        ; Before Tray.Build, so a problem here gets the tray's problems item.
+        try {
+            Schedules.Start()
+        } catch as e {
+            Bindings.problems.Push("schedules: " e.Message)
+        }
         menus := []
         for m in App.Modules {
             if HasMethod(m, "TrayMenus") {
@@ -256,6 +304,7 @@ class App {
             SetTimer(() => ExitApp(), -App._exitAfter)
         for fn in App._readyHooks
             try fn.Call()
+        Schedules.Fire(App.Restarted ? "reload" : "startup")
         if (Bindings.problems.Length) {
             Toast.ShowToast({ color: "FFB000", fadeDelay: 6000 }, "Config Problems: " Bindings.problems.Length,
                 "Tray › Show Config Problems")
@@ -277,6 +326,7 @@ class App {
         reg("app.editConfig", (*) => App.EditConfig(), "Open config.json in the default editor")
         reg("app.showProblems", (*) => App.ShowProblems(), "List config problems")
         reg("app.checkForUpdates", (*) => Updates.Check(true), "Check GitHub for a newer Hotkit release")
+        reg("schedule.run", (name) => Schedules.RunNow(name), "Run a schedule's action now", "name")
         reg("app.update", (*) => Updates.Install(), "Install the newer Hotkit release and reload (checks first if none is known)")
         reg("bindings.toggleGroup", (name) => App.ToggleGroup(name), "Turn a binding group on or off", "group")
         reg("bindings.enableGroup", (name) => Bindings.SetGroup(name, true), "Turn a binding group on", "group")
@@ -350,12 +400,22 @@ class App {
 
     ; Like Reload(), but keeps command-line arguments (Reload drops them).
     ; Modules with a BeforeRestart method can hand state to the new process.
-    static Restart() {
+    ; The new process sees App.Restarted (schedules fire "reload", not
+    ; "startup"), and this one doesn't fire "exit".
+    static Restart(reload := true) {
+        Schedules.Restarting := true
+        if (reload)
+            EnvSet("HOTKIT_RESTARTED", "1")
+        else
+            EnvSet("HOTKIT_RESTARTED")
+        EnvSet("HOTKIT_RESTART_PID", ProcessExist())
         for m in App.Modules {
             if HasMethod(m, "BeforeRestart")
                 try m.BeforeRestart()
         }
-        cmd := '"' A_AhkPath '" /restart "' A_ScriptFullPath '"'
+        ; No /restart: AutoHotkey would close every instance of this script with
+        ; it, including an interactive one when a headless test run restarts.
+        cmd := '"' A_AhkPath '" "' A_ScriptFullPath '"'
         for arg in App._args
             cmd .= ' "' arg '"'
         Run(cmd)

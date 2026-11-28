@@ -71,6 +71,7 @@ promotion silently do nothing. Pass `--allow-virtualized` to start anyway.
 | `layers` | Switchable sets of bindings; one is active at a time |
 | `groups` | Named sets of bindings that can be switched on and off |
 | `bindings` | The shortcuts |
+| `schedules` | Actions run on a cron schedule, at an interval, or on events such as startup, lock, and unlock; see [schedules.md](schedules.md) |
 | `apps` | Apps used by `app.toggle` and `app.launch` |
 | `quickWindows` | Floating windows used by `quickWindow.*` |
 | `modules` | Per-module settings; any module accepts `"enabled": false` |

@@ -442,6 +442,13 @@
         "$ref": "#/$defs/binding"
       }
     },
+    "schedules": {
+      "type": "array",
+      "description": "Actions to run on a cron schedule, at an interval, or on events such as startup, lock, and unlock.",
+      "items": {
+        "$ref": "#/$defs/schedule"
+      }
+    },
     "tray": {
       "type": "object",
       "properties": {
@@ -712,6 +719,147 @@
         "onCancel": [
           "onNextKey"
         ]
+      },
+      "additionalProperties": false
+    },
+    "schedule": {
+      "type": "object",
+      "required": [
+        "action"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "cron"
+          ]
+        },
+        {
+          "required": [
+            "every"
+          ]
+        },
+        {
+          "required": [
+            "on"
+          ]
+        }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique name, used by schedule.run and in the status log."
+        },
+        "description": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string",
+          "description": "Action id to run."
+        },
+        "args": {
+          "type": "array",
+          "description": "Positional arguments for the action."
+        },
+        "cron": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ],
+          "description": "Five-field cron expression in local time (minute hour day month weekday), or a list of them. Shorthands: @hourly, @daily, @weekly, @monthly, @yearly."
+        },
+        "every": {
+          "type": "string",
+          "pattern": "^\\s*(\\d+\\s*d)?\\s*(\\d+\\s*h)?\\s*(\\d+\\s*m)?\\s*(\\d+\\s*s)?\\s*$",
+          "description": "Run repeatedly at this interval, such as \"15m\" or \"1h30m\" (at most 24 days). The first run is one interval after Hotkit starts."
+        },
+        "on": {
+          "description": "Event or list of events that run the action.",
+          "oneOf": [
+            {
+              "enum": [
+                "startup",
+                "reload",
+                "exit",
+                "lock",
+                "unlock",
+                "sleep",
+                "resume",
+                "idle",
+                "active",
+                "pluggedIn",
+                "unplugged",
+                "remoteConnect",
+                "remoteDisconnect"
+              ]
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "enum": [
+                  "startup",
+                  "reload",
+                  "exit",
+                  "lock",
+                  "unlock",
+                  "sleep",
+                  "resume",
+                  "idle",
+                  "active",
+                  "pluggedIn",
+                  "unplugged",
+                  "remoteConnect",
+                  "remoteDisconnect"
+                ]
+              }
+            }
+          ]
+        },
+        "delay": {
+          "type": "string",
+          "pattern": "^\\s*(\\d+\\s*d)?\\s*(\\d+\\s*h)?\\s*(\\d+\\s*m)?\\s*(\\d+\\s*s)?\\s*$",
+          "description": "Wait this long after an 'on' event before running. Not allowed with exit or sleep."
+        },
+        "idleAfter": {
+          "type": "string",
+          "pattern": "^\\s*(\\d+\\s*d)?\\s*(\\d+\\s*h)?\\s*(\\d+\\s*m)?\\s*(\\d+\\s*s)?\\s*$",
+          "description": "For idle and active: how long without keyboard or mouse input counts as idle (default \"10m\", at least 10s)."
+        },
+        "catchUp": {
+          "type": "boolean",
+          "description": "Run once after waking when a cron time passed while the PC was asleep (default false)."
+        },
+        "machines": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ],
+          "description": "Only load this schedule on these computers (names compared case-insensitively)."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "false skips the schedule."
+        }
       },
       "additionalProperties": false
     },
