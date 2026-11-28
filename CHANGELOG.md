@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-11-27
+
 ### Added
 - `schedules` runs actions on a schedule: five-field cron expressions in local time (`"cron": "0 19 * * *"`), fixed intervals (`"every": "30m"`), and events: `startup`, `reload`, `exit`, `lock`, `unlock`, `sleep`, `resume`, `idle`, `active`, `pluggedIn`, `unplugged`, `remoteConnect`, and `remoteDisconnect`. A schedule can wait after its event (`delay`), run a cron time it missed while the PC slept (`catchUp`), and apply only on some computers (`machines`). `schedule.run` runs one by name, and plugins can add schedules with `Schedules.Add` and react to events with `Schedules.On`. See [docs/schedules.md](docs/schedules.md).
 - `theme.set` switches Windows to the light or dark theme, with the matching wallpaper, for use in schedules and bindings.
