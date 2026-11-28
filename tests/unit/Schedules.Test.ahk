@@ -16,7 +16,7 @@ class Schedules_Tests {
     static Teardown() {
         Schedules.Reset([])
         Schedules.Runner := ""
-        Schedules.Waiter := (ms) => Sleep(ms)
+        Schedules.Delayer := (fn, ms) => SetTimer(fn, -ms)
         Schedules.Machine := A_ComputerName
         ActionRegistry.Unregister("test.act")
         try FileDelete(StatusLog.Path)
@@ -357,7 +357,7 @@ class Schedules_Tests {
         ActionRegistry.Register("test.one", (*) => calls.Push("one"))
         ActionRegistry.Register("test.two", (n) => calls.Push("two:" n))
         Schedules.Runner := ""
-        Schedules.Waiter := (ms) => calls.Push("wait:" ms)
+        Schedules.Delayer := (fn, ms) => (calls.Push("wait:" ms), fn.Call())
         Schedules_Tests.Add('{ "on": "unlock", "actions": ["test.one", { "wait": "2s" }, { "action": "test.two", "args": [7] }] }')
         Schedules.Fire("unlock")
         ActionRegistry.Unregister("test.one")
@@ -389,6 +389,66 @@ class Schedules_Tests {
         Assert.Equal(["test.boom: nope", "test.boom: nope"], errors)
         Assert.Equal(1, failedStop)
         Assert.Equal(1, failedGo)
+    }
+
+    static Test_WaitHandsTheRestToATimer() {
+        calls := []
+        pending := []
+        ActionRegistry.Register("test.one", (*) => calls.Push("one"))
+        ActionRegistry.Register("test.two", (*) => calls.Push("two"))
+        Schedules.Runner := ""
+        Schedules.Delayer := (fn, ms) => pending.Push(fn)
+        s := Schedules_Tests.Add('{ "on": "lock", "actions": ["test.one", { "wait": "2m" }, "test.two"] }')
+        Schedules.Fire("lock")
+        Assert.Equal(["one"], calls, "returns at the wait")
+        Assert.True(s.running)
+        Schedules.Fire("lock")
+        Assert.Equal(["one"], calls, "a second trigger is skipped while waiting")
+        pending[1].Call()
+        ActionRegistry.Unregister("test.one")
+        ActionRegistry.Unregister("test.two")
+        Assert.Equal(["one", "two"], calls)
+        Assert.False(s.running)
+    }
+
+    static Test_RunNowThrowsWhenAStepFails() {
+        ActionRegistry.Register("test.boom", Schedules_Tests.Boom.Bind(Schedules_Tests, []))
+        saved := ActionRegistry.OnError
+        ActionRegistry.OnError := (*) => 0
+        Schedules.Runner := ""
+        Schedules_Tests.Add('{ "name": "child", "on": "lock", "actions": ["test.boom"] }')
+        err := Assert.Throws(() => Schedules.RunNow("child"), "schedule 'child': 1 step failed")
+        ActionRegistry.OnError := saved
+        ActionRegistry.Unregister("test.boom")
+    }
+
+    static Test_ParentStopsWhenChildScheduleFails() {
+        calls := []
+        ActionRegistry.Register("test.boom", Schedules_Tests.Boom.Bind(Schedules_Tests, calls))
+        ActionRegistry.Register("test.after", (*) => calls.Push("after"))
+        ActionRegistry.Register("schedule.run", (name) => Schedules.RunNow(name))
+        saved := ActionRegistry.OnError
+        ActionRegistry.OnError := (id, e) => calls.Push("error:" id)
+        Schedules.Runner := ""
+        Schedules_Tests.Add('{ "name": "child", "on": "lock", "actions": ["test.boom"] }')
+        Schedules_Tests.Add('{ "name": "parent", "on": "unlock", "actions": [{ "action": "schedule.run", "args": ["child"] }, "test.after"] }')
+        Schedules.Fire("unlock")
+        ActionRegistry.OnError := saved
+        for id in ["test.boom", "test.after", "schedule.run"]
+            ActionRegistry.Unregister(id)
+        Assert.Equal(["boom", "error:test.boom", "error:schedule.run"], calls)
+    }
+
+    static Test_ExitScheduleCantReachAWait() {
+        ActionRegistry.Register("schedule.run", (*) => 0)
+        Schedules_Tests.Add('{ "name": "bye", "on": "exit", "actions": [{ "action": "schedule.run", "args": ["mid"] }] }', "schedules[1]")
+        Schedules_Tests.Add('{ "name": "mid", "on": "lock", "action": "schedule.run", "args": ["slow"] }', "schedules[2]")
+        Schedules_Tests.Add('{ "name": "slow", "on": "lock", "actions": ["test.act", { "wait": "1s" }, "test.act"] }', "schedules[3]")
+        Schedules.Validate()
+        ActionRegistry.Unregister("schedule.run")
+        Assert.Equal(["schedules[1] (bye): runs 'slow', which has 'wait' steps; exit and sleep schedules can't wait."],
+            Schedules.problems)
+        Assert.Equal(2, Schedules.specs.Length)
     }
 
     static Test_ValidateChecksEveryStepAction() {

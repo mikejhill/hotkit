@@ -63,9 +63,14 @@ A step starts when the previous one returns. Actions that launch a program,
 such as `run`, return once it has started; use `run.wait` to wait for it to
 finish. When a step fails, its error shows like any failed action and the rest
 are skipped, unless `continueOnError` is `true`. While a schedule's steps are
-running, another trigger of the same schedule is skipped. `wait` steps are not
-allowed with the `exit` and `sleep` events, because Hotkit or Windows won't
-wait for them.
+running, another trigger of the same schedule is skipped. A `wait` doesn't
+hold up other schedules.
+
+A `schedule.run` step runs that schedule's steps up to its first `wait`, then
+continues with its own next step; it counts as failed when one of those steps
+failed. `wait` steps are not allowed with the `exit` and `sleep` events,
+including in schedules they reach through `schedule.run`, because Hotkit or
+Windows won't wait for them.
 
 ## Cron Expressions
 

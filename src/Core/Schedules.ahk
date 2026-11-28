@@ -29,10 +29,11 @@ class Schedules {
     static IdlePollMs := 5000
     static specs := []
     static problems := []
-    ; Test seams: Runner(spec, trigger) replaces running the steps; Waiter(ms)
-    ; replaces Sleep for wait steps (Sleep lets other threads run meanwhile).
+    ; Test seams: Runner(spec, trigger) replaces running the steps;
+    ; Delayer(fn, ms) calls fn after a wait step (a one-shot timer, so a wait
+    ; never holds up cron checks or other schedules).
     static Runner := ""
-    static Waiter := (ms) => Sleep(ms)
+    static Delayer := (fn, ms) => SetTimer(fn, -ms)
     static Machine := A_ComputerName
     ; Set by App.Restart so a reload doesn't count as exit.
     static Restarting := false
@@ -240,8 +241,12 @@ class Schedules {
                     Schedules.problems.Push(spec.source " (" spec.name "): unknown action '" step.action "'.")
             }
             chain := Schedules.RunLoop(spec)
+            waits := Schedules._WaitingTarget(spec)
             if (chain != "")
                 Schedules.problems.Push(spec.source " (" spec.name "): schedule.run calls loop back: " chain ".")
+            else if (waits != "")
+                Schedules.problems.Push(spec.source " (" spec.name "): runs '" waits "', which has 'wait' steps; "
+                    "exit and sleep schedules can't wait.")
             else
                 keep.Push(spec)
         }
@@ -263,6 +268,26 @@ class Schedules {
             found := Schedules.RunLoop(spec, target, chain " -> " target.name, seen)
             if (found != "")
                 return found
+        }
+        return ""
+    }
+
+    ; For an exit or sleep schedule: the name of a schedule it reaches through
+    ; schedule.run that has wait steps, or "".
+    static _WaitingTarget(spec) {
+        if (!spec.events.Has("exit") && !spec.events.Has("sleep"))
+            return ""
+        seen := Map()
+        pending := Schedules._RunTargets(spec)
+        while pending.Length {
+            target := pending.RemoveAt(1)
+            if seen.Has(target.name)
+                continue
+            seen[target.name] := true
+            if Schedules._HasWait(target.steps)
+                return target.name
+            for next in Schedules._RunTargets(target)
+                pending.Push(next)
         }
         return ""
     }
@@ -542,11 +567,16 @@ class Schedules {
     }
 
     ; Runs a schedule's action now (the schedule.run action).
+    ; Throws when a step fails before the schedule's first wait, so a
+    ; schedule that calls this one stops too (unless continueOnError).
     static RunNow(name) {
         spec := Schedules._Find(name)
         if (spec = "")
             throw ValueError("No schedule named '" name "'.")
-        return Schedules.Run(spec, "manual")
+        failed := Schedules.Run(spec, "manual")
+        if (IsInteger(failed) && failed > 0)
+            throw Error("schedule '" spec.name "': " failed " step" (failed = 1 ? "" : "s") " failed.")
+        return failed
     }
 
     static Run(spec, trigger) {
@@ -556,24 +586,34 @@ class Schedules {
         }
         StatusLog.Info("schedule " spec.name ": " trigger " -> " Schedules.Describe(spec.steps))
         spec.running := true
-        try {
-            if HasMethod(Schedules.Runner)
+        if HasMethod(Schedules.Runner) {
+            try {
                 return Schedules.Runner.Call(spec, trigger)
+            } finally {
+                spec.running := false
+            }
+        }
+        try {
             return Schedules.RunSteps(spec)
-        } finally {
+        } catch as e {
             spec.running := false
+            throw e
         }
     }
 
-    ; Runs the steps in order. A failed action is reported like a hotkey's
-    ; and stops the rest unless continueOnError is set. Returns the number of
-    ; actions that failed.
-    static RunSteps(spec) {
+    ; Runs the steps in order from `start`. A wait hands the rest to a timer
+    ; and returns. A failed action is reported like a hotkey's and stops the
+    ; rest unless continueOnError is set. Clears spec.running when the last
+    ; step is done. Returns the number of actions that failed before the
+    ; first wait (or the end).
+    static RunSteps(spec, start := 1) {
         failed := 0
-        for i, step in spec.steps {
+        i := start
+        while (i <= spec.steps.Length) {
+            step := spec.steps[i]
             if step.HasOwnProp("wait") {
-                Schedules.Waiter.Call(step.wait)
-                continue
+                Schedules.Delayer.Call(Schedules._Resume.Bind(Schedules, spec, i + 1), step.wait)
+                return failed
             }
             try {
                 ActionRegistry.Invoke(step.action, step.args)
@@ -590,8 +630,19 @@ class Schedules {
                 }
                 StatusLog.Warn("schedule " spec.name ": " step.action " failed (" e.Message "), continuing")
             }
+            i++
         }
+        spec.running := false
         return failed
+    }
+
+    static _Resume(spec, start, *) {
+        try {
+            Schedules.RunSteps(spec, start)
+        } catch as e {
+            spec.running := false
+            StatusLog.Warn("schedule " spec.name ": " e.Message)
+        }
     }
 
     static _RunLater(spec, trigger, delayMs, *) {

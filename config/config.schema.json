@@ -754,7 +754,12 @@
             {
               "required": [
                 "actions"
-              ]
+              ],
+              "not": {
+                "required": [
+                  "args"
+                ]
+              }
             }
           ]
         }
@@ -799,6 +804,9 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "contains": {
+            "$ref": "#/$defs/actionRef"
           }
         },
         "continueOnError": {
