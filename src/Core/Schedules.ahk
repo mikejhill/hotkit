@@ -10,26 +10,29 @@
 ;   "schedules": [
 ;     { "name": "evening", "cron": "0 19 * * *", "action": "theme.set", "args": ["dark"], "catchUp": true },
 ;     { "on": ["unlock", "resume"], "action": "brightness.set", "args": [70] },
-;     { "every": "30m", "action": "myPlugin.sync", "machines": ["WORKPC"] }
+;     { "every": "30m", "action": "myPlugin.sync", "machines": ["WORKPC"] },
+;     { "on": "resume", "actions": ["theme.toggle", { "wait": "2s" }, { "action": "brightness.set", "args": [60] }] }
 ;   ]
 ;
-; A schedule needs an action and at least one of cron, every, or on; it runs
-; whenever any of them fires. Plugins add schedules from code with
+; A schedule needs an action, or a list of actions run in order, and at
+; least one of cron, every, or on; it runs whenever any of them fires. Plugins add schedules from code with
 ; Schedules.Add(map) in their init, and react to events with
 ; Schedules.On("lock", fn).
 class Schedules {
     static Events := ["startup", "reload", "exit", "lock", "unlock", "sleep", "resume", "idle", "active",
         "pluggedIn", "unplugged", "remoteConnect", "remoteDisconnect"]
-    static Keys := ["name", "description", "action", "args", "cron", "every", "on", "delay", "idleAfter",
-        "catchUp", "machines", "enabled"]
+    static Keys := ["name", "description", "action", "args", "actions", "continueOnError", "cron", "every", "on",
+        "delay", "idleAfter", "catchUp", "machines", "enabled"]
     ; At most ~24.8 days: SetTimer periods are 32-bit milliseconds.
     static MaxEveryMs := 24 * 86400000
     static DefaultIdleMs := 600000
     static IdlePollMs := 5000
     static specs := []
     static problems := []
-    ; Test seams: Runner(spec, trigger) replaces running the action.
+    ; Test seams: Runner(spec, trigger) replaces running the steps; Waiter(ms)
+    ; replaces Sleep for wait steps (Sleep lets other threads run meanwhile).
     static Runner := ""
+    static Waiter := (ms) => Sleep(ms)
     static Machine := A_ComputerName
     ; Set by App.Restart so a reload doesn't count as exit.
     static Restarting := false
@@ -87,17 +90,14 @@ class Schedules {
                 return ""
             if (raw.Has("machines") && !Schedules.MachineMatches(raw["machines"], Schedules.Machine))
                 return ""
-            if !raw.Has("action")
-                throw ValueError("needs 'action'.")
-            if !(raw["action"] is String)
-                throw ValueError("'action' must be an action id string.")
-            ref := ActionRegistry.ParseRef(raw)
+            steps := Schedules.ParseSteps(raw)
             spec := {
                 name: name != "" ? name : source,
                 source: source,
                 description: MapGet(raw, "description", ""),
-                action: ref.action,
-                args: ref.args,
+                steps: steps,
+                continueOnError: !!MapGet(raw, "continueOnError", false),
+                running: false,
                 crons: [],
                 next: [],
                 every: 0,
@@ -136,6 +136,12 @@ class Schedules {
                         throw ValueError("'delay' can't be used with '" event "': Hotkit or Windows won't wait.")
                 }
             }
+            if Schedules._HasWait(spec.steps) {
+                for event in ["exit", "sleep"] {
+                    if spec.events.Has(event)
+                        throw ValueError("'wait' steps can't be used with '" event "': Hotkit or Windows won't wait.")
+                }
+            }
             if raw.Has("idleAfter") {
                 if (!spec.events.Has("idle") && !spec.events.Has("active"))
                     throw ValueError("'idleAfter' needs 'on' to include 'idle' or 'active'.")
@@ -155,13 +161,84 @@ class Schedules {
         return spec
     }
 
-    ; Reports schedules whose action doesn't exist. Call after plugins load.
+    ; The steps of a schedule: "action"/"args", or "actions", a list of action
+    ; references (an id, or { "action", "args" }) and { "wait": "2s" } pauses.
+    ; Returns [{ action, args }] and [{ wait: ms }] items. Throws ValueError.
+    static ParseSteps(raw) {
+        if raw.Has("actions") {
+            if (raw.Has("action") || raw.Has("args"))
+                throw ValueError("use either 'action' (with 'args') or 'actions', not both.")
+            list := raw["actions"]
+            if !(list is Array) || !list.Length
+                throw ValueError("'actions' must be a non-empty list.")
+            steps := []
+            for i, item in list {
+                where := "actions[" i "]"
+                if (item is Map && item.Has("wait")) {
+                    if (item.Count != 1)
+                        throw ValueError(where ": a wait step takes only 'wait'.")
+                    ms := Schedules.ParseDuration(item["wait"], where ".wait")
+                    if (ms > Schedules.MaxEveryMs)
+                        throw ValueError(where ": 'wait' can be at most 24 days.")
+                    steps.Push({ wait: ms })
+                    continue
+                }
+                if (item is Map) {
+                    for key in item {
+                        if (key != "action" && key != "args")
+                            throw ValueError(where ": unknown field '" key "'.")
+                    }
+                }
+                if !(item is String) && !(item is Map && item.Has("action") && item["action"] is String)
+                    throw ValueError(where ": use an action id, { `"action`": ..., `"args`": [...] }, or { `"wait`": `"2s`" }.")
+                ref := ActionRegistry.ParseRef(item)
+                steps.Push({ action: ref.action, args: ref.args })
+            }
+            if !Schedules._HasAction(steps)
+                throw ValueError("'actions' needs at least one action, not only waits.")
+            return steps
+        }
+        if !raw.Has("action")
+            throw ValueError("needs 'action' or 'actions'.")
+        if !(raw["action"] is String)
+            throw ValueError("'action' must be an action id string.")
+        ref := ActionRegistry.ParseRef(raw)
+        return [{ action: ref.action, args: ref.args }]
+    }
+
+    static _HasWait(steps) {
+        for step in steps {
+            if step.HasOwnProp("wait")
+                return true
+        }
+        return false
+    }
+
+    static _HasAction(steps) {
+        for step in steps {
+            if step.HasOwnProp("action")
+                return true
+        }
+        return false
+    }
+
+    ; "theme.set, wait 2s, brightness.set" for the status log.
+    static Describe(steps) {
+        out := ""
+        for step in steps
+            out .= (A_Index = 1 ? "" : ", ") (step.HasOwnProp("wait") ? "wait " (Mod(step.wait, 1000) ? Round(step.wait / 1000, 1) : step.wait // 1000) "s" : step.action)
+        return out
+    }
+
+    ; Reports schedules whose actions don't exist. Call after plugins load.
     ; Schedules caught in a schedule.run loop are reported and dropped.
     static Validate() {
         keep := []
         for spec in Schedules.specs {
-            if !ActionRegistry.Has(spec.action)
-                Schedules.problems.Push(spec.source " (" spec.name "): unknown action '" spec.action "'.")
+            for step in spec.steps {
+                if (step.HasOwnProp("action") && !ActionRegistry.Has(step.action))
+                    Schedules.problems.Push(spec.source " (" spec.name "): unknown action '" step.action "'.")
+            }
             chain := Schedules.RunLoop(spec)
             if (chain != "")
                 Schedules.problems.Push(spec.source " (" spec.name "): schedule.run calls loop back: " chain ".")
@@ -171,23 +248,37 @@ class Schedules {
         Schedules.specs := keep
     }
 
-    ; Follows schedule.run calls from spec. Returns the chain ("a -> b -> a")
-    ; when it comes back to spec, otherwise "".
-    static RunLoop(spec) {
-        chain := spec.name
-        current := spec
-        loop Schedules.specs.Length {
-            if (current.action != "schedule.run" || !current.args.Length || !(current.args[1] is String))
-                return ""
-            target := Schedules._Find(current.args[1])
-            if (target = "")
-                return ""
-            chain .= " -> " target.name
+    ; Follows schedule.run steps from spec. Returns a chain that comes back to
+    ; spec ("a -> b -> a"), otherwise "".
+    static RunLoop(spec, current := "", chain := "", seen := "") {
+        if (current = "") {
+            current := spec, chain := spec.name, seen := Map()
+        }
+        for target in Schedules._RunTargets(current) {
             if (target = spec)
-                return chain
-            current := target
+                return chain " -> " target.name
+            if seen.Has(target.name)
+                continue
+            seen[target.name] := true
+            found := Schedules.RunLoop(spec, target, chain " -> " target.name, seen)
+            if (found != "")
+                return found
         }
         return ""
+    }
+
+    ; Schedules that spec's schedule.run steps call, in order.
+    static _RunTargets(spec) {
+        out := []
+        for step in spec.steps {
+            if (!step.HasOwnProp("action") || step.action != "schedule.run" || !step.args.Length
+                || !(step.args[1] is String))
+                continue
+            target := Schedules._Find(step.args[1])
+            if (target != "")
+                out.Push(target)
+        }
+        return out
     }
 
     static _Find(name) {
@@ -459,19 +550,48 @@ class Schedules {
     }
 
     static Run(spec, trigger) {
-        if (spec.HasOwnProp("running") && spec.running) {
-            StatusLog.Warn("schedule " spec.name ": " trigger " skipped, its action is still running")
+        if (spec.running) {
+            StatusLog.Warn("schedule " spec.name ": " trigger " skipped, it is still running")
             return
         }
-        StatusLog.Info("schedule " spec.name ": " trigger " -> " spec.action)
+        StatusLog.Info("schedule " spec.name ": " trigger " -> " Schedules.Describe(spec.steps))
         spec.running := true
         try {
             if HasMethod(Schedules.Runner)
                 return Schedules.Runner.Call(spec, trigger)
-            return ActionRegistry.SafeInvoke(spec.action, spec.args)
+            return Schedules.RunSteps(spec)
         } finally {
             spec.running := false
         }
+    }
+
+    ; Runs the steps in order. A failed action is reported like a hotkey's
+    ; and stops the rest unless continueOnError is set. Returns the number of
+    ; actions that failed.
+    static RunSteps(spec) {
+        failed := 0
+        for i, step in spec.steps {
+            if step.HasOwnProp("wait") {
+                Schedules.Waiter.Call(step.wait)
+                continue
+            }
+            try {
+                ActionRegistry.Invoke(step.action, step.args)
+            } catch as e {
+                failed++
+                if HasMethod(ActionRegistry.OnError)
+                    ActionRegistry.OnError.Call(step.action, e)
+                else
+                    ActionRegistry._DefaultOnError(step.action, e)
+                if (!spec.continueOnError) {
+                    if (i < spec.steps.Length)
+                        StatusLog.Warn("schedule " spec.name ": " step.action " failed (" e.Message "), skipped the rest")
+                    break
+                }
+                StatusLog.Warn("schedule " spec.name ": " step.action " failed (" e.Message "), continuing")
+            }
+        }
+        return failed
     }
 
     static _RunLater(spec, trigger, delayMs, *) {

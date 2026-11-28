@@ -2,6 +2,7 @@
   "schedules": [
     { "name": "typo", "cron": "0 25 * * *", "action": "theme.set", "args": ["dark"] },
     { "name": "missing", "on": "lock", "action": "no.such.action" },
-    { "name": "event", "on": "boot", "action": "osd.toggle" }
+    { "name": "event", "on": "boot", "action": "osd.toggle" },
+    { "name": "steps", "on": "lock", "actions": ["osd.toggle", "no.such.step"] }
   ]
 }

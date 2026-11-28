@@ -23,6 +23,7 @@
       "schedules[1] (typo): cron hour 25 is outside 0-23",
       "schedules[2] (missing): unknown action 'no.such.action'",
       "schedules[3] (event): unknown event 'boot'",
+      "schedules[4] (steps): unknown action 'no.such.step'",
       "FAIL"
     ]
   }

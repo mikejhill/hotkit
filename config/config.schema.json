@@ -724,23 +724,38 @@
     },
     "schedule": {
       "type": "object",
-      "required": [
-        "action"
-      ],
-      "anyOf": [
+      "allOf": [
         {
-          "required": [
-            "cron"
+          "anyOf": [
+            {
+              "required": [
+                "cron"
+              ]
+            },
+            {
+              "required": [
+                "every"
+              ]
+            },
+            {
+              "required": [
+                "on"
+              ]
+            }
           ]
         },
         {
-          "required": [
-            "every"
-          ]
-        },
-        {
-          "required": [
-            "on"
+          "oneOf": [
+            {
+              "required": [
+                "action"
+              ]
+            },
+            {
+              "required": [
+                "actions"
+              ]
+            }
           ]
         }
       ],
@@ -754,11 +769,41 @@
         },
         "action": {
           "type": "string",
-          "description": "Action id to run."
+          "description": "Action id to run. Use 'actions' instead for several steps."
         },
         "args": {
           "type": "array",
           "description": "Positional arguments for the action."
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Steps run in order instead of 'action': action ids, { \"action\", \"args\" }, or { \"wait\": \"2s\" } pauses.",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/actionRef"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "wait"
+                ],
+                "properties": {
+                  "wait": {
+                    "type": "string",
+                    "pattern": "^\\s*(\\d+\\s*d)?\\s*(\\d+\\s*h)?\\s*(\\d+\\s*m)?\\s*(\\d+\\s*s)?\\s*$",
+                    "description": "Pause before the next step, such as \"2s\" (at most 24 days). Not allowed with exit or sleep."
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "continueOnError": {
+          "type": "boolean",
+          "description": "With 'actions': keep running the remaining steps after one fails (default false: stop)."
         },
         "cron": {
           "oneOf": [

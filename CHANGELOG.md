@@ -6,6 +6,9 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A schedule can run several steps in order with `actions` instead of `action`: action ids, `{ "action", "args" }` objects, and `{ "wait": "2s" }` pauses. A failed step stops the rest unless `continueOnError` is `true`. See [Several actions](docs/schedules.md#several-actions).
+
 ## [1.23.0] - 2026-11-27
 
 ### Added

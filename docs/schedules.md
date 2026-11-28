@@ -1,6 +1,6 @@
 # Schedules
 
-A schedule runs an action at set times, at a fixed interval, or when
+A schedule runs an action, or several in order, at set times, at a fixed interval, or when
 something happens, such as Hotkit starting or the PC being locked. Any action
 works, including `theme.set`, `brightness.set`, `run`, and actions that
 plugins register.
@@ -15,16 +15,26 @@ plugins register.
   { "on": ["unlock", "resume"], "delay": "5s", "action": "brightness.set", "args": [70] },
 
   // A plugin's job every 30 minutes, only on one machine.
-  { "every": "30m", "action": "myPlugin.sync", "machines": ["WORKPC"] }
+  { "every": "30m", "action": "myPlugin.sync", "machines": ["WORKPC"] },
+
+  // Several steps in order, with a pause between them.
+  { "name": "night", "cron": "0 22 * * *", "actions": [
+    { "action": "theme.set", "args": ["dark"] },
+    { "wait": "2s" },
+    { "action": "brightness.set", "args": [30] },
+    "power.allOff"
+  ] }
 ]
 ```
 
-A schedule needs `action` and at least one of `cron`, `every`, or `on`. It
-runs whenever any of them fires.
+A schedule needs `action` or `actions`, and at least one of `cron`, `every`,
+or `on`. It runs whenever any of them fires.
 
 | Field | Meaning |
 | --- | --- |
 | `action`, `args` | Action id and positional arguments ([actions.md](actions.md)) |
+| `actions` | Instead of `action`: [steps](#several-actions) run in order |
+| `continueOnError` | With `actions`: keep going after a step fails. Default `false`: the remaining steps are skipped |
 | `name` | Unique name for `schedule.run` and the status log. Defaults to `schedules[N]` |
 | `cron` | A [cron expression](#cron-expressions) in local time, or a list of them |
 | `every` | Run at this interval: `"90s"`, `"15m"`, `"2h"`, `"1d"`, `"1h30m"` (at most 24 days). The first run is one interval after Hotkit starts |
@@ -40,6 +50,22 @@ Problems, such as a bad cron field or an unknown action, appear with the
 other config problems (tray › *Show Config Problems*, and `--check`). Each run
 is written to the status log (`%LOCALAPPDATA%\hotkit\hotkit.log`).
 `schedule.run` runs a schedule by name, so you can bind a key to try one out.
+
+## Several Actions
+
+`actions` lists steps that run one after another. Each step is one of:
+
+- an action id: `"power.allOff"`
+- an action with arguments: `{ "action": "brightness.set", "args": [30] }`
+- a pause: `{ "wait": "2s" }` (at most 24 days)
+
+A step starts when the previous one returns. Actions that launch a program,
+such as `run`, return once it has started; use `run.wait` to wait for it to
+finish. When a step fails, its error shows like any failed action and the rest
+are skipped, unless `continueOnError` is `true`. While a schedule's steps are
+running, another trigger of the same schedule is skipped. `wait` steps are not
+allowed with the `exit` and `sleep` events, because Hotkit or Windows won't
+wait for them.
 
 ## Cron Expressions
 
