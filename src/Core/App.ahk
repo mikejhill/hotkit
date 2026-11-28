@@ -51,6 +51,12 @@ class App {
         App._args := IsSet(args) ? args : []
         App.Restarted := EnvGet("HOTKIT_RESTARTED") = "1"
         EnvSet("HOTKIT_RESTARTED")
+        ; App.Restart names the process it replaces; let it finish exiting
+        ; before taking over hotkeys.
+        previous := EnvGet("HOTKIT_RESTART_PID")
+        EnvSet("HOTKIT_RESTART_PID")
+        if (previous != "" && IsInteger(previous))
+            ProcessWaitClose(Integer(previous), 10)
         App.ParseArgs(App._args)
         if (App.Mode = "run" && EnvGet("HOTKIT_HEADLESS") != "1")
             App.ReplaceOtherInstances()
@@ -106,8 +112,14 @@ class App {
                 if (hwnd = A_ScriptHwnd)
                     continue
                 try {
-                    if Paths.IsInstanceTitle(WinGetTitle(hwnd), A_ScriptFullPath)
-                        WinClose(hwnd, , 5)
+                    if !Paths.IsInstanceTitle(WinGetTitle(hwnd), A_ScriptFullPath)
+                        continue
+                    pid := WinGetPID(hwnd)
+                    WinClose(hwnd)
+                    ; Exit schedules may still be running; wait for them.
+                    if ProcessWaitClose(pid, 15)
+                        App.Problems.Push("Another Hotkit from this folder (PID " pid ") didn't exit, so "
+                            "both are running. Exit it from its tray icon or Task Manager.")
                 }
             }
         } finally {
@@ -392,11 +404,14 @@ class App {
             EnvSet("HOTKIT_RESTARTED", "1")
         else
             EnvSet("HOTKIT_RESTARTED")
+        EnvSet("HOTKIT_RESTART_PID", ProcessExist())
         for m in App.Modules {
             if HasMethod(m, "BeforeRestart")
                 try m.BeforeRestart()
         }
-        cmd := '"' A_AhkPath '" /restart "' A_ScriptFullPath '"'
+        ; No /restart: AutoHotkey would close every instance of this script with
+        ; it, including an interactive one when a headless test run restarts.
+        cmd := '"' A_AhkPath '" "' A_ScriptFullPath '"'
         for arg in App._args
             cmd .= ' "' arg '"'
         Run(cmd)

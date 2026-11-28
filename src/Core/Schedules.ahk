@@ -39,7 +39,10 @@ class Schedules {
     static _acLine := ""
     static _started := false
     static _tickFn := (*) => Schedules._TimerTick()
-    static _idleFn := (*) => Schedules.PollIdle(A_TimeIdlePhysical)
+    ; A_TimeIdle (GetLastInputInfo) counts keyboard and mouse whichever hooks
+    ; are installed; A_TimeIdlePhysical would ignore the mouse with only the
+    ; keyboard hook.
+    static _idleFn := (*) => Schedules.PollIdle(A_TimeIdle)
 
     static Reset(problems := "") {
         Schedules.Stop()
@@ -86,6 +89,8 @@ class Schedules {
                 return ""
             if !raw.Has("action")
                 throw ValueError("needs 'action'.")
+            if !(raw["action"] is String)
+                throw ValueError("'action' must be an action id string.")
             ref := ActionRegistry.ParseRef(raw)
             spec := {
                 name: name != "" ? name : source,
@@ -122,6 +127,8 @@ class Schedules {
                 throw ValueError("'catchUp' needs 'cron'.")
             if raw.Has("delay") {
                 spec.delay := Schedules.ParseDuration(raw["delay"], "delay")
+                if (spec.delay > Schedules.MaxEveryMs)
+                    throw ValueError("'delay' can be at most 24 days.")
                 if (!spec.events.Count)
                     throw ValueError("'delay' applies to 'on' events; this schedule has none.")
                 for event in ["exit", "sleep"] {
@@ -153,7 +160,37 @@ class Schedules {
         for spec in Schedules.specs {
             if !ActionRegistry.Has(spec.action)
                 Schedules.problems.Push(spec.source " (" spec.name "): unknown action '" spec.action "'.")
+            chain := Schedules.RunLoop(spec)
+            if (chain != "")
+                Schedules.problems.Push(spec.source " (" spec.name "): schedule.run calls loop back: " chain ".")
         }
+    }
+
+    ; Follows schedule.run calls from spec. Returns the chain ("a -> b -> a")
+    ; when it comes back to spec, otherwise "".
+    static RunLoop(spec) {
+        chain := spec.name
+        current := spec
+        loop Schedules.specs.Length {
+            if (current.action != "schedule.run" || !current.args.Length || !(current.args[1] is String))
+                return ""
+            target := Schedules._Find(current.args[1])
+            if (target = "")
+                return ""
+            chain .= " -> " target.name
+            if (target = spec)
+                return chain
+            current := target
+        }
+        return ""
+    }
+
+    static _Find(name) {
+        for spec in Schedules.specs {
+            if (spec.name = name)
+                return spec
+        }
+        return ""
     }
 
     ; Plugins: Schedules.On("unlock", (event) => ...). Runs alongside schedules.
@@ -314,16 +351,19 @@ class Schedules {
     }
 
     ; Runs the schedules whose cron times have come. `now` is YYYYMMDDHHMISS.
-    ; A time that passed while the PC was asleep (more than a minute ago) runs
-    ; once if the schedule sets catchUp, and is skipped otherwise.
+    ; Times that passed unseen (the PC slept, or the clock jumped ahead) run
+    ; once if the schedule sets catchUp and are skipped otherwise. Catch-up
+    ; runs go in the order their times fell, so the latest one wins.
     static Tick(now := A_Now) {
         minute := SubStr(now, 1, 12)
         if (minute = Schedules._lastTick)
             return
         clockBack := Schedules._lastTick != "" && minute < Schedules._lastTick
         Schedules._lastTick := minute
+        before := DateAdd(minute "00", -1, "Minutes")
+        catchUps := []
         for spec in Schedules.specs {
-            due := "", missed := false
+            due := false, missedAt := ""
             for i, expr in spec.crons {
                 if (clockBack) {
                     ; The clock moved back: start over from the new time.
@@ -333,21 +373,51 @@ class Schedules {
                 at := spec.next[i]
                 if (at = "" || SubStr(at, 1, 12) > minute)
                     continue
-                if (SubStr(at, 1, 12) = minute)
-                    due := "cron"
-                else
-                    missed := true
+                if (SubStr(at, 1, 12) = minute || SubStr(expr.Next(before), 1, 12) = minute)
+                    due := true
+                if (SubStr(at, 1, 12) < minute) {
+                    last := Schedules.LastBefore(expr, at, minute)
+                    if (missedAt = "" || last > missedAt)
+                        missedAt := last
+                }
                 spec.next[i] := expr.Next(now)
             }
-            if (due = "" && missed) {
+            if (due)
+                Schedules.Run(spec, "cron")
+            else if (missedAt != "") {
                 if (spec.catchUp)
-                    due := "cron (catch-up)"
+                    catchUps.Push({ spec: spec, at: missedAt })
                 else
-                    StatusLog.Info("schedule " spec.name ": skipped a time missed while the PC was asleep or busy")
+                    StatusLog.Info("schedule " spec.name ": skipped " missedAt ", missed while the PC was asleep or busy")
             }
-            if (due != "")
-                Schedules.Run(spec, due)
         }
+        for item in Schedules.SortByTime(catchUps)
+            Schedules.Run(item.spec, "cron (catch-up for " item.at ")")
+    }
+
+    ; The latest match of expr from `first` (itself a match) up to, not
+    ; including, `minute` (YYYYMMDDHHMI). Gives up after 10000 steps.
+    static LastBefore(expr, first, minute) {
+        last := first
+        loop 10000 {
+            nxt := expr.Next(last)
+            if (nxt = "" || SubStr(nxt, 1, 12) >= minute)
+                return last
+            last := nxt
+        }
+        return last
+    }
+
+    ; Stable insertion sort by .at.
+    static SortByTime(items) {
+        out := []
+        for item in items {
+            i := out.Length
+            while (i >= 1 && out[i].at > item.at)
+                i--
+            out.InsertAt(i + 1, item)
+        }
+        return out
     }
 
     ; Fires idle and active for each schedule's own idleAfter. idleMs is how
@@ -383,11 +453,10 @@ class Schedules {
 
     ; Runs a schedule's action now (the schedule.run action).
     static RunNow(name) {
-        for spec in Schedules.specs {
-            if (spec.name = name)
-                return Schedules.Run(spec, "manual")
-        }
-        throw ValueError("No schedule named '" name "'.")
+        spec := Schedules._Find(name)
+        if (spec = "")
+            throw ValueError("No schedule named '" name "'.")
+        return Schedules.Run(spec, "manual")
     }
 
     static Run(spec, trigger) {
@@ -406,8 +475,11 @@ class Schedules {
 
     ; ---------------- Windows events                ------------------------------
 
-    static _OnSession := (wParam, lParam, msg, hwnd) => Schedules._Session(wParam)
-    static _OnPower := (wParam, lParam, msg, hwnd) => Schedules._Power(wParam)
+    ; Session events are queued so a slow action can't make AutoHotkey drop
+    ; the next message (one thread per message). Power broadcasts reach every
+    ; Hotkit window; only the main one handles them.
+    static _OnSession := (wParam, lParam, msg, hwnd) => (SetTimer(Schedules._Session.Bind(Schedules, wParam), -1), "")
+    static _OnPower := (wParam, lParam, msg, hwnd) => hwnd = A_ScriptHwnd ? Schedules._Power(wParam) : ""
     ; Non-zero would cancel the exit.
     static _OnExit := (reason, code) => (Schedules._Exit(), 0)
 
@@ -426,6 +498,15 @@ class Schedules {
         }
         if (event = "")
             return
+        if (event = "sleep") {
+            ; Windows waits only briefly: run before returning.
+            Schedules.Fire(event)
+            return
+        }
+        SetTimer(Schedules._AfterPower.Bind(Schedules, event), -1)
+    }
+
+    static _AfterPower(event) {
         Schedules.Fire(event)
         if (event = "resume" && Schedules._lastTick != "")
             Schedules._TimerTick()

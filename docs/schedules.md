@@ -29,9 +29,9 @@ runs whenever any of them fires.
 | `cron` | A [cron expression](#cron-expressions) in local time, or a list of them |
 | `every` | Run at this interval: `"90s"`, `"15m"`, `"2h"`, `"1d"`, `"1h30m"` (at most 24 days). The first run is one interval after Hotkit starts |
 | `on` | An [event](#events), or a list of them |
-| `delay` | Wait this long after an `on` event before running, such as `"30s"` after `startup` for the network to come up. Not allowed with `exit` or `sleep` |
+| `delay` | Wait this long after an `on` event before running, such as `"30s"` after `startup` for the network to come up (at most 24 days). Not allowed with `exit` or `sleep` |
 | `idleAfter` | For `idle` and `active`: how long without keyboard or mouse input counts as idle. Default `"10m"`, at least `"10s"` |
-| `catchUp` | With `cron`: when a time passed while the PC was asleep, run once on waking instead of skipping it. Default `false` |
+| `catchUp` | With `cron`: when a time passed unseen, because the PC was asleep or the clock jumped ahead, run once afterwards instead of skipping it. Default `false` |
 | `machines` | Only use this schedule on these computers, by name (`hostname` in a terminal). Useful when one config syncs to several PCs |
 | `description` | Your own note |
 | `enabled` | `false` skips the schedule |
@@ -69,9 +69,11 @@ either one does: `0 12 1 * fri` runs at noon on the 1st and on every Friday.
 
 Hotkit checks the schedule just after each minute starts. A time that never
 happens, such as February 30, is reported as a problem. Times that pass while
-the PC is asleep or Hotkit isn't running are skipped unless `catchUp` is set,
-and `catchUp` covers only sleep while Hotkit is running: a run missed while
-Hotkit was closed is not made up at the next start. Add `"on": "startup"`
+the PC is asleep or Hotkit isn't running are skipped unless `catchUp` is set.
+`catchUp` runs a missed schedule once, however many of its times passed, and
+runs several missed schedules in the order their times fell, so the latest
+wins. It covers only gaps while Hotkit is running: a run missed while Hotkit
+was closed is not made up at the next start. Add `"on": "startup"`
 when you need that.
 
 ## Events

@@ -99,7 +99,10 @@ class Schedules_Tests {
             '{ "on": "idle", "idleAfter": "5s", "action": "test.act" }', "at least 10s",
             '{ "on": "startup", "action": "test.act", "when": "now" }', "unknown field 'when'",
             '{ "on": "startup", "action": "test.act", "machines": [] }', "'machines' must be",
-            '{ "on": "startup", "action": "test.act", "name": 5 }', "'name' must be a string")
+            '{ "on": "startup", "action": "test.act", "name": 5 }', "'name' must be a string",
+            '{ "on": "startup", "action": [] }', "'action' must be an action id string",
+            '{ "on": "startup", "action": {} }', "'action' must be an action id string",
+            '{ "on": "startup", "delay": "25d", "action": "test.act" }', "'delay' can be at most 24 days")
         for text, fragment in cases {
             Schedules.Reset([])
             Assert.Equal("", Schedules_Tests.Add(text), text)
@@ -199,7 +202,7 @@ class Schedules_Tests {
         s.next := [s.crons[1].Next("20261127180000")]
         Schedules.Tick("20261127180000")
         Schedules.Tick("20261127210500")
-        Assert.Equal(["c:cron (catch-up)"], Schedules_Tests.Runs, "three hours missed, one run")
+        Assert.Equal(["c:cron (catch-up for 20261127210000)"], Schedules_Tests.Runs, "three hours missed, one run")
         Assert.Equal("20261127220000", s.next[1])
     }
 
@@ -211,6 +214,58 @@ class Schedules_Tests {
         Assert.Equal("20261127073000", s.next[1])
         Schedules.Tick("20261127073000")
         Assert.Equal(["c:cron"], Schedules_Tests.Runs)
+    }
+
+    static Test_TickRunsCurrentMinuteAfterGap() {
+        s := Schedules_Tests.Add('{ "name": "h", "cron": "0 * * * *", "action": "test.act" }')
+        s.next := [s.crons[1].Next("20261127065900")]
+        Schedules.Tick("20261127070000")
+        Schedules.Tick("20261127090000")
+        Assert.Equal(["h:cron", "h:cron"], Schedules_Tests.Runs, "09:00 matches; the missed 08:00 doesn't add a run")
+        Assert.Equal("20261127100000", s.next[1])
+    }
+
+    static Test_CatchUpRunsInTimeOrder() {
+        dark := Schedules_Tests.Add('{ "name": "dark", "cron": "0 19 * * *", "catchUp": true, "action": "test.act" }')
+        light := Schedules_Tests.Add('{ "name": "light", "cron": "0 7 * * *", "catchUp": true, "action": "test.act" }')
+        dark.next := [dark.crons[1].Next("20261127060000")]
+        light.next := [light.crons[1].Next("20261127060000")]
+        Schedules.Tick("20261127060000")
+        Schedules.Tick("20261127200000")
+        Assert.Equal(["light:cron (catch-up for 20261127070000)", "dark:cron (catch-up for 20261127190000)"],
+            Schedules_Tests.Runs)
+    }
+
+    static Test_CatchUpOrdersByLatestMissedTime() {
+        hourly := Schedules_Tests.Add('{ "name": "hourly", "cron": "0 * * * *", "catchUp": true, "action": "test.act" }')
+        once := Schedules_Tests.Add('{ "name": "once", "cron": "30 8 * * *", "catchUp": true, "action": "test.act" }')
+        hourly.next := [hourly.crons[1].Next("20261127065900")]
+        once.next := [once.crons[1].Next("20261127065900")]
+        Schedules.Tick("20261127065900")
+        Schedules.Tick("20261127094500")
+        Assert.Equal(["once:cron (catch-up for 20261127083000)", "hourly:cron (catch-up for 20261127090000)"],
+            Schedules_Tests.Runs)
+    }
+
+    static Test_SortByTimeIsStable() {
+        out := Schedules.SortByTime([{ at: "2", n: "a" }, { at: "1", n: "b" }, { at: "2", n: "c" }])
+        Assert.Equal("b", out[1].n)
+        Assert.Equal("a", out[2].n)
+        Assert.Equal("c", out[3].n)
+    }
+
+    static Test_ValidateReportsScheduleRunLoops() {
+        ActionRegistry.Register("schedule.run", (*) => 0)
+        Schedules_Tests.Add('{ "name": "a", "on": "lock", "action": "schedule.run", "args": ["b"] }', "schedules[1]")
+        Schedules_Tests.Add('{ "name": "b", "on": "unlock", "action": "schedule.run", "args": ["A"] }', "schedules[2]")
+        Schedules_Tests.Add('{ "name": "c", "on": "unlock", "action": "schedule.run", "args": ["a"] }', "schedules[3]")
+        Schedules_Tests.Add('{ "name": "self", "on": "startup", "action": "schedule.run", "args": ["self"] }', "schedules[4]")
+        Schedules.Validate()
+        ActionRegistry.Unregister("schedule.run")
+        Assert.Equal(3, Schedules.problems.Length, "c only leads into the loop")
+        Assert.Equal("schedules[1] (a): schedule.run calls loop back: a -> b -> a.", Schedules.problems[1])
+        Assert.Equal("schedules[2] (b): schedule.run calls loop back: b -> a -> b.", Schedules.problems[2])
+        Assert.Equal("schedules[4] (self): schedule.run calls loop back: self -> self.", Schedules.problems[3])
     }
 
     static Test_PollIdleFiresOnTransitions() {
